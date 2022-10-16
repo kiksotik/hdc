@@ -4,6 +4,8 @@ Proxy classes for the device and its features and properties
 """
 from __future__ import annotations
 
+import collections
+from datetime import datetime
 import logging
 import time
 import typing
@@ -252,48 +254,98 @@ class GetEventDescriptionCommandProxy(CommandProxyBase):
 class EventProxyBase:
     feature_proxy: FeatureProxyBase
     event_id: int
+    most_recently_received_event_payloads: collections.deque
+    payload_parser: typing.Callable[[bytes], typing.Any]
 
     def __init__(self,
                  feature_proxy: FeatureProxyBase,
                  event_id: int,
-                 event_handler: typing.Callable[[bytes], None] | None = None):
+                 payload_parser: type[object] | None = None,
+                 deque_capacity: int = 100):
+
         self.event_id = event_id
         self.feature_proxy = feature_proxy
-        if event_handler is not None:
-            self.register_event_handler(event_handler)
 
-    def register_event_handler(self, event_handler: typing.Callable[[bytes], None]):
-        self.feature_proxy.protocol_feature.register_event_handler(self.event_id, event_handler)
+        if payload_parser is None:
+            payload_parser = self.RawEventPayload  # Default payload parser for very lazy people
+
+        self.payload_parser = payload_parser
+
+        self.most_recently_received_event_payloads = collections.deque(maxlen=deque_capacity)
+
+        self.event_payload_handlers = list()
+
+        self.feature_proxy.protocol_feature.register_event_handler(self.event_id, self._event_message_handler)
+
+    def _event_message_handler(self, event_message: bytes) -> None:
+        """
+        The one and only event handler actually registered with the lower level protocol implementation.
+        WARNING: This handler will be executed in the receiver-thread!
+        """
+        event_payload = self.payload_parser(event_message)
+        self.most_recently_received_event_payloads.append(event_payload)
+        for handler in self.event_payload_handlers:
+            handler(event_payload)
+
+    def register_event_payload_handler(self, event_payload_handler: typing.Callable[[typing.Any], None]):
+        """
+        Users of this proxy can register their own event-handlers.
+        Event handlers should be a callable that takes the parsed event-payload object as an argument.
+        Multiple handlers can be registered. They will be executed in the same order as registered.
+
+        WARNING: Event handlers will be executed in the receiver-thread. Ensure they are fast and thread-safe!
+        """
+        self.event_payload_handlers.append(event_payload_handler)
+
+    class RawEventPayload:
+        """
+        Default event payload parser that simply strips the message header away, keeping the raw bytes of the payload.
+        It also keeps a reception timestamp.
+        """
+        def __init__(self, event_message: bytes):
+            self.received_at = datetime.utcnow()
+            self.raw_payload = event_message[3:]  # Strip 3 leading bytes: MsgID + FeatureID + EvtID
 
 
 class LogEventProxy(EventProxyBase):
     logger: logging.Logger
 
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, event_id=0xF0, event_handler=self._handle_event)
+        super().__init__(feature_proxy,
+                         event_id=0xF0,
+                         payload_parser=self.LogEventPayload)
         self.logger = feature_proxy.logger.getChild("LogEvent")
+        self.register_event_payload_handler(lambda e: self.logger.log(level=e.log_level, msg=e.log_message))
 
-    def _handle_event(self, message: bytes) -> None:
-        log_level = message[3]
-        log_message = message[4:].decode(encoding="utf-8", errors="strict")
-        self.logger.log(level=log_level, msg=log_message)
+    class LogEventPayload:
+        def __init__(self, event_message: bytes):
+            self.received_at = datetime.utcnow()
+            self.log_level = event_message[3]
+            self.log_message = event_message[4:].decode(encoding="utf-8", errors="strict")
 
 
 class StateTransitionEventProxy(EventProxyBase):
     logger: logging.Logger
 
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, event_id=0xF1, event_handler=self._handle_event)
+        super().__init__(feature_proxy,
+                         event_id=0xF1,
+                         payload_parser=StateTransitionEventProxy.StateTransitionEventPayload)
         self.logger = feature_proxy.logger.getChild("StateTransitionEvent")
+        self.register_event_payload_handler(self.event_payload_handler)
 
-    def _handle_event(self, message: bytes):
-        previous_state_id = message[3]
-        current_state_id = message[4]
+    class StateTransitionEventPayload:
+        def __init__(self, event_message: bytes):
+            self.received_at = datetime.utcnow()
+            self.previous_state_id = event_message[3]
+            self.current_state_id = event_message[4]
+
+    def event_payload_handler(self, event_payload: StateTransitionEventProxy.LogEventPayload):
         self.logger.info(f"%s → %s",
-                         self.feature_proxy.resolve_state_name(previous_state_id),
-                         self.feature_proxy.resolve_state_name(current_state_id))
+                         self.feature_proxy.resolve_state_name(event_payload.previous_state_id),
+                         self.feature_proxy.resolve_state_name(event_payload.current_state_id))
         # Inject new state into the cache for the FeatureState property
-        self.feature_proxy.prop_feature_state._update_cached_value(current_state_id)
+        self.feature_proxy.prop_feature_state._update_cached_value(event_payload.current_state_id)
 
 
 class PropertyProxyBase:

@@ -33,9 +33,10 @@ dev.protocol.connect()  # Will fail if your device is connected at a different p
 # Example of how to react to an event on the very moment it is received.
 # WARNING: This handler will be executed in the "receiver thread"
 #          and thus must be fast and thread-safe!
-#          Note how the HDC-host driver is not (yet) thread-safe!
-#          Thus refrain from using the HDC-host driver from within this kind of handler!
-#          See example further below on how to react to events in a delayed manner.
+#          Note how the HDC-host driver is neither, thus refrain from
+#          using the HDC-host driver from within this kind of handler!
+#
+#          See example further below on how to react to events in a delayed, but much safer manner.
 def button_event_handler(event_payload: MinimalCore.ButtonEventPayload):
     demo_logger.info(f"ButtonID:0x{event_payload.button_id:02x} ButtonState:{event_payload.button_state}")
 

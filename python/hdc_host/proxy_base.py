@@ -313,8 +313,9 @@ class LogEventProxy(EventProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy,
                          event_id=0xF0,
-                         payload_parser=self.LogEventPayload)
+                         payload_parser=LogEventProxy.LogEventPayload)
         self.logger = feature_proxy.logger.getChild("LogEvent")
+        # This is how HDC-logging is mapped directly into python logging:
         self.register_event_payload_handler(lambda e: self.logger.log(level=e.log_level, msg=e.log_message))
 
     class LogEventPayload:
@@ -340,7 +341,7 @@ class StateTransitionEventProxy(EventProxyBase):
             self.previous_state_id = event_message[3]
             self.current_state_id = event_message[4]
 
-    def event_payload_handler(self, event_payload: StateTransitionEventProxy.LogEventPayload):
+    def event_payload_handler(self, event_payload: StateTransitionEventProxy.StateTransitionEventPayload):
         self.logger.info(f"%s → %s",
                          self.feature_proxy.resolve_state_name(event_payload.previous_state_id),
                          self.feature_proxy.resolve_state_name(event_payload.current_state_id))

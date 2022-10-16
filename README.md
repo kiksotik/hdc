@@ -1,8 +1,8 @@
 <a name="readme-top"></a>
 
-# HDC: A generic, multipurpose Host Device Communication protocol
-Specification and implementation of a generic host-device communication protocol, which is 
-meant to lower the typical *impedance* between microcontroller firmware and the software 
+# HDC: A Host Device Communication protocol
+Specification and implementation of the "Host Device Communication" protocol, which is meant 
+to lower the typical *impedance* between microcontroller firmware and the software 
 communicating with it on a hosting PC.
 
 Warning: The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-Spec.pdf) is still work in progress!
@@ -32,8 +32,8 @@ Please refer to the demo projects:
   * HDC-device implementation in [``STM32/demo/Demo_Minimal_NUCLEO-F303RE/Core/Src/feature_core.c``](https://github.com/kiksotik/hdc/blob/main/STM32/demo/Demo_Minimal_NUCLEO-F303RE/Core/Src/feature_core.c)  
     _The remainder of that example's source-code is just the very bloated way the STM32CubeIDE wizzard sets up a HAL based project._
 	
-  * HDC-host python implementation in ["python/demo/cli_minimal/minimal_proxy.py"](https://github.com/kiksotik/hdc/blob/main/python/demo/cli_minimal/minimal_proxy.py)  
-    How to use said python proxy is demonstrated in ["python/demo/cli_minimal/showcase_minimal.py"](https://github.com/kiksotik/hdc/blob/main/python/demo/cli_minimal/showcase_minimal.py)  
+  * HDC-host python implementation in [``python/demo/cli_minimal/minimal_proxy.py``](https://github.com/kiksotik/hdc/blob/main/python/demo/cli_minimal/minimal_proxy.py)  
+    How to use said python proxy is demonstrated in [``python/demo/cli_minimal/showcase_minimal.py``](https://github.com/kiksotik/hdc/blob/main/python/demo/cli_minimal/showcase_minimal.py)  
 
 
 ## Roadmap

@@ -530,8 +530,6 @@ class Protocol:
         if msg_type_id == MessageType.EVENT_FEATURE:
             self.handle_event(message)
 
-    # ToDo: Implement API for MessageType.CMD_ECHO
-
     def handle_command_reply(self, message: bytes):
         # Note how we do not need to lookup neither FeatureID nor CommandID, because whatever command
         # issued the request is currently blocking and awaiting the received_reply_event.

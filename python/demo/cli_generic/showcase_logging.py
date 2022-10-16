@@ -35,26 +35,26 @@ def provoke_some_log_events():
     time.sleep(2)  # Wait for some "heart-beat" LogEvents to happen
 
 
-logger.info(f"LogLevelThreshold of MinimalCore-Feature is currently set "
+logger.info(f"LogLevelThreshold of Core-Feature is currently set "
             f"to {deviceProxy.core.prop_log_event_threshold.get_value_name()}")
 
 logger.info("________________________________________________________________________________________")
-logger.info(f"Setting LogLevelThreshold of MinimalCore-Feature to DEBUG (Expecting to receive some heart-beat LogEvents)")
+logger.info(f"Setting LogLevelThreshold of Core-Feature to DEBUG (Expecting to receive some heart-beat LogEvents)")
 deviceProxy.core.prop_log_event_threshold.set(logging.DEBUG)
 provoke_some_log_events()
 
 logger.info("________________________________________________________________________________________")
-logger.info(f"Setting LogLevelThreshold of MinimalCore-Feature to WARNING")
+logger.info(f"Setting LogLevelThreshold of Core-Feature to WARNING")
 deviceProxy.core.prop_log_event_threshold.set(logging.WARNING)
 provoke_some_log_events()
 
 logger.info("________________________________________________________________________________________")
-logger.info(f"Setting LogLevelThreshold of MinimalCore-Feature to ERROR")
+logger.info(f"Setting LogLevelThreshold of Core-Feature to ERROR")
 deviceProxy.core.prop_log_event_threshold.set(logging.ERROR)
 provoke_some_log_events()
 
 logger.info("________________________________________________________________________________________")
-logger.info(f"Re-setting LogLevelThreshold of MinimalCore-Feature to INFO")
+logger.info(f"Re-setting LogLevelThreshold of Core-Feature to INFO")
 deviceProxy.core.prop_log_event_threshold.set(logging.INFO)
 
 logger.info("________________________________________________________________________________________")

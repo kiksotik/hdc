@@ -1,0 +1,7 @@
+# Ignore STM32CubeIDE workspace metadata, because it is too specific for a particular IDE version and installation.
+.metadata/
+
+# Ignore STM32CubeIDE project settings and also Debug and Release build artifacts
+.settings/
+Debug/
+Release/

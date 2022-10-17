@@ -246,11 +246,11 @@ void USART2_IRQHandler(void)
 /* USER CODE BEGIN 1 */
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	HDC_RxCpltCallback(huart);
+  HDC_RxCpltCallback(huart);
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
-	HDC_TxCpltCallback(huart);
+  HDC_TxCpltCallback(huart);
 }
 
 /* USER CODE END 1 */

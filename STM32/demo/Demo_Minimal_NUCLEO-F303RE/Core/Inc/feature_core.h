@@ -9,10 +9,10 @@
 #include "hdc_device.h"
 
 typedef enum {
-	Core_State_Off = 0x00,
-	Core_State_Initializing = 0x01,
-	Core_State_Ready = 0x02,
-	Core_State_Error = 0xFF
+  Core_State_Off = 0x00,
+  Core_State_Initializing = 0x01,
+  Core_State_Ready = 0x02,
+  Core_State_Error = 0xFF
 } Core_State_t;
 
 ///////////////////////////////

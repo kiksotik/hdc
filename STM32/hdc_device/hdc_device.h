@@ -25,7 +25,9 @@
 #elif defined(STM32G431KBTx)  // As on NUCLEO-G431KB
 #include "stm32g4xx_hal.h"
 #else
-#error "The hdc_device driver doesn't know about the microcontroller type your are targeting. Please modify hdc_device.h if you know what you are doing. Also please send a pull request if it turns out the driver works on other MCU's as well!"
+#error "The hdc_device driver doesn't know about the microcontroller type your are targeting. " \
+       "Please modify hdc_device.h if you know what you are doing. " \
+       "Also please send a pull request if it turns out the driver works on other MCU's as well!"
 #endif
 
 // Buffer sizes for reception and transmission of data via UART & DMA.

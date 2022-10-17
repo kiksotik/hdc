@@ -260,7 +260,7 @@ class EventProxyBase:
     def __init__(self,
                  feature_proxy: FeatureProxyBase,
                  event_id: int,
-                 payload_parser: type[object] | None = None,
+                 payload_parser: typing.Type[object] | None = None,
                  deque_capacity: int = 100):
 
         self.event_id = event_id
@@ -916,7 +916,6 @@ class CoreFeatureProxyBase(FeatureProxyBase):
         # Properties
         self.prop_available_features = PropertyProxy_RO_BLOB(self, 0xFA)  # Introspection: Features of this device
         self.prop_max_req_msg_size = PropertyProxy_RO_UINT16(self, 0xFB)  # Largest request-message a device can cope
-
 
 
 class DeviceProxyBase:

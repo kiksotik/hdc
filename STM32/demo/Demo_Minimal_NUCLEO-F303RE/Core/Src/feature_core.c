@@ -64,12 +64,18 @@ const HDC_Event_Descriptor_t *Core_HDC_Events[] = {
 /////////////////
 // HDC Properties
 
-void Core_HDC_Property_uC_DEVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
+void Core_HDC_Property_uC_DEVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature,
+                                    const HDC_Property_Descriptor_t *hHDC_Property,
+                                    const uint8_t* RequestMessage,
+                                    const uint8_t RequestMessageSize) {
   const uint32_t devid = HAL_GetDEVID();
   HDC_Reply_UInt32Value(devid, RequestMessage);
 }
 
-void Core_HDC_Property_uC_REVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
+void Core_HDC_Property_uC_REVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature,
+                                    const HDC_Property_Descriptor_t *hHDC_Property,
+                                    const uint8_t* RequestMessage,
+                                    const uint8_t RequestMessageSize) {
   const uint32_t revid = HAL_GetREVID();
   HDC_Reply_UInt32Value(revid, RequestMessage);
 }

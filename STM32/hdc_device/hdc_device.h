@@ -201,7 +201,7 @@ void HDC_TxCpltCallback(UART_HandleTypeDef *huart);  // Must be called from HAL_
 // the HDC_RxCpltCallback() handler, for it to notice that a request is complete.
 void HDC_IrqRedirection_UartIdle(void);
 
-///////////////////////////////
+/////////////////////////////////////////////////////////////////////
 // API
 
 void HDC_Init(
@@ -213,72 +213,79 @@ uint32_t HDC_UpdateState();
 
 void HDC_Flush(void);
 
-void HDC_FeatureStateTransition(HDC_Feature_Descriptor_t *hFeature, uint8_t newState);
 
-void HDC_Reply_Raw(
-    const uint8_t* pMsg,
-    const uint16_t MsgSize);
+/////////////////////////////////////////
+// HDC replies to FeatureCommand requests
 
-void HDC_Reply_BlobValue(
-    const uint8_t* pBlob,
-    const uint16_t BlobSize,
-    const uint8_t* pMsgHeader,
-    const HDC_ReplyErrorCode_t ReplyErrorCode);
+void HDC_Reply_Void(
+    const uint8_t* pMsgHeader);
+
+void HDC_Reply_From_Pieces(
+    const uint8_t FeatureID,
+    const uint8_t CmdID,
+    const HDC_ReplyErrorCode_t ReplyErrorCode,
+    const uint8_t* pMsgPayloadPrefix,
+    const size_t MsgPayloadPrefixSize,
+    const uint8_t* pMsgPayloadSuffix,
+    const size_t MsgPayloadSuffixSize);
 
 void HDC_Reply_Error_WithDescription(
     const HDC_ReplyErrorCode_t ReplyErrorCode,
     const char* ErrorDescription,
     const uint8_t* pMsgHeader);
 
-void HDC_Reply_Error(
+void HDC_Reply_Error(  // Without error-description string.
     const HDC_ReplyErrorCode_t ReplyErrorCode,
     const uint8_t* pMsgHeader);
 
-void HDC_Reply_BoolValue(
-    const bool value,
-    const uint8_t* pMsgHeader);
+//////////////////////////////////////////
+// HDC replies to PropertyGet/Set requests
 
-void HDC_Reply_UInt8Value(
-    const uint8_t value,
-    const uint8_t* pMsgHeader);
+void HDC_Reply_BlobValue(const uint8_t* pBlob, const size_t BlobSize, const uint8_t* pMsgHeader);
 
-void HDC_Reply_UInt16Value(
-    const uint16_t value,
-    const uint8_t* pMsgHeader);
+void HDC_Reply_BoolValue(const bool value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_UInt32Value(
-    const uint32_t value,
-    const uint8_t* pMsgHeader);
+void HDC_Reply_UInt8Value(const uint8_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_Int8Value(
-    const int8_t value,
-    const uint8_t* pMsgHeader);
+void HDC_Reply_UInt16Value(const uint16_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_Int16Value(
-    const int16_t value,
-    const uint8_t* pMsgHeader);
+void HDC_Reply_UInt32Value(const uint32_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_Int32Value(
-    const int32_t value,
-    const uint8_t* pMsgHeader);
+void HDC_Reply_Int8Value(const int8_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_FloatValue(
-    const float value,
-    const uint8_t* pMsgHeader);
+void HDC_Reply_Int16Value(const int16_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_DoubleValue(
-    const double value,
-    const uint8_t* pMsgHeader);
+void HDC_Reply_Int32Value(const int32_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_StringValue(
-    const char* value,
-    const uint8_t* pMsgHeader);
+void HDC_Reply_FloatValue(const float value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_Event_Log(
+void HDC_Reply_DoubleValue(const double value, const uint8_t* pMsgHeader);
+
+void HDC_Reply_StringValue(const char* value, const uint8_t* pMsgHeader);
+
+////////////////////
+// Raising of events
+
+void HDC_Raise_Event(
+    const HDC_Feature_Descriptor_t *hHdcFeature,
+    const uint8_t EventID,
+    const uint8_t* pEvtPayloadPrefix,
+    const size_t EvtPayloadPrefixSize,
+    const uint8_t* pEvtPayloadSuffix,
+    const size_t EvtPayloadSuffixSize);
+
+void HDC_Raise_Event_Log(
     const HDC_Feature_Descriptor_t *hHdcFeature,
     HDC_EventLogLevel_t logLevel,
     char* logText);
 
+
+/////////////////////
+// FeatureState
+
+void HDC_FeatureStateTransition(
+    HDC_Feature_Descriptor_t *hHDC_Feature,
+    uint8_t newState);
 
 
 #endif /* INC_HDC_DEVICE_H_ */

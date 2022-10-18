@@ -22,8 +22,9 @@ void Core_HDC_Cmd_Reset(const struct HDC_Feature_struct *hHDC_Feature,
   if (Size != 3)  // MessageType ; FeatureID ; CommandID
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
 
-  // Send a reply before actually resetting the system.
-  HDC_Reply_Error(HDC_ReplyErrorCode_NO_ERROR, RequestMessage);
+  // Send a void reply before actually resetting the system.
+  // Otherwise the HDC-host will timeout while awaiting it.
+  HDC_Reply_Void(RequestMessage);
   HDC_FeatureStateTransition(&Core_HDC_Feature, Core_State_Off);
   HDC_Flush();  // Ensure the command-reply and FeatureStateTransition event have been transmitted!
 
@@ -44,6 +45,7 @@ const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
   // Note how hdc_device driver takes care of all mandatory HDC-commands (GetPropertyName, GetPropertyValue, ...)
  };
 
+
 /////////////
 // HDC Events
 
@@ -60,6 +62,19 @@ const HDC_Event_Descriptor_t *Core_HDC_Events[] = {
 
   // Note how hdc_device driver takes care of all mandatory HDC-events (Log, FeatureStateTransition, ...)
 };
+
+// Raises custom ButtonEvent
+void Core_HDC_Raise_Event_Button(uint8_t ButtonID, uint8_t ButtonState) {
+
+  HDC_Raise_Event(
+    &Core_HDC_Feature,
+    EVENTID_BUTTON,
+    // Note how HDC_Raise_Event() allows to provide the payload in two separate chunks.
+    // In this case we just sent one byte in the payload-prefix and another byte in the payload-suffix.
+    &ButtonID, 1,
+    &ButtonState, 1);
+}
+
 
 /////////////////
 // HDC Properties
@@ -189,22 +204,14 @@ void Core_UpdateState(void) {
   static bool previousButtonState = 1;
   bool newButtonState = HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
   if (newButtonState != previousButtonState) {
-    // ToDo: Implement proper method in hdc_device driver to send custom event messages. The following is just an ugly workaround!
-    const int eventMessageSize = 5;
-    uint8_t eventMessage[eventMessageSize];
-    eventMessage[0] = HDC_MessageType_EVENT_FEATURE;
-    eventMessage[1] = HDC_FEATUREID_CORE;
-    eventMessage[2] = EVENTID_BUTTON;
-    eventMessage[3] = 0x42;
-    eventMessage[4] = newButtonState;
-    HDC_Reply_Raw(eventMessage, eventMessageSize);
+    Core_HDC_Raise_Event_Button(0x42, newButtonState);  // ButtonID=0x42 is just arbitrary
   }
   previousButtonState = newButtonState;
 
   // Demonstrate HDC-logging capabilities
   static uint32_t ticksNextDummyTransfer = 1000;
   if (ticksNow > ticksNextDummyTransfer) {
-    HDC_Reply_Event_Log(NULL, HDC_EventLogLevel_DEBUG, "This is just to showcase how to use the logging capabilities of HDC.");
+    HDC_Raise_Event_Log(NULL, HDC_EventLogLevel_DEBUG, "This is just to showcase how to use the logging capabilities of HDC.");
     ticksNextDummyTransfer = ticksNow + 1000;
   }
 
@@ -219,5 +226,5 @@ void Core_ErrorHandler(HDC_EventLogLevel_t logLevel, char* errorMessage) {
 
   HDC_FeatureStateTransition(&Core_HDC_Feature, Core_State_Error);
   // Log error message after entering the error state.
-  HDC_Reply_Event_Log(&Core_HDC_Feature, logLevel, errorMessage);
+  HDC_Raise_Event_Log(&Core_HDC_Feature, logLevel, errorMessage);
 }

@@ -188,7 +188,7 @@ uint32_t HDC_UpdateState() {
     }
 
     if (hHDC.PendingEvent_ReadingFrameError > 0) {
-      HDC_Reply_Event_Log(NULL, HDC_EventLogLevel_WARNING, "Reading-frame-errors detected while parsing request message on device.");
+      HDC_Raise_Event_Log(NULL, HDC_EventLogLevel_WARNING, "Reading-frame-errors detected while parsing request message on device.");
       hHDC.PendingEvent_ReadingFrameError = 0;
     }
 
@@ -251,7 +251,7 @@ void HDC_IrqRedirection_UartIdle(void) {
 ////////////////////////////////////////////
 // Utility methods
 HDC_Feature_Descriptor_t* HDC_GetFeature(const uint8_t featureID) {
-  for (int i=0 ; i < hHDC.NumFeatures; i++) {
+  for (uint8_t i=0 ; i < hHDC.NumFeatures; i++) {
     if (hHDC.Features[i]->FeatureID == featureID)
       return hHDC.Features[i];
   }
@@ -280,17 +280,17 @@ const HDC_Event_Descriptor_t* HDC_GetEvent(const HDC_Feature_Descriptor_t *featu
   return NULL;
 }
 
-const HDC_Property_Descriptor_t* HDC_GetProperty(const HDC_Feature_Descriptor_t *hFeature, const uint8_t propertyID) {
+const HDC_Property_Descriptor_t* HDC_GetProperty(const HDC_Feature_Descriptor_t *hHDC_Feature, const uint8_t propertyID) {
 
-  for (int i=0 ; i < hFeature->NumProperties ; i++)
-    if (hFeature->Properties[i]->PropertyID == propertyID)
-      return hFeature->Properties[i];
+  for (uint8_t i=0 ; i < hHDC_Feature->NumProperties ; i++)
+    if (hHDC_Feature->Properties[i]->PropertyID == propertyID)
+      return hHDC_Feature->Properties[i];
 
   for (uint8_t i=0; i<NUM_MANDATORY_PROPERTIES ; i++)
     if (HDC_MandatoryProperties[i]->PropertyID == propertyID)
       return HDC_MandatoryProperties[i];
 
-  if (hFeature->FeatureID == HDC_FEATUREID_CORE) {
+  if (hHDC_Feature->FeatureID == HDC_FEATUREID_CORE) {
     for (uint8_t i=0; i<NUM_MANDATORY_PROPERTIES_OF_CORE_FEATURE ; i++)
       if (HDC_MandatoryPropertiesOfCoreFeature[i]->PropertyID == propertyID)
         return HDC_MandatoryPropertiesOfCoreFeature[i];
@@ -354,29 +354,42 @@ void HDC_Flush(void) {
   }
 }
 
-void HDC_Reply_EmptyPacket() {
-  const uint8_t PktSize = 0;    // Actually just the size of the packet's payload.
+
+/////////////////////////////////////
+// HDC-packets are composed directly
+// into one of the TX buffers
+
+void HDC_Compose_EmptyPacket() {
+  const uint8_t PacketPayloadSize = 0;
 
   uint8_t *pBuffer = 0;
   uint16_t *pNumBytesInBuffer = 0;
-  HDC_GetTxBufferWithCapacityForAtLeast(PktSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
+  HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
 
-  pBuffer[(*pNumBytesInBuffer)++] = PktSize;          // Payload size
-  pBuffer[(*pNumBytesInBuffer)++] = 0x00;            // Checksum
-  pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKAGE_TERMINATOR;  // Terminator
+  pBuffer[(*pNumBytesInBuffer)++] = PacketPayloadSize;
+  pBuffer[(*pNumBytesInBuffer)++] = 0x00;  // Checksum of zero payload is also zero.
+  pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKAGE_TERMINATOR;
 }
 
-void HDC_Reply_Raw(const uint8_t* pMsg, const uint16_t MsgSize) {
+/*
+ * Packetize an HDC-message that's made available as a single, contiguous block of data.
+ * You might be better of using HDC_Compose_Packets_From_Pieces(), instead, because
+ * it combines message and package composition in a single call.
+ * As required by HDC-Spec:
+ *  - Messages larger than 255 bytes will be split into multiple packets.
+ *  - Messages that are an exact multiple of 255 will be terminated with an empty package.
+ */
+void HDC_Compose_Packets(const uint8_t* pMsg, const uint16_t MsgSize) {
   uint16_t nMsg = 0;
-  uint8_t PktSize;
+  uint8_t PacketPayloadSize;
   do {
-    PktSize = MsgSize - nMsg < 255 ? MsgSize - nMsg : 255;  // Actually just the size of the packet's payload.
+    PacketPayloadSize = MsgSize - nMsg < 255 ? MsgSize - nMsg : 255;
     uint8_t *pBuffer = 0;
     uint16_t *pNumBytesInBuffer = 0;
-    HDC_GetTxBufferWithCapacityForAtLeast(PktSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
+    HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
     uint8_t checksum = 0;
-    pBuffer[(*pNumBytesInBuffer)++] = PktSize;
-    for (uint8_t nPkt=0; nPkt<PktSize; nPkt++){
+    pBuffer[(*pNumBytesInBuffer)++] = PacketPayloadSize;
+    for (uint8_t nPkt=0; nPkt<PacketPayloadSize; nPkt++){
       checksum += pMsg[nMsg];
       pBuffer[(*pNumBytesInBuffer)++] = pMsg[nMsg++];
     }
@@ -384,62 +397,126 @@ void HDC_Reply_Raw(const uint8_t* pMsg, const uint16_t MsgSize) {
     pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKAGE_TERMINATOR;
   } while (nMsg < MsgSize);
 
-  if (PktSize==255) {
+  if (PacketPayloadSize==255) {
     // Last packet had a payload of exactly 255 bytes.
     // We must therefore send an empty packet, to signal
     // that the multi-package message is complete.
-    HDC_Reply_EmptyPacket(hHDC);
+    HDC_Compose_EmptyPacket(hHDC);
   }
 
 }
 
-void HDC_Reply_BlobValue(
-    const uint8_t* pBlob,
-    const uint16_t BlobSize,
-    const uint8_t* pMsgHeader,
-    const HDC_ReplyErrorCode_t ReplyErrorCode)
+/*
+ * A more convenient way to create HDC-packets, since it doesn't require
+ * callers to compose the HDC-message themselves, thus reducing RAM consumption.
+ * Besides specifying the four header bytes individually, the message payload can
+ * be provided as two chunks (prefix&suffix), which is convenient in many use-cases.
+ * The ReplyErrorCode argument will only be used, whenever the MsgType is a FeatureCommand.
+ * As required by HDC-Spec:
+ *  - Messages larger than 255 bytes will be split into multiple packets.
+ *  - Messages that are an exact multiple of 255 will be terminated with an empty package.
+ */
+void HDC_Compose_Packets_From_Pieces(
+    const uint8_t MsgType,
+    const uint8_t FeatureID,
+    const uint8_t CmdOrEvtID,
+    const HDC_ReplyErrorCode_t ReplyErrorCode,
+    const uint8_t* pMsgPayloadPrefix,
+    const size_t MsgPayloadPrefixSize,
+    const uint8_t* pMsgPayloadSuffix,
+    const size_t MsgPayloadSuffixSize
+   )
 {
-  const uint8_t MsgHeaderSize = 4; // MessageType ; FeatureID ; CommandID ; ReplyErrorCode
-  const uint16_t MsgSize = MsgHeaderSize + BlobSize;
-  uint8_t PktSize;
+  const uint8_t MsgHeaderSize = (MsgType==HDC_MessageType_COMMAND_FEATURE) ? 4 : 3;  // MsgType ; FeatureID ; CmdOrEvtID ; (ReplyErrorCode)
+  const uint16_t MsgSize = MsgHeaderSize + MsgPayloadPrefixSize + MsgPayloadSuffixSize;
+  uint8_t PacketPayloadSize;
   uint16_t nMsg = 0;
   do {
-    PktSize = MsgSize - nMsg < 255 ? MsgSize - nMsg : 255;  // Actually just the packet's payload size.
+    PacketPayloadSize = MsgSize - nMsg < 255 ? MsgSize - nMsg : 255;
     uint8_t *pBuffer = 0;
     uint16_t *pNumBytesInBuffer = 0;
-    HDC_GetTxBufferWithCapacityForAtLeast(PktSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
+    HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
     uint8_t checksum = 0;
-    pBuffer[(*pNumBytesInBuffer)++] = PktSize;
+    pBuffer[(*pNumBytesInBuffer)++] = PacketPayloadSize;
     uint8_t nPkt=0;
-    while (nMsg < MsgHeaderSize-1) {
-      checksum += pMsgHeader[nMsg];
-      pBuffer[(*pNumBytesInBuffer)++] = pMsgHeader[nMsg];
+    if (nMsg == 0) {
+      // MsgType
+      checksum += MsgType;
+      pBuffer[(*pNumBytesInBuffer)++] = MsgType;
+      nMsg++;
+      nPkt++;
+
+      // FeatureID
+      checksum += FeatureID;
+      pBuffer[(*pNumBytesInBuffer)++] = FeatureID;
+      nMsg++;
+      nPkt++;
+
+      // CmdID or EvtID (depending on the MsgType)
+      checksum += CmdOrEvtID;
+      pBuffer[(*pNumBytesInBuffer)++] = CmdOrEvtID;
+      nMsg++;
+      nPkt++;
+
+      if (MsgType == HDC_MessageType_COMMAND_FEATURE) {
+        // ReplyErrorCode
+        checksum += (uint8_t)ReplyErrorCode;
+        pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)ReplyErrorCode;
+        nMsg++;
+        nPkt++;
+      }
+    }
+
+    while (nPkt < PacketPayloadSize && nMsg < MsgHeaderSize + MsgPayloadPrefixSize) {
+      const uint16_t nPrefix = nMsg - MsgHeaderSize;
+      checksum += pMsgPayloadPrefix[nPrefix];
+      pBuffer[(*pNumBytesInBuffer)++] = pMsgPayloadPrefix[nPrefix];
       nMsg++;
       nPkt++;
     }
-    if (nMsg == MsgHeaderSize-1) {
-      checksum += (uint8_t)ReplyErrorCode;
-      pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)ReplyErrorCode;
+
+    while (nPkt < PacketPayloadSize && nMsg < MsgHeaderSize + MsgPayloadPrefixSize + MsgPayloadSuffixSize) {
+      const uint16_t nSuffix = nMsg - MsgHeaderSize - MsgPayloadPrefixSize;
+      checksum += pMsgPayloadSuffix[nSuffix];
+      pBuffer[(*pNumBytesInBuffer)++] = pMsgPayloadSuffix[nSuffix];
       nMsg++;
       nPkt++;
     }
-    while (nPkt < PktSize) {
-      const uint16_t nBlob = nMsg - MsgHeaderSize;
-      checksum += pBlob[nBlob];
-      pBuffer[(*pNumBytesInBuffer)++] = pBlob[nBlob];
-      nMsg++;
-      nPkt++;
-    }
+
     pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)0xFF - checksum + 1;
     pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKAGE_TERMINATOR;
   } while (nMsg < MsgSize);
 
-  if (PktSize==255) {
+  if (PacketPayloadSize==255) {
     // Last packet had a payload of exactly 255 bytes.
     // We must therefore send an empty packet, to signal
     // that the multi-package message is complete.
-    HDC_Reply_EmptyPacket();
+    HDC_Compose_EmptyPacket();
   }
+}
+
+
+/////////////////////////////////////////
+// HDC replies to FeatureCommand requests
+
+void HDC_Reply_From_Pieces(
+    const uint8_t FeatureID,
+    const uint8_t CmdID,
+    const HDC_ReplyErrorCode_t ReplyErrorCode,
+    const uint8_t* pMsgPayloadPrefix,
+    const size_t MsgPayloadPrefixSize,
+    const uint8_t* pMsgPayloadSuffix,
+    const size_t MsgPayloadSuffixSize)
+{
+
+  HDC_Compose_Packets_From_Pieces(
+    HDC_MessageType_COMMAND_FEATURE,
+    FeatureID,
+    CmdID,
+    ReplyErrorCode,
+    pMsgPayloadPrefix, MsgPayloadPrefixSize,
+    pMsgPayloadSuffix, MsgPayloadSuffixSize);
+
 }
 
 void HDC_Reply_Error_WithDescription(
@@ -449,14 +526,15 @@ void HDC_Reply_Error_WithDescription(
 {
   assert_param(ReplyErrorCode != HDC_ReplyErrorCode_NO_ERROR || ErrorDescription == NULL);  // It is only legal to include a description in the reply when an error happened. When no error happened, we must reply as expected for the given command!
 
-  if (ErrorDescription == NULL)  // The error description is optional
-    return HDC_Reply_BlobValue(NULL, 0, pMsgHeader, ReplyErrorCode);
+  // The error description is optional
+  size_t ErrorDescriptionSize = (ErrorDescription == NULL) ? 0 : strlen(ErrorDescription);
 
-  uint32_t msgLength = strlen(ErrorDescription);
-  if (msgLength > UINT16_MAX)
-    msgLength = UINT16_MAX;
-
-  HDC_Reply_BlobValue((uint8_t*) ErrorDescription, (uint16_t)msgLength, pMsgHeader, ReplyErrorCode);
+  HDC_Reply_From_Pieces(
+    pMsgHeader[1],  // Infer FeatureID from request-header
+    pMsgHeader[2],  // Infer CommandID from request-header
+    ReplyErrorCode,
+    (uint8_t *) ErrorDescription, ErrorDescriptionSize,
+    NULL, 0);  // No payload-suffix
 }
 
 void HDC_Reply_Error(
@@ -466,60 +544,85 @@ void HDC_Reply_Error(
   HDC_Reply_Error_WithDescription(ReplyErrorCode, NULL, pMsgHeader);
 }
 
+// Reply by FeatureCommands that return no values. (a.k.a. a "void" command reply)
+void HDC_Reply_Void(const uint8_t* pMsgHeader)
+{
+  HDC_Reply_Error(HDC_ReplyErrorCode_NO_ERROR, pMsgHeader);
+}
+
+
+//////////////////////////////////////////
+// HDC replies to PropertyGet/Set requests
+
+void HDC_Reply_BlobValue(
+    const uint8_t* pBlob,
+    const size_t BlobSize,
+    const uint8_t* pMsgHeader)
+{
+
+  HDC_Reply_From_Pieces(
+    pMsgHeader[1],  // Infer FeatureID from request-header
+    pMsgHeader[2],  // Infer CommandID from request-header
+    HDC_ReplyErrorCode_NO_ERROR,
+    pBlob, BlobSize,
+    NULL, 0);  // No payload-suffix
+
+}
+
 void HDC_Reply_BoolValue(const bool value, const uint8_t* pMsgHeader) {
-  HDC_Reply_BlobValue((uint8_t*)&value, 1, pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue((uint8_t*)&value, 1, pMsgHeader);
 }
 
 void HDC_Reply_UInt8Value(const uint8_t value, const uint8_t* pMsgHeader) {
-  HDC_Reply_BlobValue(&value, 1, pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue(&value, 1, pMsgHeader);
 }
 
 void HDC_Reply_UInt16Value(const uint16_t value, const uint8_t* pMsgHeader) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 2, pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue((uint8_t*)&value, 2, pMsgHeader);
 }
 
 void HDC_Reply_UInt32Value(const uint32_t value, const uint8_t* pMsgHeader) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 4, pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue((uint8_t*)&value, 4, pMsgHeader);
 }
 
 void HDC_Reply_Int8Value(const int8_t value, const uint8_t* pMsgHeader) {
-  HDC_Reply_BlobValue((uint8_t*)&value, 1, pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue((uint8_t*)&value, 1, pMsgHeader);
 }
 
 void HDC_Reply_Int16Value(const int16_t value, const uint8_t* pMsgHeader) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 2, pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue((uint8_t*)&value, 2, pMsgHeader);
 }
 
 void HDC_Reply_Int32Value(const int32_t value, const uint8_t* pMsgHeader) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 4, pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue((uint8_t*)&value, 4, pMsgHeader);
 }
 
 void HDC_Reply_FloatValue(const float value, const uint8_t* pMsgHeader) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 4, pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue((uint8_t*)&value, 4, pMsgHeader);
 }
 
 void HDC_Reply_DoubleValue(const double value, const uint8_t* pMsgHeader) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 8, pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue((uint8_t*)&value, 8, pMsgHeader);
 }
 
 void HDC_Reply_StringValue(const char* value, const uint8_t* pMsgHeader) {
   if (value == NULL)
     // Treat null-pointer in the same way as an "empty string"
-    return HDC_Reply_BlobValue(NULL, 0, pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+    return HDC_Reply_BlobValue(NULL, 0, pMsgHeader);
 
-  // Omit string's zero-termination byte! Note how the string's length is determined by the packet size.
-  HDC_Reply_BlobValue((uint8_t*)value, strlen(value), pMsgHeader, HDC_ReplyErrorCode_NO_ERROR);
+  // Omit string's zero-termination byte! Note how the string's length is determined by the HDC-message size.
+  HDC_Reply_BlobValue((uint8_t*)value, strlen(value), pMsgHeader);
 }
 
 
-////////////////////////////////////////////
-// Request Handlers for Mandatory Commands
+/////////////////////////////////////////////////
+// Request Handlers for mandatory FeatureCommands
 
 void HDC_MandatoryCmd_Echo(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
@@ -529,7 +632,9 @@ void HDC_MandatoryCmd_Echo(
   assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_ECHO);
   assert_param(hHDC_Feature == NULL);
 
-  HDC_Reply_Raw(RequestMessage, Size); // Reply message must be exactly equal to the full request message. Do not include any reply-error code!
+  // Reply message must be exactly equal to the full request message.
+  // Do not include any reply-error code!
+  HDC_Compose_Packets(RequestMessage, Size);
 }
 
 void HDC_MandatoryCmd_GetPropertyName(
@@ -683,8 +788,7 @@ void HDC_MandatoryCmd_GetPropertyValue(
     return HDC_Reply_BlobValue(
         (uint8_t *)property->pValue,
         property->ValueSize,
-        RequestMessage,
-        HDC_ReplyErrorCode_NO_ERROR);
+        RequestMessage);
   default:
     Error_Handler();  // ToDo: Complain about unknown property-data-type
   }
@@ -902,6 +1006,10 @@ void HDC_MandatoryCmd_GetEventDescription(
   HDC_Reply_StringValue(event->EventDescription, RequestMessage);
 }
 
+
+///////////////////////////////////////////
+// Descriptors of mandatory FeatureCommands
+
 const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = {
   &(HDC_Command_Descriptor_t){
     .CommandID = 0xF1,
@@ -976,8 +1084,8 @@ const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
   }
 };
 
-////////////////////////////////////////////////////
-// Mandatory Events
+/////////////////////
+// Event descriptors
 
 const HDC_Event_Descriptor_t HDC_MandatoryEvent_Log = {
   .EventID = 0xF0,
@@ -987,78 +1095,6 @@ const HDC_Event_Descriptor_t HDC_MandatoryEvent_Log = {
       "Software logging. LogLevels are the same as defined in python's logging module."
 };
 
-void HDC_Reply_Event_Log(
-    const HDC_Feature_Descriptor_t *hHdcFeature,
-    HDC_EventLogLevel_t logLevel,
-    char* logText)
-{
-  if (hHdcFeature == NULL)
-    hHdcFeature = hHDC.Features[0];  // Default to Core-Feature, which by convention is the first array item.
-
-  if (logLevel < hHdcFeature->LogEventThreshold)
-    return;
-
-  const uint8_t HeaderSize = 4; // MsgType + FeatureID + EventID + LogLevel
-  const uint16_t MsgSize = HeaderSize + strlen(logText);
-  uint8_t PktSize;
-  uint16_t nMsg = 0;
-  do {
-    PktSize = MsgSize - nMsg < 255 ? MsgSize - nMsg : 255;  // Actually just the packet's payload size.
-    uint8_t *pBuffer = 0;
-    uint16_t *pNumBytesInBuffer = 0;
-    HDC_GetTxBufferWithCapacityForAtLeast(PktSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
-    uint8_t checksum = 0;
-    pBuffer[(*pNumBytesInBuffer)++] = PktSize;
-    uint8_t nPkt=0;
-
-    if (nMsg==0) { // Is this the first packet of this message?
-
-      // MessageType as HDC_DataType_UINT8
-      checksum += HDC_MessageType_EVENT_FEATURE;
-      pBuffer[(*pNumBytesInBuffer)++] = HDC_MessageType_EVENT_FEATURE;
-      nMsg++;
-      nPkt++;
-
-      // FeatureID as HDC_DataType_UINT8
-      checksum += hHdcFeature->FeatureID;
-      pBuffer[(*pNumBytesInBuffer)++] = hHdcFeature->FeatureID;
-      nMsg++;
-      nPkt++;
-
-      // EventID as HDC_DataType_UINT8
-      checksum += HDC_MandatoryEvent_Log.EventID;
-      pBuffer[(*pNumBytesInBuffer)++] = HDC_MandatoryEvent_Log.EventID;
-      nMsg++;
-      nPkt++;
-
-      // LogLevel as HDC_DataType_UINT8
-      checksum += (uint8_t)logLevel;
-      pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)logLevel;
-      nMsg++;
-      nPkt++;
-    }
-
-    // LogText as HDC_DataType_UTF8
-    while (nPkt < PktSize) {
-      checksum += logText[nMsg - HeaderSize];
-      pBuffer[(*pNumBytesInBuffer)++] = logText[nMsg - HeaderSize];
-      nMsg++;
-      nPkt++;
-    }
-
-    pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)0xFF - checksum + 1;
-    pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKAGE_TERMINATOR;
-  } while (nMsg < MsgSize);
-
-  if (PktSize==255) {
-    // Last packet had a payload of exactly 255 bytes.
-    // We must therefore send an empty packet, to signal
-    // that the multi-package message is complete.
-    HDC_Reply_EmptyPacket();
-  }
-}
-
-
 const HDC_Event_Descriptor_t HDC_MandatoryEvent_FeatureStateTransition = {
   .EventID = 0xF1,
   .EventName = "FeatureStateTransition",
@@ -1067,58 +1103,91 @@ const HDC_Event_Descriptor_t HDC_MandatoryEvent_FeatureStateTransition = {
       "Notifies host about transitions of this feature's state-machine."
 };
 
-void HDC_Reply_Event_FeatureStateTransition(
-    uint8_t FeatureID,
-    uint8_t previousStateID,
-    uint8_t newStateID)
-{
-  const uint16_t MsgSize = 5; // MsgType + FeatureID + EventID + PreviousStateID + NewStateID
-
-  uint8_t *pBuffer = 0;
-  uint16_t *pNumBytesInBuffer = 0;
-  HDC_GetTxBufferWithCapacityForAtLeast(MsgSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
-  uint8_t checksum = 0;
-
-  pBuffer[(*pNumBytesInBuffer)++] = MsgSize;
-
-  // MessageType
-  checksum += HDC_MessageType_EVENT_FEATURE;
-  pBuffer[(*pNumBytesInBuffer)++] = HDC_MessageType_EVENT_FEATURE;
-
-  // FeatureID
-  checksum += FeatureID;
-  pBuffer[(*pNumBytesInBuffer)++] = FeatureID;
-
-  // EventID
-  checksum += HDC_MandatoryEvent_FeatureStateTransition.EventID;
-  pBuffer[(*pNumBytesInBuffer)++] = HDC_MandatoryEvent_FeatureStateTransition.EventID;
-
-  // PreviousStateID
-  checksum += previousStateID;
-  pBuffer[(*pNumBytesInBuffer)++] = previousStateID;
-
-  // NewStateID
-  checksum += newStateID;
-  pBuffer[(*pNumBytesInBuffer)++] = newStateID;
-
-  pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)0xFF - checksum + 1;
-  pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKAGE_TERMINATOR;
-}
-
-void HDC_FeatureStateTransition(HDC_Feature_Descriptor_t *hFeature, uint8_t newState) {
-  if (newState == hFeature->FeatureState)
-    return;  // Avoid transition into the same state we already are.
-  HDC_Reply_Event_FeatureStateTransition(hFeature->FeatureID, hFeature->FeatureState, newState);
-  hFeature->FeatureState = newState;
-}
-
 const HDC_Event_Descriptor_t *HDC_MandatoryEvents[NUM_MANDATORY_EVENTS] = {
     &HDC_MandatoryEvent_Log,
     &HDC_MandatoryEvent_FeatureStateTransition
 };
 
-////////////////////////////////////////////////////////////
-// Properties that are mandatory for all features
+
+//////////////////////////////
+// Event API
+
+void HDC_Raise_Event(const HDC_Feature_Descriptor_t *hHDC_Feature,
+                     const uint8_t EventID,
+                     const uint8_t* pEvtPayloadPrefix,
+                     const size_t EvtPayloadPrefixSize,
+                     const uint8_t* pEvtPayloadSuffix,
+                     const size_t EvtPayloadSuffixSize) {
+
+  if (hHDC_Feature == NULL)
+    // Default to Core-Feature, which by convention is the first array item.
+    hHDC_Feature = hHDC.Features[0];
+
+  HDC_Compose_Packets_From_Pieces(
+    HDC_MessageType_EVENT_FEATURE,
+    hHDC_Feature->FeatureID,
+    EventID,
+    HDC_ReplyErrorCode_NO_ERROR,  // Will be ignored by packetizer method, due to MessageType being Event
+    pEvtPayloadPrefix,
+    EvtPayloadPrefixSize,
+    pEvtPayloadSuffix,
+    EvtPayloadSuffixSize);
+
+}
+
+void HDC_Raise_Event_Log(
+    const HDC_Feature_Descriptor_t *hHDC_Feature,
+    HDC_EventLogLevel_t logLevel,
+    char* logText) {
+
+  if (hHDC_Feature == NULL)
+    // Default to Core-Feature, which by convention is the first array item.
+    hHDC_Feature = hHDC.Features[0];
+
+  if (logLevel < hHDC_Feature->LogEventThreshold)
+    return;
+
+  HDC_Raise_Event(
+    hHDC_Feature,
+    HDC_MandatoryEvent_Log.EventID,
+    &logLevel,
+    1,
+    (uint8_t*) logText,
+    strlen(logText));
+}
+
+
+/////////////////////////////
+// FeatureState API
+
+
+/*
+ * Updates the FeatureState property value and raises a FeatureStateTransition-event
+ */
+void HDC_FeatureStateTransition(HDC_Feature_Descriptor_t *hHDC_Feature, uint8_t newState) {
+  if (hHDC_Feature == NULL)
+    // Default to Core-Feature, which by convention is the first array item.
+    hHDC_Feature = hHDC.Features[0];
+
+  if (newState == hHDC_Feature->FeatureState)
+    return;  // Avoid transition into the same state we already are.
+
+  uint8_t oldState = hHDC_Feature->FeatureState;
+  hHDC_Feature->FeatureState = newState;
+
+  HDC_Raise_Event(
+    hHDC_Feature,
+    HDC_MandatoryEvent_FeatureStateTransition.EventID,
+    &oldState,
+    1,
+    &newState,
+    1);
+
+}
+
+
+///////////////////////////////////////////////
+// Getters and setters for mandatory Properties
 
 void HDC_Property_FeatureName_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
   return HDC_Reply_StringValue(hHDC_Feature->FeatureName, RequestMessage);
@@ -1149,7 +1218,7 @@ void HDC_Property_AvailableCommands_get(const HDC_Feature_Descriptor_t *hHDC_Fea
   for (uint8_t i=0; i < NUM_MANDATORY_COMMANDS;i++)
     availableCommands[n++] = HDC_MandatoryCommands[i]->CommandID;
 
-  HDC_Reply_BlobValue(availableCommands, n, RequestMessage, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue(availableCommands, n, RequestMessage);
 }
 
 void HDC_Property_AvailableEvents_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
@@ -1160,7 +1229,7 @@ void HDC_Property_AvailableEvents_get(const HDC_Feature_Descriptor_t *hHDC_Featu
   for (uint8_t i=0; i < NUM_MANDATORY_EVENTS;i++)
     availableEvents[n++] = HDC_MandatoryEvents[i]->EventID;
 
-  HDC_Reply_BlobValue(availableEvents, n, RequestMessage, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue(availableEvents, n, RequestMessage);
 }
 
 void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
@@ -1175,18 +1244,33 @@ void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_F
       availableProperties[n++] = HDC_MandatoryPropertiesOfCoreFeature[i]->PropertyID;
   }
 
-  HDC_Reply_BlobValue(availableProperties, n, RequestMessage, HDC_ReplyErrorCode_NO_ERROR);
+  HDC_Reply_BlobValue(availableProperties, n, RequestMessage);
 }
 
-void HDC_Property_FeatureState_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_FeatureState_get(
+    const HDC_Feature_Descriptor_t *hHDC_Feature,
+    const struct HDC_Property_struct *hHDC_Property,
+    const uint8_t* RequestMessage,
+    const uint8_t RequestMessageSize)
+{
   HDC_Reply_UInt8Value(hHDC_Feature->FeatureState, RequestMessage);
 }
 
-void HDC_Property_LogEventThreshold_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_LogEventThreshold_get(
+    const HDC_Feature_Descriptor_t *hHDC_Feature,
+    const struct HDC_Property_struct *hHDC_Property,
+    const uint8_t* RequestMessage,
+    const uint8_t RequestMessageSize)
+{
   HDC_Reply_UInt8Value(hHDC_Feature->LogEventThreshold, RequestMessage);
 }
 
-void HDC_Property_LogEventThreshold_set(HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_LogEventThreshold_set(
+    HDC_Feature_Descriptor_t *hHDC_Feature,
+    const struct HDC_Property_struct *hHDC_Property,
+    const uint8_t* RequestMessage,
+    const uint8_t RequestMessageSize)
+{
   uint8_t newValue = *((const uint8_t *)(RequestMessage + 4));
 
   newValue = CONSTRAIN(newValue, HDC_EventLogLevel_DEBUG, HDC_EventLogLevel_CRITICAL);
@@ -1194,6 +1278,25 @@ void HDC_Property_LogEventThreshold_set(HDC_Feature_Descriptor_t *hHDC_Feature, 
   hHDC_Feature->LogEventThreshold = newValue;
   HDC_Reply_UInt8Value(hHDC_Feature->LogEventThreshold, RequestMessage);
 }
+
+void HDC_Property_AvailableFeatures_get(
+    const HDC_Feature_Descriptor_t *hHDC_Feature,
+    const struct HDC_Property_struct *hHDC_Property,
+    const uint8_t* RequestMessage,
+    const uint8_t RequestMessageSize)
+{
+
+  // ToDo: Is it worth it to rewrite the following into a more RAM-efficient direct message composition in the TX buffer?
+
+  uint8_t availableFeatures[256] = {0}; // There can't be more than 256 features.
+  for (uint8_t i=0; i< hHDC.NumFeatures;i++)
+    availableFeatures[i] = hHDC.Features[i]->FeatureID;
+  return HDC_Reply_BlobValue(availableFeatures, hHDC.NumFeatures, RequestMessage);
+}
+
+
+//////////////////////////////////////
+// Descriptors of mandatory Properties
 
 const HDC_Property_Descriptor_t *HDC_MandatoryProperties[NUM_MANDATORY_PROPERTIES] = {
     &(HDC_Property_Descriptor_t ) {
@@ -1291,23 +1394,6 @@ const HDC_Property_Descriptor_t *HDC_MandatoryProperties[NUM_MANDATORY_PROPERTIE
 };
 
 
-////////////////////////////////////////////////////////////
-// Properties that are only mandatory for the Core feature
-
-void HDC_Property_AvailableFeatures_get(
-    const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const struct HDC_Property_struct *hHDC_Property,
-    const uint8_t* RequestMessage,
-    const uint8_t RequestMessageSize) {
-
-  // ToDo: Is it worth it to rewrite the following into a more RAM-efficient direct message composition in the TX buffer?
-
-  uint8_t availableFeatures[256] = {0}; // There can't be more than 256 features.
-  for (uint8_t i=0; i< hHDC.NumFeatures;i++)
-    availableFeatures[i] = hHDC.Features[i]->FeatureID;
-  return HDC_Reply_BlobValue(availableFeatures, hHDC.NumFeatures, RequestMessage, HDC_ReplyErrorCode_NO_ERROR);
-}
-
 const HDC_Property_Descriptor_t *HDC_MandatoryPropertiesOfCoreFeature[NUM_MANDATORY_PROPERTIES_OF_CORE_FEATURE] = {
   &(HDC_Property_Descriptor_t ) {
     .PropertyID = 0xFA,
@@ -1331,6 +1417,7 @@ const HDC_Property_Descriptor_t *HDC_MandatoryPropertiesOfCoreFeature[NUM_MANDAT
 
 ////////////////////////////////////////////
 // Request broker
+
 void HDC_ProcessRxPacket(const uint8_t *packet) {
   // Packet has already been validated to be well formed by caller.
   const uint8_t MessageSize = packet[0];
@@ -1347,7 +1434,7 @@ void HDC_ProcessRxPacket(const uint8_t *packet) {
   if (MessageType != HDC_MessageType_COMMAND_FEATURE)
     // Note how we can't reply with a ReplyErrorCode, because we don't
     // even know if this is a proper Command request.
-    return HDC_Reply_Event_Log(NULL, HDC_EventLogLevel_ERROR, "Unknown message type");
+    return HDC_Raise_Event_Log(NULL, HDC_EventLogLevel_ERROR, "Unknown message type");
 
   uint8_t FeatureID = RequestMessage[1];
   uint8_t CommandID = RequestMessage[2];
@@ -1365,5 +1452,3 @@ void HDC_ProcessRxPacket(const uint8_t *packet) {
 
   command->HandleRequest(feature, RequestMessage, MessageSize);
 }
-
-

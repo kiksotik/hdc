@@ -16,6 +16,7 @@ HDC_Feature_Descriptor_t Core_HDC_Feature;
 ///////////////
 // HDC Commands
 
+// Command handler
 void Core_HDC_Cmd_Reset(const struct HDC_Feature_struct *hHDC_Feature,
                         const uint8_t* RequestMessage,
                         const uint8_t Size) {
@@ -31,6 +32,7 @@ void Core_HDC_Cmd_Reset(const struct HDC_Feature_struct *hHDC_Feature,
   NVIC_SystemReset();  // Reset microcontroller via software interrupt.
 }
 
+// Command descriptor
 const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
 
   &(HDC_Command_Descriptor_t) {
@@ -49,17 +51,16 @@ const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
 /////////////
 // HDC Events
 
-#define EVENTID_BUTTON 0x01
+// Event descriptor
+HDC_Event_Descriptor_t Core_HDC_Event_Button = {
+      .EventID = 0x01,
+      .EventName = "ButtonEvent",
+      .EventDescription = "-> UINT8 ButtonID, UINT8 ButtonState\n"
+                          "Showcases how HDC handles events: Notify host about the button being pressed on the device."
+};
+
 const HDC_Event_Descriptor_t *Core_HDC_Events[] = {
-
-  &(HDC_Event_Descriptor_t) {
-    .EventID = EVENTID_BUTTON,
-    .EventName = "ButtonEvent",
-    .EventDescription = "-> UINT8 ButtonID, UINT8 ButtonState\n"
-                        "Showcases how HDC handles events: Notify host about the button being pressed on the device."
-
-  },
-
+  &Core_HDC_Event_Button,
   // Note how hdc_device driver takes care of all mandatory HDC-events (Log, FeatureStateTransition, ...)
 };
 
@@ -68,7 +69,7 @@ void Core_HDC_Raise_Event_Button(uint8_t ButtonID, uint8_t ButtonState) {
 
   HDC_Raise_Event(
     &Core_HDC_Feature,
-    EVENTID_BUTTON,
+    Core_HDC_Event_Button.EventID,
     // Note how HDC_Raise_Event() allows to provide the payload in two separate chunks.
     // In this case we just sent one byte in the payload-prefix and another byte in the payload-suffix.
     &ButtonID, 1,
@@ -79,10 +80,12 @@ void Core_HDC_Raise_Event_Button(uint8_t ButtonID, uint8_t ButtonState) {
 /////////////////
 // HDC Properties
 
+// Property getters
 void Core_HDC_Property_uC_DEVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature,
                                     const HDC_Property_Descriptor_t *hHDC_Property,
                                     const uint8_t* RequestMessage,
-                                    const uint8_t RequestMessageSize) {
+                                    const uint8_t RequestMessageSize)
+{
   const uint32_t devid = HAL_GetDEVID();
   HDC_Reply_UInt32Value(devid, RequestMessage);
 }
@@ -90,13 +93,17 @@ void Core_HDC_Property_uC_DEVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature
 void Core_HDC_Property_uC_REVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature,
                                     const HDC_Property_Descriptor_t *hHDC_Property,
                                     const uint8_t* RequestMessage,
-                                    const uint8_t RequestMessageSize) {
+                                    const uint8_t RequestMessageSize)
+{
   const uint32_t revid = HAL_GetREVID();
   HDC_Reply_UInt32Value(revid, RequestMessage);
 }
 
+// Skipping the need for any getter & setter
+// by directly using a C variable
 uint8_t led_blinking_rate = 5;
 
+// Property descriptors
 const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
 
   &(HDC_Property_Descriptor_t ) {
@@ -164,8 +171,6 @@ HDC_Feature_Descriptor_t Core_HDC_Feature = {
 };
 
 HDC_Feature_Descriptor_t *Core_HDC_Features[] = {
-
-  // The Core feature
   &Core_HDC_Feature,
 
   // Demo_Minimal demo does not implement any other features, because

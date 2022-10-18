@@ -34,8 +34,10 @@ payload_size = max_req_msg_size - 1  # Because of the MessageType byte that the 
 
 logger.info(f"Showcasing ECHO command. Sending {num_requests} requests with a payload of {payload_size} bytes each:")
 timestamp_start = time.time_ns()
+sent_data = bytes(range(payload_size))
 for i in range(num_requests):
-    deviceProxy.protocol.cmd_echo(bytes(range(payload_size)))
+    replied_data = deviceProxy.protocol.cmd_echo(sent_data)
+    assert replied_data == sent_data
 timestamp_stop = time.time_ns()
 duration_total_ms = (timestamp_stop - timestamp_start) / 1000000.0
 logger.info(f"Completed in {duration_total_ms:.1f}ms --> {duration_total_ms/num_requests:.1f} ms/request")

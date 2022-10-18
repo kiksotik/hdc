@@ -18,14 +18,14 @@ HDC_Feature_Descriptor_t Core_HDC_Feature;
 
 // Command handler
 void Core_HDC_Cmd_Reset(const struct HDC_Feature_struct *hHDC_Feature,
-                        const uint8_t* RequestMessage,
+                        const uint8_t* pRequestMessage,
                         const uint8_t Size) {
   if (Size != 3)  // MessageType ; FeatureID ; CommandID
-    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
   // Send a void reply before actually resetting the system.
   // Otherwise the HDC-host will timeout while awaiting it.
-  HDC_Reply_Void(RequestMessage);
+  HDC_Reply_Void(pRequestMessage);
   HDC_FeatureStateTransition(&Core_HDC_Feature, Core_State_Off);
   HDC_Flush();  // Ensure the command-reply and FeatureStateTransition event have been transmitted!
 
@@ -83,20 +83,20 @@ void Core_HDC_Raise_Event_Button(uint8_t ButtonID, uint8_t ButtonState) {
 // Property getters
 void Core_HDC_Property_uC_DEVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature,
                                     const HDC_Property_Descriptor_t *hHDC_Property,
-                                    const uint8_t* RequestMessage,
+                                    const uint8_t* pRequestMessage,
                                     const uint8_t RequestMessageSize)
 {
   const uint32_t devid = HAL_GetDEVID();
-  HDC_Reply_UInt32Value(devid, RequestMessage);
+  HDC_Reply_UInt32Value(devid, pRequestMessage);
 }
 
 void Core_HDC_Property_uC_REVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature,
                                     const HDC_Property_Descriptor_t *hHDC_Property,
-                                    const uint8_t* RequestMessage,
+                                    const uint8_t* pRequestMessage,
                                     const uint8_t RequestMessageSize)
 {
   const uint32_t revid = HAL_GetREVID();
-  HDC_Reply_UInt32Value(revid, RequestMessage);
+  HDC_Reply_UInt32Value(revid, pRequestMessage);
 }
 
 // Skipping the need for any getter & setter

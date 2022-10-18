@@ -522,7 +522,7 @@ void HDC_Reply_From_Pieces(
 void HDC_Reply_Error_WithDescription(
     const HDC_ReplyErrorCode_t ReplyErrorCode,
     const char* ErrorDescription,
-    const uint8_t* pMsgHeader)
+    const uint8_t* pRequestMessage)
 {
   assert_param(ReplyErrorCode != HDC_ReplyErrorCode_NO_ERROR || ErrorDescription == NULL);  // It is only legal to include a description in the reply when an error happened. When no error happened, we must reply as expected for the given command!
 
@@ -530,8 +530,8 @@ void HDC_Reply_Error_WithDescription(
   size_t ErrorDescriptionSize = (ErrorDescription == NULL) ? 0 : strlen(ErrorDescription);
 
   HDC_Reply_From_Pieces(
-    pMsgHeader[1],  // Infer FeatureID from request-header
-    pMsgHeader[2],  // Infer CommandID from request-header
+    pRequestMessage[1],  // Infer FeatureID from request-header
+    pRequestMessage[2],  // Infer CommandID from request-header
     ReplyErrorCode,
     (uint8_t *) ErrorDescription, ErrorDescriptionSize,
     NULL, 0);  // No payload-suffix
@@ -539,15 +539,15 @@ void HDC_Reply_Error_WithDescription(
 
 void HDC_Reply_Error(
     const HDC_ReplyErrorCode_t ReplyErrorCode,
-    const uint8_t* pMsgHeader)
+    const uint8_t* pRequestMessage)
 {
-  HDC_Reply_Error_WithDescription(ReplyErrorCode, NULL, pMsgHeader);
+  HDC_Reply_Error_WithDescription(ReplyErrorCode, NULL, pRequestMessage);
 }
 
 // Reply by FeatureCommands that return no values. (a.k.a. a "void" command reply)
-void HDC_Reply_Void(const uint8_t* pMsgHeader)
+void HDC_Reply_Void(const uint8_t* pRequestMessage)
 {
-  HDC_Reply_Error(HDC_ReplyErrorCode_NO_ERROR, pMsgHeader);
+  HDC_Reply_Error(HDC_ReplyErrorCode_NO_ERROR, pRequestMessage);
 }
 
 
@@ -557,67 +557,67 @@ void HDC_Reply_Void(const uint8_t* pMsgHeader)
 void HDC_Reply_BlobValue(
     const uint8_t* pBlob,
     const size_t BlobSize,
-    const uint8_t* pMsgHeader)
+    const uint8_t* pRequestMessage)
 {
 
   HDC_Reply_From_Pieces(
-    pMsgHeader[1],  // Infer FeatureID from request-header
-    pMsgHeader[2],  // Infer CommandID from request-header
+    pRequestMessage[1],  // Infer FeatureID from request-header
+    pRequestMessage[2],  // Infer CommandID from request-header
     HDC_ReplyErrorCode_NO_ERROR,
     pBlob, BlobSize,
     NULL, 0);  // No payload-suffix
 
 }
 
-void HDC_Reply_BoolValue(const bool value, const uint8_t* pMsgHeader) {
-  HDC_Reply_BlobValue((uint8_t*)&value, 1, pMsgHeader);
+void HDC_Reply_BoolValue(const bool value, const uint8_t* pRequestMessage) {
+  HDC_Reply_BlobValue((uint8_t*)&value, 1, pRequestMessage);
 }
 
-void HDC_Reply_UInt8Value(const uint8_t value, const uint8_t* pMsgHeader) {
-  HDC_Reply_BlobValue(&value, 1, pMsgHeader);
+void HDC_Reply_UInt8Value(const uint8_t value, const uint8_t* pRequestMessage) {
+  HDC_Reply_BlobValue(&value, 1, pRequestMessage);
 }
 
-void HDC_Reply_UInt16Value(const uint16_t value, const uint8_t* pMsgHeader) {
+void HDC_Reply_UInt16Value(const uint16_t value, const uint8_t* pRequestMessage) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 2, pMsgHeader);
+  HDC_Reply_BlobValue((uint8_t*)&value, 2, pRequestMessage);
 }
 
-void HDC_Reply_UInt32Value(const uint32_t value, const uint8_t* pMsgHeader) {
+void HDC_Reply_UInt32Value(const uint32_t value, const uint8_t* pRequestMessage) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 4, pMsgHeader);
+  HDC_Reply_BlobValue((uint8_t*)&value, 4, pRequestMessage);
 }
 
-void HDC_Reply_Int8Value(const int8_t value, const uint8_t* pMsgHeader) {
-  HDC_Reply_BlobValue((uint8_t*)&value, 1, pMsgHeader);
+void HDC_Reply_Int8Value(const int8_t value, const uint8_t* pRequestMessage) {
+  HDC_Reply_BlobValue((uint8_t*)&value, 1, pRequestMessage);
 }
 
-void HDC_Reply_Int16Value(const int16_t value, const uint8_t* pMsgHeader) {
+void HDC_Reply_Int16Value(const int16_t value, const uint8_t* pRequestMessage) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 2, pMsgHeader);
+  HDC_Reply_BlobValue((uint8_t*)&value, 2, pRequestMessage);
 }
 
-void HDC_Reply_Int32Value(const int32_t value, const uint8_t* pMsgHeader) {
+void HDC_Reply_Int32Value(const int32_t value, const uint8_t* pRequestMessage) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 4, pMsgHeader);
+  HDC_Reply_BlobValue((uint8_t*)&value, 4, pRequestMessage);
 }
 
-void HDC_Reply_FloatValue(const float value, const uint8_t* pMsgHeader) {
+void HDC_Reply_FloatValue(const float value, const uint8_t* pRequestMessage) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 4, pMsgHeader);
+  HDC_Reply_BlobValue((uint8_t*)&value, 4, pRequestMessage);
 }
 
-void HDC_Reply_DoubleValue(const double value, const uint8_t* pMsgHeader) {
+void HDC_Reply_DoubleValue(const double value, const uint8_t* pRequestMessage) {
   // Note that STM32 is little-endian
-  HDC_Reply_BlobValue((uint8_t*)&value, 8, pMsgHeader);
+  HDC_Reply_BlobValue((uint8_t*)&value, 8, pRequestMessage);
 }
 
-void HDC_Reply_StringValue(const char* value, const uint8_t* pMsgHeader) {
+void HDC_Reply_StringValue(const char* value, const uint8_t* pRequestMessage) {
   if (value == NULL)
     // Treat null-pointer in the same way as an "empty string"
-    return HDC_Reply_BlobValue(NULL, 0, pMsgHeader);
+    return HDC_Reply_BlobValue(NULL, 0, pRequestMessage);
 
   // Omit string's zero-termination byte! Note how the string's length is determined by the HDC-message size.
-  HDC_Reply_BlobValue((uint8_t*)value, strlen(value), pMsgHeader);
+  HDC_Reply_BlobValue((uint8_t*)value, strlen(value), pRequestMessage);
 }
 
 
@@ -626,126 +626,126 @@ void HDC_Reply_StringValue(const char* value, const uint8_t* pMsgHeader) {
 
 void HDC_MandatoryCmd_Echo(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_ECHO);
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_ECHO);
   assert_param(hHDC_Feature == NULL);
 
   // Reply message must be exactly equal to the full request message.
   // Do not include any reply-error code!
-  HDC_Compose_Packets(RequestMessage, Size);
+  HDC_Compose_Packets(pRequestMessage, Size);
 }
 
 void HDC_MandatoryCmd_GetPropertyName(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
   if (Size != 4)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(RequestMessage[2] == 0xF1);  // CommandID
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
+  assert_param(pRequestMessage[2] == 0xF1);  // CommandID
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t PropertyID = RequestMessage[3];
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t PropertyID = pRequestMessage[3];
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   const HDC_Property_Descriptor_t* property = HDC_GetProperty(feature, PropertyID);
 
   if (property == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, pRequestMessage);
 
-  HDC_Reply_StringValue(property->PropertyName, RequestMessage);
+  HDC_Reply_StringValue(property->PropertyName, pRequestMessage);
 }
 
 
 void HDC_MandatoryCmd_GetPropertyType(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
   if (Size != 4)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(RequestMessage[2] == 0xF2);  // CommandID
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
+  assert_param(pRequestMessage[2] == 0xF2);  // CommandID
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t PropertyID = RequestMessage[3];
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t PropertyID = pRequestMessage[3];
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   const HDC_Property_Descriptor_t* property = HDC_GetProperty(feature, PropertyID);
 
   if (property == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, pRequestMessage);
 
-  HDC_Reply_UInt8Value(property->PropertyDataType, RequestMessage);
+  HDC_Reply_UInt8Value(property->PropertyDataType, pRequestMessage);
 }
 
 void HDC_MandatoryCmd_GetPropertyReadonly(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
   if (Size != 4)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(RequestMessage[2] == 0xF3);  // CommandID
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
+  assert_param(pRequestMessage[2] == 0xF3);  // CommandID
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t PropertyID = RequestMessage[3];
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t PropertyID = pRequestMessage[3];
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   const HDC_Property_Descriptor_t *property = HDC_GetProperty(feature, PropertyID);
 
   if (property == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, pRequestMessage);
 
-  HDC_Reply_BoolValue(property->PropertyIsReadonly, RequestMessage);
+  HDC_Reply_BoolValue(property->PropertyIsReadonly, pRequestMessage);
 }
 
 void HDC_MandatoryCmd_GetPropertyValue(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
-  uint8_t CommandID = RequestMessage[2];
+  uint8_t CommandID = pRequestMessage[2];
   if (CommandID==0x04 && Size != 4)  // Skip validation whenever called from HDC_MandatoryCmd_SetPropertyValue()
-    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
   assert_param(CommandID == 0xF4 || CommandID == 0xF5);  // This may have been called via HDC_MandatoryCmd_SetPropertyValue()
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t PropertyID = RequestMessage[3];
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t PropertyID = pRequestMessage[3];
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   const HDC_Property_Descriptor_t* property = HDC_GetProperty(feature, PropertyID);
 
   if (property == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, pRequestMessage);
 
   if (property->GetPropertyValue != NULL)
-    return property->GetPropertyValue(feature, property, RequestMessage, Size);
+    return property->GetPropertyValue(feature, property, pRequestMessage, Size);
 
   if (property->pValue == NULL)
     Error_Handler();  // ToDo: Complain about incorrect descriptor.
@@ -753,34 +753,34 @@ void HDC_MandatoryCmd_GetPropertyValue(
   switch (property->PropertyDataType) {
 
   case HDC_DataType_BOOL:
-    return HDC_Reply_BoolValue(*(bool*)property->pValue, RequestMessage);
+    return HDC_Reply_BoolValue(*(bool*)property->pValue, pRequestMessage);
 
   case HDC_DataType_UINT8:
-    return HDC_Reply_UInt8Value(*(uint8_t*)property->pValue, RequestMessage);
+    return HDC_Reply_UInt8Value(*(uint8_t*)property->pValue, pRequestMessage);
 
   case HDC_DataType_UINT16:
-    return HDC_Reply_UInt16Value(*(uint16_t*)property->pValue, RequestMessage);
+    return HDC_Reply_UInt16Value(*(uint16_t*)property->pValue, pRequestMessage);
 
   case HDC_DataType_UINT32:
-    return HDC_Reply_UInt32Value(*(uint32_t*)property->pValue, RequestMessage);
+    return HDC_Reply_UInt32Value(*(uint32_t*)property->pValue, pRequestMessage);
 
   case HDC_DataType_INT8:
-    return HDC_Reply_Int8Value(*(int8_t*)property->pValue, RequestMessage);
+    return HDC_Reply_Int8Value(*(int8_t*)property->pValue, pRequestMessage);
 
   case HDC_DataType_INT16:
-    return HDC_Reply_Int16Value(*(int16_t*)property->pValue, RequestMessage);
+    return HDC_Reply_Int16Value(*(int16_t*)property->pValue, pRequestMessage);
 
   case HDC_DataType_INT32:
-    return HDC_Reply_Int32Value(*(int32_t*)property->pValue, RequestMessage);
+    return HDC_Reply_Int32Value(*(int32_t*)property->pValue, pRequestMessage);
 
   case HDC_DataType_FLOAT:
-    return HDC_Reply_FloatValue(*(float*)property->pValue, RequestMessage);
+    return HDC_Reply_FloatValue(*(float*)property->pValue, pRequestMessage);
 
   case HDC_DataType_DOUBLE:
-    return HDC_Reply_DoubleValue(*(double*)property->pValue, RequestMessage);
+    return HDC_Reply_DoubleValue(*(double*)property->pValue, pRequestMessage);
 
   case HDC_DataType_UTF8:
-    return HDC_Reply_StringValue((char *)property->pValue, RequestMessage);
+    return HDC_Reply_StringValue((char *)property->pValue, pRequestMessage);
 
   case HDC_DataType_BLOB:
     if (property->ValueSize == 0)
@@ -788,7 +788,7 @@ void HDC_MandatoryCmd_GetPropertyValue(
     return HDC_Reply_BlobValue(
         (uint8_t *)property->pValue,
         property->ValueSize,
-        RequestMessage);
+        pRequestMessage);
   default:
     Error_Handler();  // ToDo: Complain about unknown property-data-type
   }
@@ -796,31 +796,31 @@ void HDC_MandatoryCmd_GetPropertyValue(
 
 void HDC_MandatoryCmd_SetPropertyValue(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(RequestMessage[2] == 0xF5);  // CommandID
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
+  assert_param(pRequestMessage[2] == 0xF5);  // CommandID
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t PropertyID = RequestMessage[3];
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t PropertyID = pRequestMessage[3];
 
   HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   const HDC_Property_Descriptor_t *property = HDC_GetProperty(feature, PropertyID);
 
   if (property == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, pRequestMessage);
 
   if (property->PropertyIsReadonly)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_PROPERTY_IS_READONLY, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_PROPERTY_IS_READONLY, pRequestMessage);
 
   // Validate size of received value
   uint8_t receivedValueSize = Size - 4;
-  const uint8_t *pNewValueAsRawBytes = RequestMessage + 4;
+  const uint8_t *pNewValueAsRawBytes = pRequestMessage + 4;
 
   // Lower nibble of a DataType's ID provides a hint about the size.
   const uint8_t lowerNibble = property->PropertyDataType & 0x0F;
@@ -831,7 +831,7 @@ void HDC_MandatoryCmd_SetPropertyValue(
 
     // Check for buffer overflow
     if (receivedValueSize >= property->ValueSize)  // Comparing with greater-or-equal to reserve one byte for the zero-terminator!
-      return HDC_Reply_Error(HDC_ReplyErrorCode_INVALID_PROPERTY_VALUE, RequestMessage);
+      return HDC_Reply_Error(HDC_ReplyErrorCode_INVALID_PROPERTY_VALUE, pRequestMessage);
 
     // Otherwise it's legal to receive a shorter value :-)
     // Note how empty values are legal, too.
@@ -843,11 +843,11 @@ void HDC_MandatoryCmd_SetPropertyValue(
         : lowerNibble;
 
     if (receivedValueSize != expectedValueSize)
-      return HDC_Reply_Error(HDC_ReplyErrorCode_INVALID_PROPERTY_VALUE, RequestMessage);
+      return HDC_Reply_Error(HDC_ReplyErrorCode_INVALID_PROPERTY_VALUE, pRequestMessage);
   }
 
   if (property->SetPropertyValue != NULL)
-    return property->SetPropertyValue(feature, property, RequestMessage, Size);
+    return property->SetPropertyValue(feature, property, pRequestMessage, Size);
 
   if (property->pValue == NULL)
     Error_Handler();  // ToDo: Complain about incorrect descriptor.
@@ -859,151 +859,151 @@ void HDC_MandatoryCmd_SetPropertyValue(
 
   // Note how the reply of a SetPropertyValue request is essentially
   // the same as for the GetPropertyValue request, except for the CommandID.
-  return HDC_MandatoryCmd_GetPropertyValue(hHDC_Feature, RequestMessage, Size);
+  return HDC_MandatoryCmd_GetPropertyValue(hHDC_Feature, pRequestMessage, Size);
 
 }
 
 void HDC_MandatoryCmd_GetPropertyDescription(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
   if (Size != 4)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(RequestMessage[2] == 0xF6);  // CommandID
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
+  assert_param(pRequestMessage[2] == 0xF6);  // CommandID
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t PropertyID = RequestMessage[3];
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t PropertyID = pRequestMessage[3];
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   // Special treatment of the mandatory FeatureState property, whose description
   // is provided by the Feature descriptor, because it's up to each feature's
   // implementation to define its state-machine.
   // Only if it doesn't we default to the one-size-fits-all default description.
   if (PropertyID == 0xF8 && hHDC_Feature->FeatureStatesDescription != NULL)
-    return HDC_Reply_StringValue(hHDC_Feature->FeatureStatesDescription, RequestMessage);
+    return HDC_Reply_StringValue(hHDC_Feature->FeatureStatesDescription, pRequestMessage);
 
   const HDC_Property_Descriptor_t* property = HDC_GetProperty(feature, PropertyID);
 
   if (property == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_PROPERTY, pRequestMessage);
 
-  HDC_Reply_StringValue(property->PropertyDescription, RequestMessage);
+  HDC_Reply_StringValue(property->PropertyDescription, pRequestMessage);
 }
 
 void HDC_MandatoryCmd_GetCommandName(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
   if (Size != 4)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(RequestMessage[2] == 0xF7);  // CommandID of the GetCommandName command
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
+  assert_param(pRequestMessage[2] == 0xF7);  // CommandID of the GetCommandName command
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t CommandID = RequestMessage[3];  // Not the CommandID of the GetCommandName command, but the CommandID whose name is being requested here. :o)
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t CommandID = pRequestMessage[3];  // Not the CommandID of the GetCommandName command, but the CommandID whose name is being requested here. :o)
 
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   const HDC_Command_Descriptor_t* command = HDC_GetCommand(feature, CommandID);
 
   if (command == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_COMMAND, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_COMMAND, pRequestMessage);
 
-  HDC_Reply_StringValue(command->CommandName, RequestMessage);
+  HDC_Reply_StringValue(command->CommandName, pRequestMessage);
 }
 
 void HDC_MandatoryCmd_GetCommandDescription(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
   if (Size != 4)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(RequestMessage[2] == 0xF8);  // CommandID of the GetCommandDescription command
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
+  assert_param(pRequestMessage[2] == 0xF8);  // CommandID of the GetCommandDescription command
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t CommandID = RequestMessage[3];  // Not the CommandID of the GetCommandName command, but the CommandID whose name is being requested here. :o)
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t CommandID = pRequestMessage[3];  // Not the CommandID of the GetCommandName command, but the CommandID whose name is being requested here. :o)
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   const HDC_Command_Descriptor_t* command = HDC_GetCommand(feature, CommandID);
 
   if (command == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_COMMAND, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_COMMAND, pRequestMessage);
 
-  HDC_Reply_StringValue(command->CommandDescription, RequestMessage);
+  HDC_Reply_StringValue(command->CommandDescription, pRequestMessage);
 }
 
 void HDC_MandatoryCmd_GetEventName(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
   if (Size != 4)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(RequestMessage[2] == 0xF9);  // CommandID
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
+  assert_param(pRequestMessage[2] == 0xF9);  // CommandID
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t EventID = RequestMessage[3];
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t EventID = pRequestMessage[3];
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   const HDC_Event_Descriptor_t* event = HDC_GetEvent(feature, EventID);
 
   if (event == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_EVENT, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_EVENT, pRequestMessage);
 
-  HDC_Reply_StringValue(event->EventName, RequestMessage);
+  HDC_Reply_StringValue(event->EventName, pRequestMessage);
 }
 
 void HDC_MandatoryCmd_GetEventDescription(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
   if (Size != 4)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(RequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(RequestMessage[2] == 0xFA);  // CommandID
+  assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
+  assert_param(pRequestMessage[2] == 0xFA);  // CommandID
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t EventID = RequestMessage[3];
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t EventID = pRequestMessage[3];
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   const HDC_Event_Descriptor_t* event = HDC_GetEvent(feature, EventID);
 
   if (event == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_EVENT, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_EVENT, pRequestMessage);
 
-  HDC_Reply_StringValue(event->EventDescription, RequestMessage);
+  HDC_Reply_StringValue(event->EventDescription, pRequestMessage);
 }
 
 
@@ -1189,27 +1189,27 @@ void HDC_FeatureStateTransition(HDC_Feature_Descriptor_t *hHDC_Feature, uint8_t 
 ///////////////////////////////////////////////
 // Getters and setters for mandatory Properties
 
-void HDC_Property_FeatureName_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
-  return HDC_Reply_StringValue(hHDC_Feature->FeatureName, RequestMessage);
+void HDC_Property_FeatureName_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+  return HDC_Reply_StringValue(hHDC_Feature->FeatureName, pRequestMessage);
 }
 
-void HDC_Property_FeatureTypeName_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
-  return HDC_Reply_StringValue(hHDC_Feature->FeatureTypeName, RequestMessage);
+void HDC_Property_FeatureTypeName_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+  return HDC_Reply_StringValue(hHDC_Feature->FeatureTypeName, pRequestMessage);
 }
 
-void HDC_Property_FeatureTypeRevision_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
-  return HDC_Reply_UInt8Value(hHDC_Feature->FeatureTypeRevision, RequestMessage);
+void HDC_Property_FeatureTypeRevision_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+  return HDC_Reply_UInt8Value(hHDC_Feature->FeatureTypeRevision, pRequestMessage);
 }
 
-void HDC_Property_FeatureDescription_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
-  return HDC_Reply_StringValue(hHDC_Feature->FeatureDescription, RequestMessage);
+void HDC_Property_FeatureDescription_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+  return HDC_Reply_StringValue(hHDC_Feature->FeatureDescription, pRequestMessage);
 }
 
-void HDC_Property_FeatureTags_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
-  return HDC_Reply_StringValue(hHDC_Feature->FeatureTags, RequestMessage);
+void HDC_Property_FeatureTags_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+  return HDC_Reply_StringValue(hHDC_Feature->FeatureTags, pRequestMessage);
 }
 
-void HDC_Property_AvailableCommands_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_AvailableCommands_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   uint8_t availableCommands[256] = {0}; // There can't be more than 256 per feature
   uint8_t n=0;
   for (uint8_t i=0; i < hHDC_Feature->NumCommands;i++)
@@ -1218,10 +1218,10 @@ void HDC_Property_AvailableCommands_get(const HDC_Feature_Descriptor_t *hHDC_Fea
   for (uint8_t i=0; i < NUM_MANDATORY_COMMANDS;i++)
     availableCommands[n++] = HDC_MandatoryCommands[i]->CommandID;
 
-  HDC_Reply_BlobValue(availableCommands, n, RequestMessage);
+  HDC_Reply_BlobValue(availableCommands, n, pRequestMessage);
 }
 
-void HDC_Property_AvailableEvents_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_AvailableEvents_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   uint8_t availableEvents[256] = {0}; // There can't be more than 256 per feature
   uint8_t n=0;
   for (uint8_t i=0; i< hHDC_Feature->NumEvents;i++)
@@ -1229,10 +1229,10 @@ void HDC_Property_AvailableEvents_get(const HDC_Feature_Descriptor_t *hHDC_Featu
   for (uint8_t i=0; i < NUM_MANDATORY_EVENTS;i++)
     availableEvents[n++] = HDC_MandatoryEvents[i]->EventID;
 
-  HDC_Reply_BlobValue(availableEvents, n, RequestMessage);
+  HDC_Reply_BlobValue(availableEvents, n, pRequestMessage);
 }
 
-void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* RequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   uint8_t availableProperties[256] = {0}; // There can't be more than 256 per feature
   uint8_t n=0;
   for (uint8_t i=0; i< hHDC_Feature->NumProperties;i++)
@@ -1244,45 +1244,45 @@ void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_F
       availableProperties[n++] = HDC_MandatoryPropertiesOfCoreFeature[i]->PropertyID;
   }
 
-  HDC_Reply_BlobValue(availableProperties, n, RequestMessage);
+  HDC_Reply_BlobValue(availableProperties, n, pRequestMessage);
 }
 
 void HDC_Property_FeatureState_get(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
     const struct HDC_Property_struct *hHDC_Property,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {
-  HDC_Reply_UInt8Value(hHDC_Feature->FeatureState, RequestMessage);
+  HDC_Reply_UInt8Value(hHDC_Feature->FeatureState, pRequestMessage);
 }
 
 void HDC_Property_LogEventThreshold_get(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
     const struct HDC_Property_struct *hHDC_Property,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {
-  HDC_Reply_UInt8Value(hHDC_Feature->LogEventThreshold, RequestMessage);
+  HDC_Reply_UInt8Value(hHDC_Feature->LogEventThreshold, pRequestMessage);
 }
 
 void HDC_Property_LogEventThreshold_set(
     HDC_Feature_Descriptor_t *hHDC_Feature,
     const struct HDC_Property_struct *hHDC_Property,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {
-  uint8_t newValue = *((const uint8_t *)(RequestMessage + 4));
+  uint8_t newValue = *((const uint8_t *)(pRequestMessage + 4));
 
   newValue = CONSTRAIN(newValue, HDC_EventLogLevel_DEBUG, HDC_EventLogLevel_CRITICAL);
 
   hHDC_Feature->LogEventThreshold = newValue;
-  HDC_Reply_UInt8Value(hHDC_Feature->LogEventThreshold, RequestMessage);
+  HDC_Reply_UInt8Value(hHDC_Feature->LogEventThreshold, pRequestMessage);
 }
 
 void HDC_Property_AvailableFeatures_get(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
     const struct HDC_Property_struct *hHDC_Property,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {
 
@@ -1291,7 +1291,7 @@ void HDC_Property_AvailableFeatures_get(
   uint8_t availableFeatures[256] = {0}; // There can't be more than 256 features.
   for (uint8_t i=0; i< hHDC.NumFeatures;i++)
     availableFeatures[i] = hHDC.Features[i]->FeatureID;
-  return HDC_Reply_BlobValue(availableFeatures, hHDC.NumFeatures, RequestMessage);
+  return HDC_Reply_BlobValue(availableFeatures, hHDC.NumFeatures, pRequestMessage);
 }
 
 
@@ -1425,30 +1425,30 @@ void HDC_ProcessRxPacket(const uint8_t *packet) {
   if (MessageSize==0)  // Ignore empty messages. They are legal, but currently without purpose.
     return;
 
-  const uint8_t *RequestMessage = packet+1;
-  const uint8_t MessageType = RequestMessage[0];
+  const uint8_t *pRequestMessage = packet+1;
+  const uint8_t MessageType = pRequestMessage[0];
 
   if (MessageType == HDC_MessageType_COMMAND_ECHO)
-    return HDC_MandatoryCmd_Echo(NULL, RequestMessage, MessageSize);
+    return HDC_MandatoryCmd_Echo(NULL, pRequestMessage, MessageSize);
 
   if (MessageType != HDC_MessageType_COMMAND_FEATURE)
     // Note how we can't reply with a ReplyErrorCode, because we don't
     // even know if this is a proper Command request.
     return HDC_Raise_Event_Log(NULL, HDC_EventLogLevel_ERROR, "Unknown message type");
 
-  uint8_t FeatureID = RequestMessage[1];
-  uint8_t CommandID = RequestMessage[2];
+  uint8_t FeatureID = pRequestMessage[1];
+  uint8_t CommandID = pRequestMessage[2];
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
   const HDC_Command_Descriptor_t* command = HDC_GetCommand(feature, CommandID);
 
   if (command == NULL)
-    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_COMMAND, RequestMessage);
+    return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_COMMAND, pRequestMessage);
 
 
-  command->HandleRequest(feature, RequestMessage, MessageSize);
+  command->HandleRequest(feature, pRequestMessage, MessageSize);
 }

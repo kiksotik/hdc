@@ -43,19 +43,19 @@ struct HDC_Property_struct;
 // Improve readability of function-pointer types
 typedef void (*HDC_RequestHandler_t)(
     const struct HDC_Feature_struct *hHDC_Feature,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t Size);
 
 typedef void (*HDC_PropertyValueGetter_t)(
     const struct HDC_Feature_struct *hHDC_Feature,
     const struct HDC_Property_struct *hHDC_Property,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize);
 
 typedef void (*HDC_PropertyValueSetter_t)(
     struct HDC_Feature_struct *hHDC_Feature,
     const struct HDC_Property_struct *hHDC_Property,
-    const uint8_t* RequestMessage,
+    const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize);
 
 

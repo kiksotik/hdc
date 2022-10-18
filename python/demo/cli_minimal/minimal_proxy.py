@@ -25,12 +25,14 @@ class MinimalCore(proxy_base.CoreFeatureProxyBase):
         self.prop_led_blinking_rate = proxy_base.PropertyProxy_RW_UINT8(self, property_id=0x13)
 
     class FeatureStateEnum(enum.IntEnum):
+        """Used by FeatureProxyBase.resolve_state_name() to resolve names of states of the MinimalCore feature."""
         OFF = 0
         INITIALIZING = 1
         READY = 2
         ERROR = 0xFF
 
     class ButtonEventPayload:
+        """Used by the self.evt_button proxy to parse raw event messages into custom event payload objects."""
         def __init__(self, event_message: bytes):
             self.received_at = datetime.utcnow()
             self.button_id = event_message[3]
@@ -43,5 +45,5 @@ class MinimalDevice(proxy_base.DeviceProxyBase):
     def __init__(self, connection_url: str):
         super().__init__(connection_url=connection_url)
 
-        # Hardware-Features
-        self.core = MinimalCore(self)  # Override base Core-Feature proxy with a more specific one
+        # Demo_Minimal only implements the mandatory Core feature
+        self.core = MinimalCore(self)  # Override base Core-Feature proxy with a more specific one.

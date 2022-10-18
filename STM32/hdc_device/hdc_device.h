@@ -279,14 +279,6 @@ void HDC_Reply_Event_Log(
     HDC_EventLogLevel_t logLevel,
     char* logText);
 
-void HDC_GetTxBufferWithCapacityForAtLeast(uint16_t capacity, uint8_t **pBuffer, uint16_t **pNumBytesInBuffer);
-
-//////////////////////////////////////
-// Descriptor instances that must be
-// implemented by the core feature.
-
-extern const HDC_Property_Descriptor_t HDC_MandatoryCoreProperty_MaxReqMsgSize;
-extern const HDC_Property_Descriptor_t HDC_MandatoryCoreProperty_AvailableFeatures;
 
 
 #endif /* INC_HDC_DEVICE_H_ */

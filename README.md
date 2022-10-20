@@ -13,7 +13,7 @@ Warning: The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-S
 ### Device firmware for STM32 microcontrollers
 Create your own STM32CubeIDE workspace directly in the ``STM32`` folder and import the demo 
 project that matches the version of the NUCLEO prototyping board of your choice.  
-For further details refer to [STM32/README.md](https://github.com/kiksotik/hdc/blob/main/STM32/README.md)
+For further details refer to [``STM32/README.md``](https://github.com/kiksotik/hdc/blob/main/STM32/README.md)
 
 [![STM32CubeIDE][STM32CubeIDE-shield]][STM32CubeIDE-url]
 
@@ -30,7 +30,7 @@ For further details refer to [STM32/README.md](https://github.com/kiksotik/hdc/b
 Please refer to the demo projects:
 * Minimal_Demo:
   * HDC-device implementation in [``STM32/demo/Demo_Minimal_NUCLEO-F303RE/Core/Src/feature_core.c``](https://github.com/kiksotik/hdc/blob/main/STM32/demo/Demo_Minimal_NUCLEO-F303RE/Core/Src/feature_core.c)  
-    _The remainder of that example's source-code is just the very bloated way the STM32CubeIDE wizzard sets up a HAL based project._
+    _The remainder of that example's source-code is just the very bloated way the STM32CubeMX wizzard sets up a HAL based project._
 	
   * HDC-host python implementation in [``python/demo/cli_minimal/minimal_proxy.py``](https://github.com/kiksotik/hdc/blob/main/python/demo/cli_minimal/minimal_proxy.py)  
     How to use said python proxy is demonstrated in [``python/demo/cli_minimal/showcase_minimal.py``](https://github.com/kiksotik/hdc/blob/main/python/demo/cli_minimal/showcase_minimal.py)  

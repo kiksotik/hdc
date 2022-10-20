@@ -8,10 +8,13 @@ For more details on HDC, please refer to https://github.com/kiksotik/hdc
 
 ## How to deploy this ``hdc_device`` driver into your own projects
 Current ``hdc_device`` implementation is hardcoded to use USART via DMA via their HAL drivers.
+
 This is how you should set up your project:
 * Use the STM32 project creation wizzard to set up a new STM32CubeMX based project 
   for the kind of microcontroller or prototyping board of your choice.
+  
 * Copy the ''STM32/hdc_device/'' folder of this repository into the ``Drivers/`` folder of your project.
+
 * Open the ioc file of your project and tweak the following:
   * Enable a USART module to be used for HDC communication.  
     Projects for NUCLEO boards are typically already set up with the USART which uses the 
@@ -55,9 +58,19 @@ This is how you should set up your project:
     /* USER CODE END USART2_IRQn 1 */
     ```
 	
-  * 
+  * Copy the file ``hdc_device_conf_TEMPLATE.h`` from this folder to the ``Core/Src`` folder of 
+    your project and rename it to ``hdc_device_conf.h``.  
+	The definitions contained therein only need to be tweaked if your project requires to reduce 
+	the RAM consumption of the ``hdc_device`` driver.
+	
+  * Implement the core-feature of your application.  
+    You can use as a template the ``feature_core.c/h`` files of the ``DEMO_MINIMAL`` example 
+	project at ``STM32/demo/DEMO_MINIMAL_NUCLEO-\*/Core/Src``.
+	
+  * Include, initialize and update your core-feature in your project's ``main.c`` file.
+  
+  * You may consider implementing additional HDC-features for your device.
    
-
 ## How to verify if data is being transfered correctly?
   Set a breakpoint in ``hdc_device.c`` in ``HDC_RxCpltCallback()`` and check whether any bytes have been sent 
   when running i.e. ``demo_introspection.py`` script on the host.
@@ -66,6 +79,6 @@ This is how you should set up your project:
   USART parameters (i.e. the baudrate) or the wiring of your device.
 
 
-## License
+# License
 Distributed under the MIT License.  
 See `LICENSE.txt` for more information.

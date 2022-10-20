@@ -1189,27 +1189,27 @@ void HDC_FeatureStateTransition(HDC_Feature_Descriptor_t *hHDC_Feature, uint8_t 
 ///////////////////////////////////////////////
 // Getters and setters for mandatory Properties
 
-void HDC_Property_FeatureName_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_FeatureName_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   return HDC_Reply_StringValue(hHDC_Feature->FeatureName, pRequestMessage);
 }
 
-void HDC_Property_FeatureTypeName_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_FeatureTypeName_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   return HDC_Reply_StringValue(hHDC_Feature->FeatureTypeName, pRequestMessage);
 }
 
-void HDC_Property_FeatureTypeRevision_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_FeatureTypeRevision_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   return HDC_Reply_UInt8Value(hHDC_Feature->FeatureTypeRevision, pRequestMessage);
 }
 
-void HDC_Property_FeatureDescription_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_FeatureDescription_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   return HDC_Reply_StringValue(hHDC_Feature->FeatureDescription, pRequestMessage);
 }
 
-void HDC_Property_FeatureTags_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_FeatureTags_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   return HDC_Reply_StringValue(hHDC_Feature->FeatureTags, pRequestMessage);
 }
 
-void HDC_Property_AvailableCommands_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_AvailableCommands_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   uint8_t availableCommands[256] = {0}; // There can't be more than 256 per feature
   uint8_t n=0;
   for (uint8_t i=0; i < hHDC_Feature->NumCommands;i++)
@@ -1221,7 +1221,7 @@ void HDC_Property_AvailableCommands_get(const HDC_Feature_Descriptor_t *hHDC_Fea
   HDC_Reply_BlobValue(availableCommands, n, pRequestMessage);
 }
 
-void HDC_Property_AvailableEvents_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_AvailableEvents_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   uint8_t availableEvents[256] = {0}; // There can't be more than 256 per feature
   uint8_t n=0;
   for (uint8_t i=0; i< hHDC_Feature->NumEvents;i++)
@@ -1232,7 +1232,7 @@ void HDC_Property_AvailableEvents_get(const HDC_Feature_Descriptor_t *hHDC_Featu
   HDC_Reply_BlobValue(availableEvents, n, pRequestMessage);
 }
 
-void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const struct HDC_Property_struct *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
+void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   uint8_t availableProperties[256] = {0}; // There can't be more than 256 per feature
   uint8_t n=0;
   for (uint8_t i=0; i< hHDC_Feature->NumProperties;i++)
@@ -1249,7 +1249,7 @@ void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_F
 
 void HDC_Property_FeatureState_get(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const struct HDC_Property_struct *hHDC_Property,
+    const HDC_Property_Descriptor_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {
@@ -1258,7 +1258,7 @@ void HDC_Property_FeatureState_get(
 
 void HDC_Property_LogEventThreshold_get(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const struct HDC_Property_struct *hHDC_Property,
+    const HDC_Property_Descriptor_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {
@@ -1267,7 +1267,7 @@ void HDC_Property_LogEventThreshold_get(
 
 void HDC_Property_LogEventThreshold_set(
     HDC_Feature_Descriptor_t *hHDC_Feature,
-    const struct HDC_Property_struct *hHDC_Property,
+    const HDC_Property_Descriptor_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {
@@ -1281,7 +1281,7 @@ void HDC_Property_LogEventThreshold_set(
 
 void HDC_Property_AvailableFeatures_get(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const struct HDC_Property_struct *hHDC_Property,
+    const HDC_Property_Descriptor_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {

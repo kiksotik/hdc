@@ -36,25 +36,29 @@
 #define HDC_MAX_REQ_PACKAGE_SIZE (HDC_MAX_REQ_MESSAGE_SIZE + HDC_PACKAGE_OVERHEAD)
 #define HDC_BUFFER_SIZE_RX HDC_MAX_REQ_PACKAGE_SIZE
 
-// Forward declaration of HDC structs which we need in the following function-pointer typedef
+// Forward declaration of HDC structs and their typedefs,
+// which we need in the following function-pointer typedefs
 struct HDC_Feature_struct;
+typedef struct HDC_Feature_struct HDC_Feature_Descriptor_t;
+
 struct HDC_Property_struct;
+typedef struct HDC_Property_struct HDC_Property_Descriptor_t;
 
 // Improve readability of function-pointer types
 typedef void (*HDC_RequestHandler_t)(
-    const struct HDC_Feature_struct *hHDC_Feature,
+    const HDC_Feature_Descriptor_t *hHDC_Feature,
     const uint8_t* pRequestMessage,
     const uint8_t Size);
 
 typedef void (*HDC_PropertyValueGetter_t)(
-    const struct HDC_Feature_struct *hHDC_Feature,
-    const struct HDC_Property_struct *hHDC_Property,
+    const HDC_Feature_Descriptor_t *hHDC_Feature,
+    const HDC_Property_Descriptor_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize);
 
 typedef void (*HDC_PropertyValueSetter_t)(
-    struct HDC_Feature_struct *hHDC_Feature,
-    const struct HDC_Property_struct *hHDC_Property,
+    HDC_Feature_Descriptor_t *hHDC_Feature,
+    const HDC_Property_Descriptor_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize);
 

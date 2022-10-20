@@ -17,7 +17,7 @@ HDC_Feature_Descriptor_t Core_HDC_Feature;
 // HDC Commands
 
 // Command handler
-void Core_HDC_Cmd_Reset(const struct HDC_Feature_struct *hHDC_Feature,
+void Core_HDC_Cmd_Reset(const HDC_Feature_Descriptor_t *hHDC_Feature,
                         const uint8_t* pRequestMessage,
                         const uint8_t Size) {
   if (Size != 3)  // MessageType ; FeatureID ; CommandID

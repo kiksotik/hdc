@@ -18,7 +18,7 @@ typedef enum {
 ///////////////////////////////
 // API of the Feature
 void Core_Init(UART_HandleTypeDef *huart);
-void Core_UpdateState(void);
+void Core_Work(void);
 void Core_ErrorHandler(HDC_EventLogLevel_t logLevel, char* errorMessage);
 
 

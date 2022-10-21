@@ -213,7 +213,7 @@ void HDC_Init(
     HDC_Feature_Descriptor_t **HDC_Features,
     uint8_t NumFeatures);
 
-uint32_t HDC_UpdateState();
+uint32_t HDC_Work();
 
 void HDC_Flush(void);
 

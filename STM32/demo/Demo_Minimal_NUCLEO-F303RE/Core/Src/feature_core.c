@@ -212,7 +212,7 @@ void Core_Init(UART_HandleTypeDef *huart) {
   HDC_FeatureStateTransition(&Core_HDC_Feature, Core_State_Ready);
 }
 
-void Core_UpdateState(void) {
+void Core_Work(void) {
   uint32_t ticksNow = HAL_GetTick();
 
   // LED blinking, whose rate is controlled via a read-writable HDC-property
@@ -238,7 +238,7 @@ void Core_UpdateState(void) {
   }
 
   // The following call handles the actual transmission and reception of HDC-messages
-  HDC_UpdateState();
+  HDC_Work();
 }
 
 void Core_ErrorHandler(HDC_EventLogLevel_t logLevel, char* errorMessage) {

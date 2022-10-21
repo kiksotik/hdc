@@ -158,7 +158,7 @@ uint8_t* HDC_ProcessRxBuffer() {
   return NULL;
 }
 
-uint32_t HDC_UpdateState() {
+uint32_t HDC_Work() {
 
   // Did we receive a chunk?
   if (hHDC.isDmaRxComplete) {

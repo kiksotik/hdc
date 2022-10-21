@@ -37,12 +37,12 @@ void Core_HDC_Cmd_Reset(const HDC_Feature_Descriptor_t *hHDC_Feature,
 const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
 
   &(HDC_Command_Descriptor_t) {
-    .CommandID = 0xC1,
-    .CommandName = "Reset",
-    .CommandHandler = &Core_HDC_Cmd_Reset,
+    .CommandID = 0xC1,       // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
+    .CommandName = "Reset",  // Name of the corresponding, automatically generated API-method in a proxy-class.
+    .CommandHandler = &Core_HDC_Cmd_Reset,  // Function pointer to the handler defined above.
     .CommandDescription =
-        "(void) -> void\n"
-        "Reinitializes the whole device."
+        "(void) -> void\n"                 // ToDo: Standardize argument and return value documentation.
+        "Reinitializes the whole device."  // Human readable docstring
   },
 
   // Note how hdc_device driver takes care of all mandatory HDC-commands (GetPropertyName, GetPropertyValue, ...)
@@ -56,8 +56,8 @@ const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
 // Note how it's convenient to define it as a proper variable, so that
 // the Core_HDC_Raise_Event_Button() method below can access the EventID it defines.
 HDC_Event_Descriptor_t Core_HDC_Event_Button = {
-      .EventID = 0x01,
-      .EventName = "ButtonEvent",
+      .EventID = 0x01,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
+      .EventName = "ButtonEvent",  // Name of the corresponding, automatically generated event handler in a proxy-class.
       .EventDescription = "-> UINT8 ButtonID, UINT8 ButtonState\n"
                           "Showcases how HDC handles events: Notify host about the button being pressed on the device."
 };
@@ -106,12 +106,12 @@ void Core_HDC_Property_uC_REVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature
 uint8_t led_blinking_rate = 5;
 
 // Example of HDC-property descriptors.
-// Note how some struct members can simply be left at their default value.
+// Note how some descriptor attributes can simply be omitted.
 const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
 
   &(HDC_Property_Descriptor_t ) {
-    .PropertyID = 0x10,
-    .PropertyName = "uC_DEVID",
+    .PropertyID = 0x10,          // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
+    .PropertyName = "uC_DEVID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataType_UINT32,
     .PropertyIsReadonly = true,
     .GetPropertyValue = Core_HDC_Property_uC_DEVID_get,  // hdc_driver will use this getter to obtain the value.
@@ -119,8 +119,8 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
   },
 
   &(HDC_Property_Descriptor_t ) {
-    .PropertyID = 0x11,
-    .PropertyName = "uC_REVID",
+    .PropertyID = 0x11,          // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
+    .PropertyName = "uC_REVID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataType_UINT32,
     .PropertyIsReadonly = true,
     .GetPropertyValue = Core_HDC_Property_uC_REVID_get,  // hdc_driver will use this getter to obtain the value.
@@ -128,8 +128,8 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
   },
 
   &(HDC_Property_Descriptor_t ) {
-    .PropertyID = 0x12,
-    .PropertyName = "uC_UID",
+    .PropertyID = 0x12,        // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
+    .PropertyName = "uC_UID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataType_BLOB,
     .PropertyIsReadonly = true,
     .pValue = (void*) UID_BASE,  // hdc_driver will use this pointer/address to obtain the value.
@@ -138,11 +138,11 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
   },
 
   &(HDC_Property_Descriptor_t ) {
-    .PropertyID = 0x13,
-    .PropertyName = "LedBlinkingRate",
+    .PropertyID = 0x13,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
+    .PropertyName = "LedBlinkingRate",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataType_UINT8,
     .PropertyIsReadonly = false,
-    .pValue = &led_blinking_rate,  // hdc_driver will read or write value directly from/to this memory address.
+    .pValue = &led_blinking_rate,  // hdc_driver will read/write value directly from/to this memory address.
                                    // No need to specify any ValueSize, because hdc_driver infers it from the data type.
     .PropertyDescription = "Blinking frequency of the LED given in Herz."
   },
@@ -158,13 +158,13 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
 // Example of an HDC-feature descriptor.
 // In this case for the mandatory core-feature of this device.
 HDC_Feature_Descriptor_t Core_HDC_Feature = {
-  .FeatureID = HDC_FEATUREID_CORE,
-  .FeatureName = "Core",                // Name of this feature instance. (aka "objects")
-  .FeatureTypeName = "MinimalCore",     // Name of this feature's implementation
+  .FeatureID = HDC_FEATUREID_CORE,      // A FeatureID of 0x00 is what makes this the mandatory Core-Feature of this device.
+  .FeatureName = "Core",                // Name of this feature instance --> name of the proxy instance
+  .FeatureTypeName = "MinimalCore",     // Name of this feature's implementation --> name of the proxy class
   .FeatureTypeRevision = 1,             // Revision number of this feature's implementation
   .FeatureDescription = "Core feature of the minimal demo.",  // Docstring about this feature
   .FeatureTags = "Demo;NUCLEO-F303RE",  // ToDo: Standardize tag delimiter and explain potential use-cases.
-  // Documentation of this feature's states and their human readable names. Syntax as for python dictionary initialization.
+  // Documentation of this feature's states and their human readable names. Syntax as for python dictionary initialization
   .FeatureStatesDescription = "{0:'Off', 1:'Initializing', 2:'Ready', 0xFF:'Error'}",
   .Commands = Core_HDC_Commands,
   .NumCommands = sizeof(Core_HDC_Commands) / sizeof(HDC_Command_Descriptor_t*),

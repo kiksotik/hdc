@@ -1,5 +1,6 @@
 # About
-The ``STM32`` sub-folder contains source-code for the [STM32](https://en.wikipedia.org/wiki/STM32) family of microcontrollers.
+The ``STM32`` sub-folder contains source-code for 
+the [STM32](https://en.wikipedia.org/wiki/STM32) family of microcontrollers.
 
 * Sub-folder ``hdc_device``  
   HDC-device driver implementation that is portable to many STM32 
@@ -19,6 +20,21 @@ The ``STM32`` sub-folder contains source-code for the [STM32](https://en.wikiped
 * Are there better ways to share STM32 source code?
   Learn how others setup their STM32 repositories:
   * https://github.com/afiskon/stm32-ssd1306
+  
+* Explore the ecosystem of related/similar projects:
+  * [TinyProto](https://github.com/lexus2k/tinyproto)
+    * Nice, tidy and very mature project. One can learn a lot from it!
+	* An implementation of [RFC 1662](https://www.rfc-editor.org/rfc/rfc1662), which is _only_ OSI layer 2.
+	* Excellent [arduino implementation](https://www.arduino.cc/reference/en/libraries/tinyproto/), which 
+	  is a good example to follow when porting HDC to arduino.
+	* ToDo: Does it make sense to replace the current HDC "packetizer" with TinyProto?
+  
+  * [nanoFramework](https://github.com/nanoframework/nf-interpreter)
+    * Not a protocol, but C# code for embedded systems: https://www.nanoframework.net/
+	* Designed to support many different targets: STM32, ESP32, NXP, TI, ...
+	* Use https://cloudsmith.com/company/ for publication of binary artifacts.
+	* ToDo: Does it make sense to implement HDC for nanoFramework?
 
 * Refactor ``hdc_device`` implementation for a cleaner separation of USART / USB-VCP / etc implementations.
-  * Abstracting the interface to the transport layer may not be worth it, because it might degrade the clarity and performance of the implementation!
+  * Abstracting the interface to the transport layer may not be worth it, because it might degrade the 
+    clarity and performance of the implementation!

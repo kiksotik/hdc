@@ -45,7 +45,7 @@ struct HDC_Property_struct;
 typedef struct HDC_Property_struct HDC_Property_Descriptor_t;
 
 // Improve readability of function-pointer types
-typedef void (*HDC_RequestHandler_t)(
+typedef void (*HDC_CommandHandler_t)(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
     const uint8_t* pRequestMessage,
     const uint8_t Size);
@@ -136,7 +136,7 @@ typedef enum {
 typedef struct {
   uint8_t CommandID;
   char* CommandName;
-  HDC_RequestHandler_t HandleRequest;
+  HDC_CommandHandler_t CommandHandler;
   char* CommandDescription;
 } HDC_Command_Descriptor_t;
 

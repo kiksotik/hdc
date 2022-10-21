@@ -1014,35 +1014,35 @@ const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
   &(HDC_Command_Descriptor_t){
     .CommandID = 0xF1,
     .CommandName = "GetPropertyName",
-    .HandleRequest = &HDC_MandatoryCmd_GetPropertyName,
+    .CommandHandler = &HDC_MandatoryCmd_GetPropertyName,
     .CommandDescription = "(UINT8 PropertyID) -> UTF8"
   },
 
   &(HDC_Command_Descriptor_t){
     .CommandID = 0xF2,
     .CommandName = "GetPropertyType",
-    .HandleRequest = &HDC_MandatoryCmd_GetPropertyType,
+    .CommandHandler = &HDC_MandatoryCmd_GetPropertyType,
     .CommandDescription = "(UINT8 PropertyID) -> UINT8"
   },
 
   &(HDC_Command_Descriptor_t){
     .CommandID = 0xF3,
     .CommandName = "GetPropertyReadonly",
-    .HandleRequest = &HDC_MandatoryCmd_GetPropertyReadonly,
+    .CommandHandler = &HDC_MandatoryCmd_GetPropertyReadonly,
     .CommandDescription = "(UINT8 PropertyID) -> BOOL"
   },
 
   &(HDC_Command_Descriptor_t){
     .CommandID = 0xF4,
     .CommandName = "GetPropertyValue",
-    .HandleRequest = &HDC_MandatoryCmd_GetPropertyValue,
+    .CommandHandler = &HDC_MandatoryCmd_GetPropertyValue,
     .CommandDescription = "(UINT8 PropertyID) -> PropertyType"
   },
 
   &(HDC_Command_Descriptor_t){
     .CommandID = 0xF5,
     .CommandName = "SetPropertyValue",
-    .HandleRequest = &HDC_MandatoryCmd_SetPropertyValue,
+    .CommandHandler = &HDC_MandatoryCmd_SetPropertyValue,
     .CommandDescription = "(UINT8 PropertyID, PropertyType NewValue) -> return value as for GetPropertyValue.\n"
         "Returned value might differ from NewValue argument, i.e. because of trimming to valid range or discretisation."
   },
@@ -1050,21 +1050,21 @@ const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
   &(HDC_Command_Descriptor_t){
       .CommandID = 0xF6,
       .CommandName = "GetPropertyDescription",
-      .HandleRequest = &HDC_MandatoryCmd_GetPropertyDescription,
+      .CommandHandler = &HDC_MandatoryCmd_GetPropertyDescription,
       .CommandDescription = "(UINT8 PropertyID) -> UTF8"
     },
 
   &(HDC_Command_Descriptor_t){
     .CommandID = 0xF7,
     .CommandName = "GetCommandName",
-    .HandleRequest = &HDC_MandatoryCmd_GetCommandName,
+    .CommandHandler = &HDC_MandatoryCmd_GetCommandName,
     .CommandDescription = "(UINT8 CommandID) -> UTF8"
   },
 
   &(HDC_Command_Descriptor_t){
     .CommandID = 0xF8,
     .CommandName = "GetCommandDescription",
-    .HandleRequest = &HDC_MandatoryCmd_GetCommandDescription,
+    .CommandHandler = &HDC_MandatoryCmd_GetCommandDescription,
     .CommandDescription = "(UINT8 CommandID) -> UTF8"
   },
 
@@ -1072,14 +1072,14 @@ const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
   &(HDC_Command_Descriptor_t){
     .CommandID = 0xF9,
     .CommandName = "GetEventName",
-    .HandleRequest = &HDC_MandatoryCmd_GetEventName,
+    .CommandHandler = &HDC_MandatoryCmd_GetEventName,
     .CommandDescription = "(UINT8 EventID) -> UTF8"
   },
 
   &(HDC_Command_Descriptor_t){
     .CommandID = 0xFA,
     .CommandName = "GetEventDescription",
-    .HandleRequest = &HDC_MandatoryCmd_GetEventDescription,
+    .CommandHandler = &HDC_MandatoryCmd_GetEventDescription,
     .CommandDescription = "(UINT8 EventID) -> UTF8"
   }
 };
@@ -1450,5 +1450,5 @@ void HDC_ProcessRxPacket(const uint8_t *packet) {
     return HDC_Reply_Error(HDC_ReplyErrorCode_UNKNOWN_COMMAND, pRequestMessage);
 
 
-  command->HandleRequest(feature, pRequestMessage, MessageSize);
+  command->CommandHandler(feature, pRequestMessage, MessageSize);
 }

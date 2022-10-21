@@ -38,7 +38,7 @@ const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
   &(HDC_Command_Descriptor_t) {
     .CommandID = 0xC1,
     .CommandName = "Reset",
-    .HandleRequest = &Core_HDC_Cmd_Reset,
+    .CommandHandler = &Core_HDC_Cmd_Reset,
     .CommandDescription =
         "(void) -> void\n"
         "Reinitializes the whole device."

@@ -12,22 +12,6 @@ from common import MessageType, HdcError
 from transport.base import TransportBase
 
 
-class HdcReplyError(HdcError):
-    reply_message: bytes
-
-    def __init__(self, error_name: str, reply_message: bytes):
-        self.reply_message = reply_message
-        super().__init__(error_name)
-
-    @property
-    def error_code(self) -> int:
-        return self.reply_message[3]
-
-    @property
-    def error_description(self) -> str:
-        return self.reply_message[4:].decode(encoding="utf-8", errors="strict")
-
-
 class MessageRouter:
     """
     Plugs things together:

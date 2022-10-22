@@ -13,6 +13,7 @@ from datetime import datetime
 import common
 import host.router
 import transport.serialport
+from common import HdcError
 
 DEFAULT_REPLY_TIMEOUT = 0.2
 
@@ -65,7 +66,7 @@ class CommandProxyBase:
         error_code = reply_message[3]
         if error_code != 0x00:
             error_name = self.known_errors.get(error_code, f"Unknown error code 0x{error_code:02x}")
-            raise host.router.HdcReplyError(error_name, reply_message)
+            raise HdcReplyError(error_name, reply_message)
 
         return reply_message
 
@@ -940,3 +941,19 @@ class DeviceProxyBase:
         # The following may be needed for introspection when using bare DeviceProxyBase objects.
         # Sub-classes will typically override it with a more specific core-feature proxy.
         self.core = CoreFeatureProxyBase(self)
+
+
+class HdcReplyError(HdcError):
+    reply_message: bytes
+
+    def __init__(self, error_name: str, reply_message: bytes):
+        self.reply_message = reply_message
+        super().__init__(error_name)
+
+    @property
+    def error_code(self) -> int:
+        return self.reply_message[3]
+
+    @property
+    def error_description(self) -> str:
+        return self.reply_message[4:].decode(encoding="utf-8", errors="strict")

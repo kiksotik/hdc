@@ -57,7 +57,7 @@ Warning: The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-S
 - Commands
   - Those are essentially *Remote Procedure Calls* of methods implemented on a ``feature``
     and can carry any number of arguments and reply with any number of return values.
-	HDC also standardizes how ``commands`` return error codes, such that proxy-class can 
+	HDC also standardizes how ``commands`` return error codes, such that proxy-classes can 
 	translate those into more comfortable exceptions thrown on the host side.
 
 - Events
@@ -78,12 +78,11 @@ Warning: The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-S
 	received data, thus unburdening the host application of having to poll or even 
 	care at all about any received data.
 	Data type of the streamed data-items can be as simple or as complex as the device 
-	developer may require. Also wheter a stream is initiated and stopped by ``commands`` 
+	developer may require. Also whether a stream is initiated and stopped by ``commands`` 
 	or otherwise is also up to the device developer to decide.
 	
 - Logging
-  - Each ``feature`` has its own logger, which the HDC-host driver 
-    can seamlessly map into the native logging infrastructure of the host.
+  - Each ``feature`` has its own logger, which the proxy-class can seamlessly map into the native logging infrastructure of the host.
  
   - Logging directly from the firmware to the host software provides an incredibly 
     powerful tool to debug and troubleshoot issues, without any need for any JTAG or SWD probes.  

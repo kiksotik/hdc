@@ -7,7 +7,7 @@ This script has also been handy to debug the C implementation of the HDC-device.
 import logging
 import time
 
-import hdc_host.proxy_base as proxy_base
+import host.proxy
 
 #########################################################
 # This example uses python logging to explain the
@@ -28,7 +28,7 @@ logging.getLogger("HDC.proxy").setLevel(logging.INFO)
 
 #################################################
 # Connect to HDC-device at a specific serial port
-deviceProxy = proxy_base.DeviceProxyBase(connection_url="COM10")
+deviceProxy = host.proxy.DeviceProxyBase(connection_url="COM10")
 deviceProxy.protocol.connect()
 
 num_requests = 100

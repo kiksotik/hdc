@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing
 import unittest
 
-from hdc_host.protocol import Packetizer
+from host.protocol import Packetizer
 
 
 class TestChecksum(unittest.TestCase):

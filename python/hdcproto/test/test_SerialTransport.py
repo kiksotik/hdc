@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing
 import unittest
 
-from hdc_host.protocol import SerialTransport
+from host.protocol import SerialTransport
 
 
 class TestableSerialTransport(SerialTransport):

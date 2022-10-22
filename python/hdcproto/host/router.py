@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HDC-host protocol implementation.
+Message router of the HDC-host implementation
 """
 from __future__ import annotations
 
@@ -30,7 +30,11 @@ class HdcReplyError(HdcError):
 
 class MessageRouter:
     """
-    Encapsulates transport, packetizing and message brokering to the features.
+    Plugs things together:
+        - receiving and sending of raw bytes over a specific transport,
+        - packetizing and de-packetizing of messages to/from a stream of raw bytes
+        - routing of messages received from the device
+        - sending of messages to the device
     Not to be confused with the Device-Proxy classes!
     """
     features: dict[int, RouterFeature]

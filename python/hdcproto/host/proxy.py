@@ -288,7 +288,7 @@ class EventProxyBase:
 
     def _event_message_handler(self, event_message: bytes) -> None:
         """
-        The one and only event handler actually registered with the lower level protocol implementation.
+        The one and only event handler actually registered with the RouterFeature.
         WARNING: This handler will be executed in the receiver-thread!
         """
         event_payload = self.payload_parser(event_message)

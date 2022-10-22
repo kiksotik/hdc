@@ -26,7 +26,7 @@ logging.getLogger("HDC.proxy").setLevel(logging.INFO)
 #################################################
 # Connect to HDC-device at a specific serial port
 dev = MinimalDevice(connection_url="COM10")  # Note how this implements all HDC specifics of a given device type
-dev.protocol.connect()  # Will fail if your device is connected at a different port.
+dev.router.connect()  # Will fail if your device is connected at a different port.
 
 
 ########################################################################
@@ -88,4 +88,4 @@ try:
 
 
 finally:
-    dev.protocol.close()
+    dev.router.close()

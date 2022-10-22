@@ -32,12 +32,12 @@ logging.getLogger("HDC.proxy").setLevel(logging.DEBUG)
 #################################################
 # Connect to HDC-device at a specific serial port
 deviceProxy = host.proxy.DeviceProxyBase(connection_url="COM10")
-deviceProxy.protocol.connect()
+deviceProxy.router.connect()
 
 
 def provoke_some_log_events():
-    deviceProxy.protocol.transport.serial_port.write(bytes([0, 0, 0]))  # Provoke reading-frame warning
-    deviceProxy.protocol.transport.send_message(bytes([0, 0, 0]))  # Provoke unknown message type error
+    deviceProxy.router.transport.serial_port.write(bytes([0, 0, 0]))  # Provoke reading-frame warning
+    deviceProxy.router.transport.send_message(bytes([0, 0, 0]))  # Provoke unknown message type error
     time.sleep(2)  # Wait for some "heart-beat" LogEvents to happen
 
 
@@ -67,4 +67,4 @@ deviceProxy.core.prop_log_event_threshold.set(logging.INFO)
 assert(deviceProxy.core.prop_log_event_threshold.set(logging.DEBUG - 1) == logging.DEBUG)
 assert(deviceProxy.core.prop_log_event_threshold.set(logging.CRITICAL + 1) == logging.CRITICAL)
 
-deviceProxy.protocol.close()
+deviceProxy.router.close()

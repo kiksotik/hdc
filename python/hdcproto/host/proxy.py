@@ -5,12 +5,14 @@ Proxy classes for the device and its features and properties
 from __future__ import annotations
 
 import collections
-from datetime import datetime
 import logging
 import time
 import typing
+from datetime import datetime
 
-import host.protocol
+import common
+import host.router
+import transport.serialport
 
 DEFAULT_REPLY_TIMEOUT = 0.2
 
@@ -26,8 +28,8 @@ class CommandProxyBase:
         self.command_id = command_id
         self.known_errors = dict()
 
-        self.msg_prefix = bytes([int(host.protocol.MessageType.CMD_FEATURE),
-                                 self.feature_proxy.protocol_feature.feature_id,
+        self.msg_prefix = bytes([int(common.MessageType.CMD_FEATURE),
+                                 self.feature_proxy.router_feature.feature_id,
                                  self.command_id])
 
         # Register mandatory error codes
@@ -48,22 +50,22 @@ class CommandProxyBase:
         if not request_message.startswith(self.msg_prefix):
             raise ValueError("Request does not match the expected prefix")
 
-        p = self.feature_proxy.protocol_feature.protocol  # Just an alias for readability
+        p = self.feature_proxy.router_feature.router  # Just an alias for readability
 
         reply_message = p.send_request_and_get_reply(request_message, timeout)
 
         if not reply_message.startswith(self.msg_prefix):
             # ToDo: Might be a delayed reply to a previous request that timed-out. Maybe we should just ignore it?
-            raise host.protocol.ProtocolError("Reply does not match the expected prefix")
+            raise common.HdcError("Reply does not match the expected prefix")
 
         if len(reply_message) < 4:
-            raise host.protocol.ProtocolError(f"Expected a reply size of 4 or more bytes, "
-                                              f"but received {len(reply_message)}")
+            raise common.HdcError(f"Expected a reply size of 4 or more bytes, "
+                                  f"but received {len(reply_message)}")
 
         error_code = reply_message[3]
         if error_code != 0x00:
             error_name = self.known_errors.get(error_code, f"Unknown error code 0x{error_code:02x}")
-            raise host.protocol.ProtocolReplyError(error_name, reply_message)
+            raise host.router.HdcReplyError(error_name, reply_message)
 
         return reply_message
 
@@ -74,6 +76,7 @@ class RawCommandProxy(CommandProxyBase):
     into raw bytes and also of processing the raw bytes of the return value.
     Instances of this class are callable and will be blocking while awaiting the reply.
     """
+
     def __init__(self,
                  feature_proxy: FeatureProxyBase,
                  command_id: int,
@@ -107,8 +110,8 @@ class GetPropertyNameCommandProxy(CommandProxyBase):
         request_message.append(property_id)
         reply_message = self._send_request_and_get_reply(request_message, timeout)
         if len(reply_message) < 5:  # We expect at least a one-letter name, because empty name strings are illegal.
-            raise host.protocol.ProtocolError(f"Expected a reply size of 5 or more bytes, but "
-                                              f"received {len(reply_message)}")
+            raise common.HdcError(f"Expected a reply size of 5 or more bytes, but "
+                                  f"received {len(reply_message)}")
         property_name = reply_message[4:].decode('utf-8')
         return property_name
 
@@ -118,14 +121,14 @@ class GetPropertyTypeCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=0xF2)
         self.register_error(code=0xF0, error_name="Unknown property")
 
-    def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> host.protocol.PropertyDataType:
+    def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> common.PropertyDataType:
         request_message = bytearray(self.msg_prefix)
         request_message.append(property_id)
         reply_message = self._send_request_and_get_reply(request_message, timeout)
         if len(reply_message) != 5:
-            raise host.protocol.ProtocolError(f"Expected a reply size of 5 bytes, but received {len(reply_message)}")
+            raise common.HdcError(f"Expected a reply size of 5 bytes, but received {len(reply_message)}")
         property_type_id = reply_message[4]
-        property_type = host.protocol.PropertyDataType(property_type_id)
+        property_type = common.PropertyDataType(property_type_id)
         return property_type
 
 
@@ -139,7 +142,7 @@ class GetPropertyReadonlyCommandProxy(CommandProxyBase):
         request_message.append(property_id)
         reply_message = self._send_request_and_get_reply(request_message, timeout)
         if len(reply_message) != 5:
-            raise host.protocol.ProtocolError(f"Expected a reply size of 5 bytes, but received {len(reply_message)}")
+            raise common.HdcError(f"Expected a reply size of 5 bytes, but received {len(reply_message)}")
         property_is_readonly = bool(reply_message[4])
         return property_is_readonly
 
@@ -187,8 +190,8 @@ class GetPropertyDescriptionCommandProxy(CommandProxyBase):
         request_message.append(property_id)
         reply_message = self._send_request_and_get_reply(request_message, timeout)
         if len(reply_message) < 4:  # Empty description strings are legal.
-            raise host.protocol.ProtocolError(f"Expected a reply size of 4 or more bytes, but "
-                                              f"received {len(reply_message)}")
+            raise common.HdcError(f"Expected a reply size of 4 or more bytes, but "
+                                  f"received {len(reply_message)}")
         property_description = reply_message[4:].decode('utf-8')
         return property_description
 
@@ -203,8 +206,8 @@ class GetCommandNameCommandProxy(CommandProxyBase):
         request_message.append(command_id)
         reply_message = self._send_request_and_get_reply(request_message, timeout)
         if len(reply_message) < 5:  # We expect at least a one-letter name, because empty name strings are illegal.
-            raise host.protocol.ProtocolError(f"Expected a reply size of 5 or more bytes, but "
-                                              f"received {len(reply_message)}")
+            raise common.HdcError(f"Expected a reply size of 5 or more bytes, but "
+                                  f"received {len(reply_message)}")
         command_name = reply_message[4:].decode('utf-8')
         return command_name
 
@@ -219,8 +222,8 @@ class GetCommandDescriptionCommandProxy(CommandProxyBase):
         request_message.append(command_id)
         reply_message = self._send_request_and_get_reply(request_message, timeout)
         if len(reply_message) < 4:  # Empty description strings are legal.
-            raise host.protocol.ProtocolError(f"Expected a reply size of 4 or more bytes, but "
-                                              f"received {len(reply_message)}")
+            raise common.HdcError(f"Expected a reply size of 4 or more bytes, but "
+                                  f"received {len(reply_message)}")
         command_description = reply_message[4:].decode('utf-8')
         return command_description
 
@@ -235,8 +238,8 @@ class GetEventNameCommandProxy(CommandProxyBase):
         request_message.append(event_id)
         reply_message = self._send_request_and_get_reply(request_message, timeout)
         if len(reply_message) < 5:  # We expect at least a one-letter name, because empty name strings are illegal.
-            raise host.protocol.ProtocolError(f"Expected a reply size of 5 or more bytes, but "
-                                              f"received {len(reply_message)}")
+            raise common.HdcError(f"Expected a reply size of 5 or more bytes, but "
+                                  f"received {len(reply_message)}")
         event_name = reply_message[4:].decode('utf-8')
         return event_name
 
@@ -251,8 +254,8 @@ class GetEventDescriptionCommandProxy(CommandProxyBase):
         request_message.append(event_id)
         reply_message = self._send_request_and_get_reply(request_message, timeout)
         if len(reply_message) < 4:  # Empty description strings are legal.
-            raise host.protocol.ProtocolError(f"Expected a reply size of 4 or more bytes, but "
-                                              f"received {len(reply_message)}")
+            raise common.HdcError(f"Expected a reply size of 4 or more bytes, but "
+                                  f"received {len(reply_message)}")
         event_description = reply_message[4:].decode('utf-8')
         return event_description
 
@@ -281,7 +284,7 @@ class EventProxyBase:
 
         self.event_payload_handlers = list()
 
-        self.feature_proxy.protocol_feature.register_event_handler(self.event_id, self._event_message_handler)
+        self.feature_proxy.router_feature.register_event_handler(self.event_id, self._event_message_handler)
 
     def _event_message_handler(self, event_message: bytes) -> None:
         """
@@ -308,6 +311,7 @@ class EventProxyBase:
         Default event payload parser that simply strips the message header away, keeping the raw bytes of the payload.
         It also keeps a reception timestamp.
         """
+
         def __init__(self, event_message: bytes):
             self.received_at = datetime.utcnow()
             self.raw_payload = event_message[3:]  # Strip 3 leading bytes: MsgID + FeatureID + EvtID
@@ -358,7 +362,7 @@ class StateTransitionEventProxy(EventProxyBase):
 class PropertyProxyBase:
     feature_proxy: FeatureProxyBase
     property_id: int
-    property_data_type: host.protocol.PropertyDataType
+    property_data_type: common.PropertyDataType
     is_readonly: bool
     default_freshness: float
     default_timeout: float
@@ -368,7 +372,7 @@ class PropertyProxyBase:
     def __init__(self,
                  feature_proxy: FeatureProxyBase,
                  property_id: int,
-                 property_data_type: host.protocol.PropertyDataType,
+                 property_data_type: common.PropertyDataType,
                  is_readonly: bool,
                  default_freshness: float,
                  default_timeout: float):
@@ -453,7 +457,7 @@ class PropertyProxy_RO_BOOL(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.BOOL, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.BOOL, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -467,7 +471,7 @@ class PropertyProxy_RW_BOOL(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.BOOL, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.BOOL, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -484,7 +488,7 @@ class PropertyProxy_RO_UINT8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.UINT8, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT8, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -498,7 +502,7 @@ class PropertyProxy_RW_UINT8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.UINT8, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT8, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -515,7 +519,7 @@ class PropertyProxy_RO_UINT16(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.UINT16, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT16, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -529,7 +533,7 @@ class PropertyProxy_RW_UINT16(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.UINT16, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT16, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -546,7 +550,7 @@ class PropertyProxy_RO_UINT32(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.UINT32, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT32, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -560,7 +564,7 @@ class PropertyProxy_RW_UINT32(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.UINT32, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT32, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -577,7 +581,7 @@ class PropertyProxy_RO_INT8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.INT8, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT8, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -591,7 +595,7 @@ class PropertyProxy_RW_INT8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.INT8, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT8, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -608,7 +612,7 @@ class PropertyProxy_RO_INT16(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.INT16, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT16, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -622,7 +626,7 @@ class PropertyProxy_RW_INT16(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.INT16, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT16, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -639,7 +643,7 @@ class PropertyProxy_RO_INT32(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.INT32, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT32, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -653,7 +657,7 @@ class PropertyProxy_RW_INT32(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.INT32, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT32, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -670,7 +674,7 @@ class PropertyProxy_RO_FLOAT(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.FLOAT, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.FLOAT, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -684,7 +688,7 @@ class PropertyProxy_RW_FLOAT(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.FLOAT, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.FLOAT, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -701,7 +705,7 @@ class PropertyProxy_RO_DOUBLE(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.DOUBLE, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.DOUBLE, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -715,7 +719,7 @@ class PropertyProxy_RW_DOUBLE(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.DOUBLE, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.DOUBLE, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -732,7 +736,7 @@ class PropertyProxy_RO_UTF8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.UTF8, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.UTF8, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -746,7 +750,7 @@ class PropertyProxy_RW_UTF8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.UTF8, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.UTF8, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -763,7 +767,7 @@ class PropertyProxy_RO_BLOB(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.BLOB, is_readonly=True,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.BLOB, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -777,7 +781,7 @@ class PropertyProxy_RW_BLOB(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, host.protocol.PropertyDataType.BLOB, is_readonly=False,
+        super().__init__(feature_proxy, property_id, common.PropertyDataType.BLOB, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -821,10 +825,11 @@ class PropertyProxy_LogEventThreshold(PropertyProxy_RW_UINT8):
 
 
 class FeatureProxyBase:
-    protocol_feature: host.protocol.Feature
+    router_feature: host.router.RouterFeature
 
     def __init__(self, device_proxy: DeviceProxyBase, feature_id: int):
-        self.protocol_feature = host.protocol.Feature(protocol=device_proxy.protocol, feature_id=feature_id)
+        self.router_feature = host.router.RouterFeature(router=device_proxy.router,
+                                                        feature_id=feature_id)
         self.logger = \
             logging.getLogger("HDC.proxy").getChild(device_proxy.__class__.__name__).getChild(self.__class__.__name__)
 
@@ -925,12 +930,12 @@ class CoreFeatureProxyBase(FeatureProxyBase):
 
 
 class DeviceProxyBase:
-    protocol: host.protocol.Protocol
+    router: host.router.MessageRouter
     core: CoreFeatureProxyBase
 
     def __init__(self, connection_url: str):
-        serial_transport = host.protocol.SerialTransport(serial_url=connection_url)
-        self.protocol = host.protocol.Protocol(transport=serial_transport)
+        serial_transport = transport.serialport.SerialTransport(serial_url=connection_url)
+        self.router = host.router.MessageRouter(transport=serial_transport)
 
         # The following may be needed for introspection when using bare DeviceProxyBase objects.
         # Sub-classes will typically override it with a more specific core-feature proxy.

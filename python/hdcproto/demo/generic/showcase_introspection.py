@@ -6,8 +6,7 @@ https://en.wikipedia.org/wiki/Type_introspection
 
 This script has also been handy to debug the C implementation of the HDC-device.
 """
-
-import host.protocol
+import common
 import host.proxy
 
 skip_mandatory_members = False
@@ -18,7 +17,7 @@ def skip_it(member_id: int) -> bool:
 
 
 deviceProxy = host.proxy.DeviceProxyBase(connection_url="COM10")
-deviceProxy.protocol.connect()
+deviceProxy.router.connect()
 
 # Introspection: Available Features
 available_featureIDs = deviceProxy.core.prop_available_features.get(timeout=6)
@@ -55,7 +54,7 @@ for featureID in available_featureIDs:
         if skip_it(propID):
             continue
         propRO = featureProxy._cmd_get_property_readonly(propID, timeout=600)
-        propType: host.protocol.PropertyDataType = featureProxy._cmd_get_property_type(propID, timeout=600)
+        propType: common.PropertyDataType = featureProxy._cmd_get_property_type(propID, timeout=600)
         propName = featureProxy._cmd_get_property_name(propID, timeout=600)
         propValueBytes = featureProxy._cmd_get_property_value(propID, timeout=600)
         propValue = propType.bytes_to_value(propValueBytes)

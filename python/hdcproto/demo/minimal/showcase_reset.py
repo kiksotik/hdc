@@ -28,7 +28,7 @@ logging.getLogger("HDC.proxy").setLevel(logging.INFO)
 #################################################
 # Connect to HDC-device at a specific serial port
 dev = MinimalDevice(connection_url="COM10")
-dev.protocol.connect()
+dev.router.connect()
 
 demo_logger.info("____________________________________")
 demo_logger.info("Resetting the Core-feature...")
@@ -40,4 +40,4 @@ demo_logger.info("Resetting the Core-feature, again...")
 dev.core.cmd_reset()
 time.sleep(1)
 
-dev.protocol.close()
+dev.router.close()

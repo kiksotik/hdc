@@ -29,7 +29,7 @@ logging.getLogger("HDC.proxy").setLevel(logging.INFO)
 #################################################
 # Connect to HDC-device at a specific serial port
 deviceProxy = host.proxy.DeviceProxyBase(connection_url="COM10")
-deviceProxy.protocol.connect()
+deviceProxy.router.connect()
 
 num_requests = 100
 # Warning: HDC-device has limited buffer size for receiving a request message!
@@ -42,10 +42,10 @@ demo_logger.info(f"Showcasing ECHO command. Sending {num_requests} requests with
 timestamp_start = time.time_ns()
 sent_data = bytes(range(payload_size))
 for i in range(num_requests):
-    replied_data = deviceProxy.protocol.cmd_echo(sent_data)
+    replied_data = deviceProxy.router.cmd_echo(sent_data)
     assert replied_data == sent_data
 timestamp_stop = time.time_ns()
 duration_total_ms = (timestamp_stop - timestamp_start) / 1000000.0
 demo_logger.info(f"Completed in {duration_total_ms:.1f}ms --> {duration_total_ms/num_requests:.1f} ms/request")
 
-deviceProxy.protocol.close()
+deviceProxy.router.close()

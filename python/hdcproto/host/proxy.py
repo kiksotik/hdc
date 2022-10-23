@@ -12,7 +12,7 @@ from datetime import datetime
 import common
 import host.router
 import transport.serialport
-from common import HdcError
+from common import HdcError, CmdID
 
 DEFAULT_REPLY_TIMEOUT = 0.2
 
@@ -102,7 +102,7 @@ class RawCommandProxy(CommandProxyBase):
 class GetPropertyNameCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=0xF1)
+        super().__init__(feature_proxy, command_id=CmdID.GET_PROP_NAME)
         self.register_error(code=0xF0, error_name="Unknown property")
 
     def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
@@ -117,8 +117,9 @@ class GetPropertyNameCommandProxy(CommandProxyBase):
 
 
 class GetPropertyTypeCommandProxy(CommandProxyBase):
+
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=0xF2)
+        super().__init__(feature_proxy, command_id=CmdID.GET_PROP_TYPE)
         self.register_error(code=0xF0, error_name="Unknown property")
 
     def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> common.PropertyDataType:
@@ -133,8 +134,9 @@ class GetPropertyTypeCommandProxy(CommandProxyBase):
 
 
 class GetPropertyReadonlyCommandProxy(CommandProxyBase):
+
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=0xF3)
+        super().__init__(feature_proxy, command_id=CmdID.GET_PROP_RO)
         self.register_error(code=0xF0, error_name="Unknown property")
 
     def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> bool:
@@ -148,8 +150,9 @@ class GetPropertyReadonlyCommandProxy(CommandProxyBase):
 
 
 class GetPropertyValueCommandProxy(CommandProxyBase):
+
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=0xF4)
+        super().__init__(feature_proxy, command_id=CmdID.GET_PROP_VALUE)
         self.register_error(code=0xF0, error_name="Unknown property")
 
     def __call__(self, property_id: int, timeout: float) -> bytes:
@@ -161,8 +164,9 @@ class GetPropertyValueCommandProxy(CommandProxyBase):
 
 
 class SetPropertyValueCommandProxy(CommandProxyBase):
+
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=0xF5)
+        super().__init__(feature_proxy, command_id=CmdID.SET_PROP_VALUE)
         self.register_error(code=0xF0, error_name="Unknown property")
         self.register_error(code=0xF1, error_name="Invalid property value")
         self.register_error(code=0xF2, error_name="Property is read-only")
@@ -182,7 +186,7 @@ class SetPropertyValueCommandProxy(CommandProxyBase):
 class GetPropertyDescriptionCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=0xF6)
+        super().__init__(feature_proxy, command_id=CmdID.GET_PROP_DESCR)
         self.register_error(code=0xF0, error_name="Unknown property")
 
     def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
@@ -197,8 +201,9 @@ class GetPropertyDescriptionCommandProxy(CommandProxyBase):
 
 
 class GetCommandNameCommandProxy(CommandProxyBase):
+
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=0xF7)
+        super().__init__(feature_proxy, command_id=CmdID.GET_CMD_NAME)
         # Reuses ErrorCode 0x02 "Unknown command" to also mean we requested the name for an unknown CommandID
 
     def __call__(self, command_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
@@ -213,8 +218,9 @@ class GetCommandNameCommandProxy(CommandProxyBase):
 
 
 class GetCommandDescriptionCommandProxy(CommandProxyBase):
+
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=0xF8)
+        super().__init__(feature_proxy, command_id=CmdID.GET_CMD_DESCR)
         # Reuses ErrorCode 0x02 "Unknown command" to also mean we requested the description for an unknown CommandID
 
     def __call__(self, command_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
@@ -229,8 +235,9 @@ class GetCommandDescriptionCommandProxy(CommandProxyBase):
 
 
 class GetEventNameCommandProxy(CommandProxyBase):
+
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=0xF9)
+        super().__init__(feature_proxy, command_id=CmdID.GET_EVT_NAME)
         self.register_error(code=0xF3, error_name="Unknown event")
 
     def __call__(self, event_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
@@ -246,7 +253,7 @@ class GetEventNameCommandProxy(CommandProxyBase):
 
 class GetEventDescriptionCommandProxy(CommandProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=0xFA)
+        super().__init__(feature_proxy, command_id=CmdID.GET_EVT_DESCR)
         self.register_error(code=0xF3, error_name="Unknown event")
 
     def __call__(self, event_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:

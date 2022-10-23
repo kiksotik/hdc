@@ -17,6 +17,20 @@ class MessageType(enum.IntEnum):
 
 
 @enum.unique
+class CmdID(enum.IntEnum):
+    GET_PROP_NAME = 0xF1
+    GET_PROP_TYPE = 0xF2
+    GET_PROP_RO = 0xF3
+    GET_PROP_VALUE = 0xF4
+    SET_PROP_VALUE = 0xF5
+    GET_PROP_DESCR = 0xF6
+    GET_CMD_NAME = 0xF7
+    GET_CMD_DESCR = 0xF8
+    GET_EVT_NAME = 0xF9
+    GET_EVT_DESCR = 0xFA
+
+
+@enum.unique
 class PropertyDataType(enum.IntEnum):
     """
     The ID values of each DataType can be interpreted as follows:

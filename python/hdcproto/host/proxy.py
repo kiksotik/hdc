@@ -858,14 +858,22 @@ class FeatureProxyBase:
 
         # Properties (immutable)
         inf = float('inf')  # Infinity, meaning that the cached value will not expire (by default)
-        self.prop_feature_name = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_NAME, default_freshness=inf)
-        self.prop_feature_type_name = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_TYPE_NAME, default_freshness=inf)
-        self.prop_feature_type_revision = PropertyProxy_RO_UINT8(self, property_id=PropID.FEAT_TYPE_REV, default_freshness=inf)
-        self.prop_feature_description = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_DESCR, default_freshness=inf)
-        self.prop_feature_tags = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_TAGS, default_freshness=inf)
-        self.prop_available_commands = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_CMD, default_freshness=inf)
-        self.prop_available_events = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_EVT, default_freshness=inf)
-        self.prop_available_properties = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_PROP, default_freshness=inf)
+        self.prop_feature_name = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_NAME,
+                                                       default_freshness=inf)
+        self.prop_feature_type_name = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_TYPE_NAME,
+                                                            default_freshness=inf)
+        self.prop_feature_type_revision = PropertyProxy_RO_UINT8(self, property_id=PropID.FEAT_TYPE_REV,
+                                                                 default_freshness=inf)
+        self.prop_feature_description = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_DESCR,
+                                                              default_freshness=inf)
+        self.prop_feature_tags = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_TAGS,
+                                                       default_freshness=inf)
+        self.prop_available_commands = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_CMD,
+                                                             default_freshness=inf)
+        self.prop_available_events = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_EVT,
+                                                           default_freshness=inf)
+        self.prop_available_properties = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_PROP,
+                                                               default_freshness=inf)
         # Properties (mutable)
         self.prop_feature_state = PropertyProxy_FeatureState(self)
         self.prop_log_event_threshold = PropertyProxy_LogEventThreshold(self)

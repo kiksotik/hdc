@@ -12,7 +12,7 @@ from datetime import datetime
 import common
 import host.router
 import transport.serialport
-from common import HdcError, CmdID, PropID
+from common import HdcError, CmdID, EvtID, PropID
 
 DEFAULT_REPLY_TIMEOUT = 0.2
 
@@ -329,7 +329,7 @@ class LogEventProxy(EventProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy,
-                         event_id=0xF0,
+                         event_id=EvtID.LOG,
                          payload_parser=LogEventProxy.LogEventPayload)
         self.logger = feature_proxy.logger.getChild("LogEvent")
         # This is how HDC-logging is mapped directly into python logging:
@@ -347,7 +347,7 @@ class StateTransitionEventProxy(EventProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy,
-                         event_id=0xF1,
+                         event_id=EvtID.STATE_TRANSITION,
                          payload_parser=StateTransitionEventProxy.StateTransitionEventPayload)
         self.logger = feature_proxy.logger.getChild("StateTransitionEvent")
         self.register_event_payload_handler(self.event_payload_handler)

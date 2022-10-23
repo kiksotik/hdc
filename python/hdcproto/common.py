@@ -31,6 +31,12 @@ class CmdID(enum.IntEnum):
 
 
 @enum.unique
+class EvtID(enum.IntEnum):
+    LOG = 0xF0
+    STATE_TRANSITION = 0xF1
+
+
+@enum.unique
 class PropertyDataType(enum.IntEnum):
     """
     The ID values of each DataType can be interpreted as follows:

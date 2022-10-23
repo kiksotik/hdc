@@ -167,3 +167,17 @@ class PropertyDataType(enum.IntEnum):
                 f"but attempted to convert {len(value_as_bytes)}")
 
         return struct.unpack(fmt, value_as_bytes)[0]
+
+
+@enum.unique
+class PropID(enum.IntEnum):
+    FEAT_NAME = 0xF0
+    FEAT_TYPE_NAME = 0xF1
+    FEAT_TYPE_REV = 0xF2
+    FEAT_DESCR = 0xF3
+    FEAT_TAGS = 0xF4
+    AVAIL_CMD = 0xF5
+    AVAIL_EVT = 0xF6
+    AVAIL_PROP = 0xF7
+    FEAT_STATE = 0xF8
+    LOG_EVT_THRESHOLD = 0xF9

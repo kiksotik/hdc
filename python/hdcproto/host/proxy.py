@@ -12,7 +12,7 @@ from datetime import datetime
 import common
 import host.router
 import transport.serialport
-from common import HdcError, CmdID
+from common import HdcError, CmdID, PropID
 
 DEFAULT_REPLY_TIMEOUT = 0.2
 
@@ -810,7 +810,7 @@ class PropertyProxy_FeatureState(PropertyProxy_RO_UINT8):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy,
-                         property_id=0xF8,
+                         property_id=PropID.FEAT_STATE,
                          # Infinity, meaning that the cached value will not expire (by default)
                          default_freshness=float('inf'))
 
@@ -823,7 +823,7 @@ class PropertyProxy_FeatureState(PropertyProxy_RO_UINT8):
 class PropertyProxy_LogEventThreshold(PropertyProxy_RW_UINT8):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, property_id=0xF9)
+        super().__init__(feature_proxy, property_id=PropID.LOG_EVT_THRESHOLD)
 
     def get_value_name(self, freshness: float | None = None, timeout: float | None = None) -> str:
         """Human readable name of the numeric LogLevel-Threshold."""
@@ -858,14 +858,14 @@ class FeatureProxyBase:
 
         # Properties (immutable)
         inf = float('inf')  # Infinity, meaning that the cached value will not expire (by default)
-        self.prop_feature_name = PropertyProxy_RO_UTF8(self, property_id=0xF0, default_freshness=inf)
-        self.prop_feature_type_name = PropertyProxy_RO_UTF8(self, property_id=0xF1, default_freshness=inf)
-        self.prop_feature_type_revision = PropertyProxy_RO_UINT8(self, property_id=0xF2, default_freshness=inf)
-        self.prop_feature_description = PropertyProxy_RO_UTF8(self, property_id=0xF3, default_freshness=inf)
-        self.prop_feature_tags = PropertyProxy_RO_UTF8(self, property_id=0xF4, default_freshness=inf)
-        self.prop_available_commands = PropertyProxy_RO_BLOB(self, property_id=0xF5, default_freshness=inf)
-        self.prop_available_events = PropertyProxy_RO_BLOB(self, property_id=0xF6, default_freshness=inf)
-        self.prop_available_properties = PropertyProxy_RO_BLOB(self, property_id=0xF7, default_freshness=inf)
+        self.prop_feature_name = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_NAME, default_freshness=inf)
+        self.prop_feature_type_name = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_TYPE_NAME, default_freshness=inf)
+        self.prop_feature_type_revision = PropertyProxy_RO_UINT8(self, property_id=PropID.FEAT_TYPE_REV, default_freshness=inf)
+        self.prop_feature_description = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_DESCR, default_freshness=inf)
+        self.prop_feature_tags = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_TAGS, default_freshness=inf)
+        self.prop_available_commands = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_CMD, default_freshness=inf)
+        self.prop_available_events = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_EVT, default_freshness=inf)
+        self.prop_available_properties = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_PROP, default_freshness=inf)
         # Properties (mutable)
         self.prop_feature_state = PropertyProxy_FeatureState(self)
         self.prop_log_event_threshold = PropertyProxy_LogEventThreshold(self)

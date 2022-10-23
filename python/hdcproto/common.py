@@ -171,6 +171,7 @@ class PropertyDataType(enum.IntEnum):
 
 @enum.unique
 class PropID(enum.IntEnum):
+    """Property IDs as defined by HDC-spec"""
     FEAT_NAME = 0xF0
     FEAT_TYPE_NAME = 0xF1
     FEAT_TYPE_REV = 0xF2
@@ -181,3 +182,9 @@ class PropID(enum.IntEnum):
     AVAIL_PROP = 0xF7
     FEAT_STATE = 0xF8
     LOG_EVT_THRESHOLD = 0xF9
+
+    AVAIL_FEAT = 0xFA
+    """List of available features on a device (Only mandatory for the Core feature)"""
+
+    MAX_REQ_MSG_SIZE = 0xFB
+    """Largest request-message a device can cope with (Only mandatory for the Core feature)"""

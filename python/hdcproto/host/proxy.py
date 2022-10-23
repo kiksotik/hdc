@@ -927,13 +927,12 @@ class CoreFeatureProxyBase(FeatureProxyBase):
     def __init__(self, device_proxy: DeviceProxyBase):
         super().__init__(device_proxy=device_proxy, feature_id=0x00)  # Address must be 0x00 for device-core feature!
 
-        # Commands (No mandatory commands for a Core feature)
+        # Mandatory properties of a Core feature as required by HDC-spec
+        self.prop_available_features = PropertyProxy_RO_BLOB(self, PropID.AVAIL_FEAT)
+        self.prop_max_req_msg_size = PropertyProxy_RO_UINT16(self, PropID.MAX_REQ_MSG_SIZE)
 
-        # Events (No mandatory events for a Core feature)
-
-        # Properties
-        self.prop_available_features = PropertyProxy_RO_BLOB(self, 0xFA)  # Introspection: Features of this device
-        self.prop_max_req_msg_size = PropertyProxy_RO_UINT16(self, 0xFB)  # Largest request-message a device can cope
+        # HDC-spec does not require any mandatory commands nor events for the Core feature, other than what's
+        # already mandatory for any feature, which has been inherited from the FeatureProxyBase base class.
 
 
 class DeviceProxyBase:

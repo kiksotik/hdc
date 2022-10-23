@@ -40,13 +40,20 @@ class CommandProxyBase:
         self.register_error(ReplyErrorCode.COMMAND_NOT_ALLOWED_NOW)
         self.register_error(ReplyErrorCode.COMMAND_FAILED)
 
-    def register_error(self, code: int, error_name: str) -> None:
+    def register_error(self, code: int | ReplyErrorCode, error_name: str | None = None) -> None:
+        if isinstance(code, ReplyErrorCode):
+            code = int(code)
+            error_name = str(code)
+
+        if 0x00 > code > 0xFF:
+            raise ValueError("Reply error codes must be in range 0x00 to 0xFF")
+
+        if error_name is None:
+            error_name = f"Error 0x{code:02x}"  # Fallback for lazy callers
+
         if code in self.known_errors:
             raise RuntimeError(f'Already registered ErrorCode {code} as "{self.known_errors[code]}"')
         self.known_errors[code] = error_name
-
-    def register_error(self, reserved_error: ReplyErrorCode):
-        self.register_error(code=int(reserved_error), error_name=str(reserved_error))
 
     def _send_request_and_get_reply(self, request_message: bytes, timeout: float) -> bytes:
 
@@ -916,8 +923,8 @@ class FeatureProxyBase:
         deadline = time.perf_counter() + timeout
 
         if exits is not None:
-            if any(v > 0xFF for v in exits):
-                raise ValueError("State ID values can't be larger than 0xFF")
+            if any(0x00 > v > 0xFF for v in exits):
+                raise ValueError("State ID values must be in range 0x00 to 0xFF")
 
             while self.prop_feature_state.get() in exits:
                 if time.perf_counter() > deadline:
@@ -925,8 +932,8 @@ class FeatureProxyBase:
                 time.sleep(polling_period)
 
         if enters is not None:
-            if any(v > 0xFF for v in enters):
-                raise ValueError("State ID values can't be larger than 0xFF")
+            if any(0x00 > v > 0xFF for v in enters):
+                raise ValueError("State ID values must be in range 0x00 to 0xFF")
 
             while self.prop_feature_state.get() not in enters:
                 if time.perf_counter() > deadline:

@@ -11,8 +11,11 @@ from transport.base import TransportBase
 
 class SerialTransport(TransportBase):
     """
-    Send and receive messages via a serial port (typically a USB Virtual Com Port)
-    On connecting it will spawn a Thread to poll for any data received and call reply handlers from said thread.
+    Sends and receives messages via a serial port (typically a Virtual Com Port of a USB-CDC connection).
+    Internally it uses the HDC-packetizer to allow transmission of HDC-messages, because serial-communication
+    is only able to transmit raw streams of bytes.
+
+    WARNING: Message handler callbacks will be called directly from a dedicated data-receiver-thread!
     """
     serial_url: str
     serial_port: serial.Serial | None

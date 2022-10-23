@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Message router of the HDC-host implementation
 """
@@ -28,7 +27,7 @@ class MessageRouter:
     last_reply_message: bytes
     strict_event_handling: bool
     logger: logging.Logger
-    
+
     def __init__(self, transport: TransportBase):
         self.features = dict()
         self.transport = transport
@@ -159,11 +158,8 @@ class RouterFeature:
                 raise HdcError(f"Unknown EventID=0x{event_id:02X} raised by FeatureID=0x{self.feature_id:02X}")
             else:
                 self.router.logger.debug(f"Ignoring EventID=0x{event_id:02X} "
-                                           f"raised by FeatureID=0x{self.feature_id:02X}")
+                                         f"raised by FeatureID=0x{self.feature_id:02X}")
                 return
 
         event_handler = self.event_handlers[event_id]
         event_handler(message)
-
-
-

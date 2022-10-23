@@ -105,7 +105,7 @@ class PropertyDataType(enum.IntEnum):
                 return struct.pack(fmt, value)
             else:
                 raise HdcError(f"Vale of type {value.__class__} is unsuitable "
-                                    f"for a property of type {self.name}")
+                               f"for a property of type {self.name}")
 
         if isinstance(value, int):
             if self in (PropertyDataType.UINT8,
@@ -117,7 +117,7 @@ class PropertyDataType(enum.IntEnum):
                 return struct.pack(fmt, value)
             else:
                 raise HdcError(f"Vale of type {value.__class__} is unsuitable "
-                                    f"for a property of type {self.name}")
+                               f"for a property of type {self.name}")
 
         if isinstance(value, float):
             if self in (PropertyDataType.FLOAT,
@@ -125,10 +125,10 @@ class PropertyDataType(enum.IntEnum):
                 return struct.pack(fmt, value)
             else:
                 raise HdcError(f"Vale of type {value.__class__} is unsuitable "
-                                    f"for a property of type {self.name}")
+                               f"for a property of type {self.name}")
 
         raise HdcError(f"Don't know how to convert value of type {value.__class__} "
-                            f"into property of type {self.name}")
+                       f"into property of type {self.name}")
 
     def bytes_to_value(self, value_as_bytes: bytes) -> int | float | str | bytes:
 
@@ -142,7 +142,7 @@ class PropertyDataType(enum.IntEnum):
 
         if fmt is None:
             raise HdcError(f"Don't know how to convert bytes of property type {self.name} "
-                                f"into a python type")
+                           f"into a python type")
 
         # Sanity check data size
         expected_size = self.size()

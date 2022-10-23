@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Proxy classes for the device and its features and properties
 """

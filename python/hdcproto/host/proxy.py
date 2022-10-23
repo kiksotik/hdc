@@ -12,7 +12,7 @@ from datetime import datetime
 import common
 import host.router
 import transport.serialport
-from common import HdcError, FeatureID, CmdID, EvtID, PropID
+from common import HdcError, FeatureID, CmdID, ReplyErrorCode, EvtID, PropID
 
 DEFAULT_REPLY_TIMEOUT = 0.2
 
@@ -33,17 +33,20 @@ class CommandProxyBase:
                                  self.command_id])
 
         # Register mandatory error codes
-        self.register_error(code=0x00, error_name="No error")
-        self.register_error(code=0x01, error_name="Unknown feature")
-        self.register_error(code=0x02, error_name="Unknown command")
-        self.register_error(code=0x03, error_name="Incorrect command arguments")
-        self.register_error(code=0x04, error_name="Command not allowed now")
-        self.register_error(code=0x05, error_name="Command failed")
+        self.register_error(ReplyErrorCode.NO_ERROR)
+        self.register_error(ReplyErrorCode.UNKNOWN_FEATURE)
+        self.register_error(ReplyErrorCode.UNKNOWN_COMMAND)
+        self.register_error(ReplyErrorCode.INCORRECT_COMMAND_ARGUMENTS)
+        self.register_error(ReplyErrorCode.COMMAND_NOT_ALLOWED_NOW)
+        self.register_error(ReplyErrorCode.COMMAND_FAILED)
 
     def register_error(self, code: int, error_name: str) -> None:
         if code in self.known_errors:
             raise RuntimeError(f'Already registered ErrorCode {code} as "{self.known_errors[code]}"')
         self.known_errors[code] = error_name
+
+    def register_error(self, reserved_error: ReplyErrorCode):
+        self.register_error(code=int(reserved_error), error_name=str(reserved_error))
 
     def _send_request_and_get_reply(self, request_message: bytes, timeout: float) -> bytes:
 
@@ -63,7 +66,7 @@ class CommandProxyBase:
                                   f"but received {len(reply_message)}")
 
         error_code = reply_message[3]
-        if error_code != 0x00:
+        if error_code != ReplyErrorCode.NO_ERROR:
             error_name = self.known_errors.get(error_code, f"Unknown error code 0x{error_code:02x}")
             raise HdcReplyError(error_name, reply_message)
 
@@ -103,7 +106,7 @@ class GetPropertyNameCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_NAME)
-        self.register_error(code=0xF0, error_name="Unknown property")
+        self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
     def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
         request_message = bytearray(self.msg_prefix)
@@ -120,7 +123,7 @@ class GetPropertyTypeCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_TYPE)
-        self.register_error(code=0xF0, error_name="Unknown property")
+        self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
     def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> common.PropertyDataType:
         request_message = bytearray(self.msg_prefix)
@@ -137,7 +140,7 @@ class GetPropertyReadonlyCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_RO)
-        self.register_error(code=0xF0, error_name="Unknown property")
+        self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
     def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> bool:
         request_message = bytearray(self.msg_prefix)
@@ -153,7 +156,7 @@ class GetPropertyValueCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_VALUE)
-        self.register_error(code=0xF0, error_name="Unknown property")
+        self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
     def __call__(self, property_id: int, timeout: float) -> bytes:
         """Returns the property value as raw bytes"""
@@ -167,9 +170,9 @@ class SetPropertyValueCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.SET_PROP_VALUE)
-        self.register_error(code=0xF0, error_name="Unknown property")
-        self.register_error(code=0xF1, error_name="Invalid property value")
-        self.register_error(code=0xF2, error_name="Property is read-only")
+        self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
+        self.register_error(ReplyErrorCode.INVALID_PROPERTY_VALUE)
+        self.register_error(ReplyErrorCode.PROPERTY_IS_READ_ONLY)
 
     def __call__(self,
                  property_id: int,
@@ -187,7 +190,7 @@ class GetPropertyDescriptionCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_DESCR)
-        self.register_error(code=0xF0, error_name="Unknown property")
+        self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
     def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
         request_message = bytearray(self.msg_prefix)
@@ -204,7 +207,7 @@ class GetCommandNameCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_CMD_NAME)
-        # Reuses ErrorCode 0x02 "Unknown command" to also mean we requested the name for an unknown CommandID
+        # Reuses ReplyErrorCode.UNKNOWN_COMMAND to also mean we requested the name for an unknown CommandID
 
     def __call__(self, command_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
         request_message = bytearray(self.msg_prefix)
@@ -221,7 +224,7 @@ class GetCommandDescriptionCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_CMD_DESCR)
-        # Reuses ErrorCode 0x02 "Unknown command" to also mean we requested the description for an unknown CommandID
+        # Reuses ReplyErrorCode.UNKNOWN_COMMAND to also mean we requested the description for an unknown CommandID
 
     def __call__(self, command_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
         request_message = bytearray(self.msg_prefix)
@@ -238,7 +241,7 @@ class GetEventNameCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_EVT_NAME)
-        self.register_error(code=0xF3, error_name="Unknown event")
+        self.register_error(ReplyErrorCode.UNKNOWN_EVENT)
 
     def __call__(self, event_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
         request_message = bytearray(self.msg_prefix)
@@ -254,7 +257,7 @@ class GetEventNameCommandProxy(CommandProxyBase):
 class GetEventDescriptionCommandProxy(CommandProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_EVT_DESCR)
-        self.register_error(code=0xF3, error_name="Unknown event")
+        self.register_error(ReplyErrorCode.UNKNOWN_EVENT)
 
     def __call__(self, event_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
         request_message = bytearray(self.msg_prefix)

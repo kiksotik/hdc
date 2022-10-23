@@ -36,6 +36,41 @@ class CmdID(enum.IntEnum):
 
 
 @enum.unique
+class ReplyErrorCode(enum.IntEnum):
+    NO_ERROR = 0x00
+    UNKNOWN_FEATURE = 0x01
+    UNKNOWN_COMMAND = 0x02
+    INCORRECT_COMMAND_ARGUMENTS = 0x03
+    COMMAND_NOT_ALLOWED_NOW = 0x04
+    COMMAND_FAILED = 0x05
+    UNKNOWN_PROPERTY = 0xF0
+    INVALID_PROPERTY_VALUE = 0xF1
+    PROPERTY_IS_READ_ONLY = 0xF2
+    UNKNOWN_EVENT = 0xF3
+
+    def __str__(self):
+        if self == ReplyErrorCode.NO_ERROR:
+            return "No error"
+        elif self == ReplyErrorCode.UNKNOWN_FEATURE:
+            return "Unknown feature"
+        elif self == ReplyErrorCode.UNKNOWN_COMMAND:
+            return "Unknown command"
+        elif self == ReplyErrorCode.INCORRECT_COMMAND_ARGUMENTS:
+            return "Incorrect command arguments"
+        elif self == ReplyErrorCode.COMMAND_NOT_ALLOWED_NOW:
+            return "Command not allowed now"
+        elif self == ReplyErrorCode.COMMAND_FAILED:
+            return "Command failed"
+        elif self == ReplyErrorCode.UNKNOWN_PROPERTY:
+            return "Unknown property"
+        elif self == ReplyErrorCode.INVALID_PROPERTY_VALUE:
+            return "Invalid property value"
+        elif self == ReplyErrorCode.PROPERTY_IS_READ_ONLY:
+            return "Property is read-only"
+        elif self == ReplyErrorCode.UNKNOWN_EVENT:
+            return "Unknown event"
+
+@enum.unique
 class EvtID(enum.IntEnum):
     LOG = 0xF0
     STATE_TRANSITION = 0xF1

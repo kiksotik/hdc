@@ -9,10 +9,9 @@ import time
 import typing
 from datetime import datetime
 
-import common
 import host.router
 import transport.serialport
-from common import HdcError, FeatureID, CmdID, ReplyErrorCode, EvtID, PropID
+from common import HdcError, MessageType, FeatureID, CmdID, ReplyErrorCode, EvtID, PropID, DataType
 
 DEFAULT_REPLY_TIMEOUT = 0.2
 
@@ -20,15 +19,20 @@ DEFAULT_REPLY_TIMEOUT = 0.2
 class CommandProxyBase:
     feature_proxy: FeatureProxyBase
     command_id: int
+    default_timeout: float
     known_errors: dict[int, str]
     msg_prefix: bytes
 
-    def __init__(self, feature_proxy: FeatureProxyBase, command_id: int):
+    def __init__(self,
+                 feature_proxy: FeatureProxyBase,
+                 command_id: int,
+                 default_timeout: float = DEFAULT_REPLY_TIMEOUT):
         self.feature_proxy = feature_proxy
         self.command_id = command_id
+        self.default_timeout = default_timeout
         self.known_errors = dict()
 
-        self.msg_prefix = bytes([int(common.MessageType.CMD_FEATURE),
+        self.msg_prefix = bytes([int(MessageType.CMD_FEATURE),
                                  self.feature_proxy.router_feature.feature_id,
                                  self.command_id])
 
@@ -66,11 +70,11 @@ class CommandProxyBase:
 
         if not reply_message.startswith(self.msg_prefix):
             # ToDo: Might be a delayed reply to a previous request that timed-out. Maybe we should just ignore it?
-            raise common.HdcError("Reply does not match the expected prefix")
+            raise HdcError("Reply does not match the expected prefix")
 
         if len(reply_message) < 4:
-            raise common.HdcError(f"Expected a reply size of 4 or more bytes, "
-                                  f"but received {len(reply_message)}")
+            raise HdcError(f"Expected a reply size of 4 or more bytes, "
+                           f"but received {len(reply_message)}")
 
         error_code = reply_message[3]
         if error_code != ReplyErrorCode.NO_ERROR:
@@ -79,34 +83,66 @@ class CommandProxyBase:
 
         return reply_message
 
-
-class RawCommandProxy(CommandProxyBase):
-    """
-    Convenient CommandProxy for commands for which the caller takes care of providing arguments already serialized
-    into raw bytes and also of processing the raw bytes of the return value.
-    Instances of this class are callable and will be blocking while awaiting the reply.
-    """
-
-    def __init__(self,
-                 feature_proxy: FeatureProxyBase,
-                 command_id: int,
-                 known_errors: dict[int, str] | None = None,
-                 reply_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, command_id=command_id)
-        if known_errors:
-            for code, description in known_errors.items():
-                self.register_error(code, description)
-        self.reply_timeout = reply_timeout
-
-    def __call__(self, arguments_as_raw_bytes: bytes | None = None) -> bytes:
+    def _call_cmd(self,
+                  cmd_args: list[tuple[DataType, bool | int | float | str | bytes]] | None,
+                  return_types: DataType | list[DataType] | None,
+                  timeout: float | None = None) -> typing.Any:
         request_message = bytearray(self.msg_prefix)
-        if arguments_as_raw_bytes:
-            request_message.extend(arguments_as_raw_bytes)
 
-        self.feature_proxy.logger.info(f"Executing CommandID=0x{self.command_id:02X}")
-        reply_message = self._send_request_and_get_reply(request_message, timeout=self.reply_timeout)
+        if cmd_args is None:
+            cmd_args = list()
+
+        for arg_data_type, arg_value in cmd_args:
+            arg_as_raw_bytes = arg_data_type.value_to_bytes(arg_value)
+            request_message.extend(arg_as_raw_bytes)
+
+        if timeout is None:
+            timeout = self.default_timeout
+
+        self.feature_proxy.logger.debug(f"Executing CommandID=0x{self.command_id:02X}")
+        reply_message = self._send_request_and_get_reply(request_message=request_message,
+                                                         timeout=timeout)
         self.feature_proxy.logger.debug(f"Finished executing CommandID=0x{self.command_id:02X}")
-        return reply_message[4:]
+
+        reply_payload = reply_message[4:]
+
+        if not return_types:
+            if len(reply_payload) > 0:
+                raise HdcError(f"Failed to parse reply to CommandID={self.command_id:02x}, because "
+                               f"payload was expected to be empty, but it isn't.")
+            return None
+
+        if isinstance(return_types, DataType):
+            return_types = [return_types, ]  # Put it in a list
+
+        return_values = list()
+        for return_data_type in return_types:
+            size = return_data_type.size() or len(reply_payload)  # A size of None means it's variable length
+            if size > len(reply_payload):
+                raise HdcError(f"Failed to parse reply to CommandID={self.command_id:02x}, because "
+                               f"payload is shorter than expected.")
+            return_value_as_bytes = reply_payload[:size]
+            return_value = return_data_type.bytes_to_value(return_value_as_bytes)
+            return_values.append(return_value)
+            reply_payload = reply_payload[size:]
+
+        if len(reply_payload) > 0:
+            raise HdcError(f"Failed to parse reply to CommandID={self.command_id:02x}, because "
+                           f"payload is longer than expected.")
+
+        if len(return_types) == 1:
+            return return_values[0]  # Return first item, without enclosing it in a list.
+
+        return tuple(return_values)  # Convert list into tuple.
+
+
+class VoidWithoutArgsCommand(CommandProxyBase):
+    """"""
+    def __init__(self, feature_proxy: FeatureProxyBase, command_id: int, default_timeout: float | None = None):
+        super().__init__(feature_proxy, command_id=command_id, default_timeout=default_timeout)
+
+    def __call__(self, timeout: float | None = None):
+        return super()._call_cmd(cmd_args=None, return_types=None, timeout=timeout)
 
 
 class GetPropertyNameCommandProxy(CommandProxyBase):
@@ -115,15 +151,12 @@ class GetPropertyNameCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_NAME)
         self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
-    def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
-        request_message = bytearray(self.msg_prefix)
-        request_message.append(property_id)
-        reply_message = self._send_request_and_get_reply(request_message, timeout)
-        if len(reply_message) < 5:  # We expect at least a one-letter name, because empty name strings are illegal.
-            raise common.HdcError(f"Expected a reply size of 5 or more bytes, but "
-                                  f"received {len(reply_message)}")
-        property_name = reply_message[4:].decode('utf-8')
-        return property_name
+    def __call__(self, property_id: int, timeout: float | None = None) -> str:
+        return super()._call_cmd(
+            cmd_args=[(DataType.UINT8, property_id), ],
+            return_types=DataType.UTF8,
+            timeout=timeout
+        )
 
 
 class GetPropertyTypeCommandProxy(CommandProxyBase):
@@ -132,14 +165,13 @@ class GetPropertyTypeCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_TYPE)
         self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
-    def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> common.PropertyDataType:
-        request_message = bytearray(self.msg_prefix)
-        request_message.append(property_id)
-        reply_message = self._send_request_and_get_reply(request_message, timeout)
-        if len(reply_message) != 5:
-            raise common.HdcError(f"Expected a reply size of 5 bytes, but received {len(reply_message)}")
-        property_type_id = reply_message[4]
-        property_type = common.PropertyDataType(property_type_id)
+    def __call__(self, property_id: int, timeout: float | None = None) -> DataType:
+        property_type_id = super()._call_cmd(
+            cmd_args=[(DataType.UINT8, property_id), ],
+            return_types=DataType.UINT8,
+            timeout=timeout
+        )
+        property_type = DataType(property_type_id)
         return property_type
 
 
@@ -149,14 +181,12 @@ class GetPropertyReadonlyCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_RO)
         self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
-    def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> bool:
-        request_message = bytearray(self.msg_prefix)
-        request_message.append(property_id)
-        reply_message = self._send_request_and_get_reply(request_message, timeout)
-        if len(reply_message) != 5:
-            raise common.HdcError(f"Expected a reply size of 5 bytes, but received {len(reply_message)}")
-        property_is_readonly = bool(reply_message[4])
-        return property_is_readonly
+    def __call__(self, property_id: int, timeout: float | None = None) -> bool:
+        return super()._call_cmd(
+            cmd_args=[(DataType.UINT8, property_id), ],
+            return_types=DataType.BOOL,
+            timeout=timeout
+        )
 
 
 class GetPropertyValueCommandProxy(CommandProxyBase):
@@ -165,12 +195,15 @@ class GetPropertyValueCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_VALUE)
         self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
-    def __call__(self, property_id: int, timeout: float) -> bytes:
-        """Returns the property value as raw bytes"""
-        request_message = bytearray(self.msg_prefix)
-        request_message.append(property_id)
-        reply_message = self._send_request_and_get_reply(request_message, timeout)
-        return reply_message[4:]
+    def __call__(self,
+                 property_id: int,
+                 property_data_type: DataType,
+                 timeout: float | None = None) -> typing.Any:
+        return super()._call_cmd(
+            cmd_args=[(DataType.UINT8, property_id), ],
+            return_types=property_data_type,
+            timeout=timeout
+        )
 
 
 class SetPropertyValueCommandProxy(CommandProxyBase):
@@ -183,14 +216,17 @@ class SetPropertyValueCommandProxy(CommandProxyBase):
 
     def __call__(self,
                  property_id: int,
-                 new_value_as_raw_bytes: bytes,
-                 timeout: float = DEFAULT_REPLY_TIMEOUT) -> bytes:
-        """Returns the property value as raw bytes"""
-        request_message = bytearray(self.msg_prefix)
-        request_message.append(property_id)
-        request_message.extend(new_value_as_raw_bytes)
-        reply_message = self._send_request_and_get_reply(request_message, timeout)
-        return reply_message[4:]
+                 property_data_type: DataType,
+                 new_value: bool | int | float | str | bytes,
+                 timeout: float | None = None) -> bool | int | float | str | bytes:
+        return super()._call_cmd(
+            cmd_args=[
+                (DataType.UINT8, property_id),
+                (property_data_type, new_value),
+            ],
+            return_types=property_data_type,
+            timeout=timeout
+        )
 
 
 class GetPropertyDescriptionCommandProxy(CommandProxyBase):
@@ -199,15 +235,12 @@ class GetPropertyDescriptionCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_DESCR)
         self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
-    def __call__(self, property_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
-        request_message = bytearray(self.msg_prefix)
-        request_message.append(property_id)
-        reply_message = self._send_request_and_get_reply(request_message, timeout)
-        if len(reply_message) < 4:  # Empty description strings are legal.
-            raise common.HdcError(f"Expected a reply size of 4 or more bytes, but "
-                                  f"received {len(reply_message)}")
-        property_description = reply_message[4:].decode('utf-8')
-        return property_description
+    def __call__(self, property_id: int, timeout: float | None = None) -> str:
+        return super()._call_cmd(
+            cmd_args=[(DataType.UINT8, property_id), ],
+            return_types=DataType.UTF8,
+            timeout=timeout
+        )
 
 
 class GetCommandNameCommandProxy(CommandProxyBase):
@@ -216,15 +249,12 @@ class GetCommandNameCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_CMD_NAME)
         # Reuses ReplyErrorCode.UNKNOWN_COMMAND to also mean we requested the name for an unknown CommandID
 
-    def __call__(self, command_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
-        request_message = bytearray(self.msg_prefix)
-        request_message.append(command_id)
-        reply_message = self._send_request_and_get_reply(request_message, timeout)
-        if len(reply_message) < 5:  # We expect at least a one-letter name, because empty name strings are illegal.
-            raise common.HdcError(f"Expected a reply size of 5 or more bytes, but "
-                                  f"received {len(reply_message)}")
-        command_name = reply_message[4:].decode('utf-8')
-        return command_name
+    def __call__(self, command_id: int, timeout: float | None = None) -> str:
+        return super()._call_cmd(
+            cmd_args=[(DataType.UINT8, command_id), ],
+            return_types=DataType.UTF8,
+            timeout=timeout
+        )
 
 
 class GetCommandDescriptionCommandProxy(CommandProxyBase):
@@ -233,15 +263,12 @@ class GetCommandDescriptionCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_CMD_DESCR)
         # Reuses ReplyErrorCode.UNKNOWN_COMMAND to also mean we requested the description for an unknown CommandID
 
-    def __call__(self, command_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
-        request_message = bytearray(self.msg_prefix)
-        request_message.append(command_id)
-        reply_message = self._send_request_and_get_reply(request_message, timeout)
-        if len(reply_message) < 4:  # Empty description strings are legal.
-            raise common.HdcError(f"Expected a reply size of 4 or more bytes, but "
-                                  f"received {len(reply_message)}")
-        command_description = reply_message[4:].decode('utf-8')
-        return command_description
+    def __call__(self, command_id: int, timeout: float | None = None) -> str:
+        return super()._call_cmd(
+            cmd_args=[(DataType.UINT8, command_id), ],
+            return_types=DataType.UTF8,
+            timeout=timeout
+        )
 
 
 class GetEventNameCommandProxy(CommandProxyBase):
@@ -250,15 +277,12 @@ class GetEventNameCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_EVT_NAME)
         self.register_error(ReplyErrorCode.UNKNOWN_EVENT)
 
-    def __call__(self, event_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
-        request_message = bytearray(self.msg_prefix)
-        request_message.append(event_id)
-        reply_message = self._send_request_and_get_reply(request_message, timeout)
-        if len(reply_message) < 5:  # We expect at least a one-letter name, because empty name strings are illegal.
-            raise common.HdcError(f"Expected a reply size of 5 or more bytes, but "
-                                  f"received {len(reply_message)}")
-        event_name = reply_message[4:].decode('utf-8')
-        return event_name
+    def __call__(self, event_id: int, timeout: float | None = None) -> str:
+        return super()._call_cmd(
+            cmd_args=[(DataType.UINT8, event_id), ],
+            return_types=DataType.UTF8,
+            timeout=timeout
+        )
 
 
 class GetEventDescriptionCommandProxy(CommandProxyBase):
@@ -266,15 +290,12 @@ class GetEventDescriptionCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_EVT_DESCR)
         self.register_error(ReplyErrorCode.UNKNOWN_EVENT)
 
-    def __call__(self, event_id: int, timeout: float = DEFAULT_REPLY_TIMEOUT) -> str:
-        request_message = bytearray(self.msg_prefix)
-        request_message.append(event_id)
-        reply_message = self._send_request_and_get_reply(request_message, timeout)
-        if len(reply_message) < 4:  # Empty description strings are legal.
-            raise common.HdcError(f"Expected a reply size of 4 or more bytes, but "
-                                  f"received {len(reply_message)}")
-        event_description = reply_message[4:].decode('utf-8')
-        return event_description
+    def __call__(self, event_id: int, timeout: float | None = None) -> str:
+        return super()._call_cmd(
+            cmd_args=[(DataType.UINT8, event_id), ],
+            return_types=DataType.UTF8,
+            timeout=timeout
+        )
 
 
 class EventProxyBase:
@@ -379,7 +400,7 @@ class StateTransitionEventProxy(EventProxyBase):
 class PropertyProxyBase:
     feature_proxy: FeatureProxyBase
     property_id: int
-    property_data_type: common.PropertyDataType
+    property_data_type: DataType
     is_readonly: bool
     default_freshness: float
     default_timeout: float
@@ -389,7 +410,7 @@ class PropertyProxyBase:
     def __init__(self,
                  feature_proxy: FeatureProxyBase,
                  property_id: int,
-                 property_data_type: common.PropertyDataType,
+                 property_data_type: DataType,
                  is_readonly: bool,
                  default_freshness: float,
                  default_timeout: float):
@@ -422,9 +443,9 @@ class PropertyProxyBase:
 
         age_of_cached_value = time.perf_counter() - self._timestamp_of_cached_value
         if age_of_cached_value > freshness or self._cached_value is None:
-            property_value_as_raw_bytes = self.feature_proxy._cmd_get_property_value(property_id=self.property_id,
-                                                                                     timeout=timeout)
-            property_value = self.property_data_type.bytes_to_value(property_value_as_raw_bytes)
+            property_value = self.feature_proxy._cmd_get_property_value(property_id=self.property_id,
+                                                                        property_data_type=self.property_data_type,
+                                                                        timeout=timeout)
             self._update_cached_value(property_value)
             self.feature_proxy.logger.debug(f"PropertyID=0x{self.property_id:02X} getter "
                                             f"returns {self._cached_value}")
@@ -449,14 +470,13 @@ class PropertyProxyBase:
 
         self.feature_proxy.logger.info(f"Setting PropertyID=0x{self.property_id:02X} to a value of {new_value}")
 
-        request_value_as_raw_bytes = self.property_data_type.value_to_bytes(new_value)
         # Note how the value returned with the reply is the actual value set on
         # the device and it may differ from the value sent in the request!
-        reply_value_as_raw_bytes = self.feature_proxy._cmd_set_property_value(
+        property_value = self.feature_proxy._cmd_set_property_value(
             property_id=self.property_id,
-            new_value_as_raw_bytes=request_value_as_raw_bytes,
+            property_data_type=self.property_data_type,
+            new_value=new_value,
             timeout=timeout)
-        property_value = self.property_data_type.bytes_to_value(reply_value_as_raw_bytes)
 
         self._update_cached_value(property_value)
 
@@ -474,7 +494,7 @@ class PropertyProxy_RO_BOOL(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.BOOL, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.BOOL, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -488,7 +508,7 @@ class PropertyProxy_RW_BOOL(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.BOOL, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.BOOL, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -505,7 +525,7 @@ class PropertyProxy_RO_UINT8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT8, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.UINT8, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -519,7 +539,7 @@ class PropertyProxy_RW_UINT8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT8, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.UINT8, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -536,7 +556,7 @@ class PropertyProxy_RO_UINT16(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT16, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.UINT16, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -550,7 +570,7 @@ class PropertyProxy_RW_UINT16(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT16, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.UINT16, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -567,7 +587,7 @@ class PropertyProxy_RO_UINT32(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT32, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.UINT32, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -581,7 +601,7 @@ class PropertyProxy_RW_UINT32(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.UINT32, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.UINT32, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -598,7 +618,7 @@ class PropertyProxy_RO_INT8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT8, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.INT8, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -612,7 +632,7 @@ class PropertyProxy_RW_INT8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT8, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.INT8, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -629,7 +649,7 @@ class PropertyProxy_RO_INT16(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT16, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.INT16, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -643,7 +663,7 @@ class PropertyProxy_RW_INT16(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT16, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.INT16, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -660,7 +680,7 @@ class PropertyProxy_RO_INT32(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT32, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.INT32, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -674,7 +694,7 @@ class PropertyProxy_RW_INT32(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.INT32, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.INT32, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -691,7 +711,7 @@ class PropertyProxy_RO_FLOAT(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.FLOAT, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.FLOAT, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -705,7 +725,7 @@ class PropertyProxy_RW_FLOAT(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.FLOAT, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.FLOAT, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -722,7 +742,7 @@ class PropertyProxy_RO_DOUBLE(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.DOUBLE, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.DOUBLE, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -736,7 +756,7 @@ class PropertyProxy_RW_DOUBLE(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.DOUBLE, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.DOUBLE, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -753,7 +773,7 @@ class PropertyProxy_RO_UTF8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.UTF8, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.UTF8, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -767,7 +787,7 @@ class PropertyProxy_RW_UTF8(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.UTF8, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.UTF8, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -784,7 +804,7 @@ class PropertyProxy_RO_BLOB(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.BLOB, is_readonly=True,
+        super().__init__(feature_proxy, property_id, DataType.BLOB, is_readonly=True,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 
@@ -798,7 +818,7 @@ class PropertyProxy_RW_BLOB(PropertyProxyBase):
     def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
                  default_freshness: float = 0.0,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
-        super().__init__(feature_proxy, property_id, common.PropertyDataType.BLOB, is_readonly=False,
+        super().__init__(feature_proxy, property_id, DataType.BLOB, is_readonly=False,
                          default_freshness=default_freshness,
                          default_timeout=default_timeout)
 

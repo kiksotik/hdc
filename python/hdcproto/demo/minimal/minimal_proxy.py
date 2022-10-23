@@ -13,7 +13,7 @@ class MinimalCore(host.proxy.CoreFeatureProxyBase):
         super().__init__(device_proxy=device_proxy)
 
         # Commands
-        self.cmd_reset = host.proxy.RawCommandProxy(self, command_id=0xC1)
+        self.cmd_reset = host.proxy.VoidWithoutArgsCommand(self, command_id=0xC1, default_timeout=1.23)
 
         # Events
         self.evt_button = host.proxy.EventProxyBase(self, event_id=0x01, payload_parser=self.ButtonEventPayload)

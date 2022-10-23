@@ -70,6 +70,7 @@ class ReplyErrorCode(enum.IntEnum):
         elif self == ReplyErrorCode.UNKNOWN_EVENT:
             return "Unknown event"
 
+
 @enum.unique
 class EvtID(enum.IntEnum):
     LOG = 0xF0
@@ -77,7 +78,7 @@ class EvtID(enum.IntEnum):
 
 
 @enum.unique
-class PropertyDataType(enum.IntEnum):
+class DataType(enum.IntEnum):
     """
     The ID values of each DataType can be interpreted as follows:
 
@@ -109,27 +110,27 @@ class PropertyDataType(enum.IntEnum):
     UTF8 = 0xFF
 
     def struct_format(self) -> str | None:
-        if self == PropertyDataType.BOOL:
+        if self == DataType.BOOL:
             return "?"
-        if self == PropertyDataType.UINT8:
+        if self == DataType.UINT8:
             return "B"
-        if self == PropertyDataType.UINT16:
+        if self == DataType.UINT16:
             return "<H"
-        if self == PropertyDataType.UINT32:
+        if self == DataType.UINT32:
             return "<I"
-        if self == PropertyDataType.INT8:
+        if self == DataType.INT8:
             return "<b"
-        if self == PropertyDataType.INT16:
+        if self == DataType.INT16:
             return "<h"
-        if self == PropertyDataType.INT32:
+        if self == DataType.INT32:
             return "<i"
-        if self == PropertyDataType.FLOAT:
+        if self == DataType.FLOAT:
             return "<f"
-        if self == PropertyDataType.DOUBLE:
+        if self == DataType.DOUBLE:
             return "<d"
-        if self == PropertyDataType.BLOB:
+        if self == DataType.BLOB:
             return None
-        if self == PropertyDataType.UTF8:
+        if self == DataType.UTF8:
             return None
 
     def size(self) -> int | None:
@@ -146,12 +147,12 @@ class PropertyDataType(enum.IntEnum):
     def value_to_bytes(self, value: int | float | str | bytes) -> bytes:
 
         if isinstance(value, str):
-            if self == PropertyDataType.UTF8:
+            if self == DataType.UTF8:
                 return value.encode(encoding="utf-8", errors="strict")
             raise HdcError(f"Improper target data type {self.name} for a str value")
 
         if isinstance(value, bytes):
-            if self == PropertyDataType.BLOB:
+            if self == DataType.BLOB:
                 return value
             raise HdcError(f"Improper target data type {self.name} for a bytes value")
 
@@ -161,27 +162,27 @@ class PropertyDataType(enum.IntEnum):
             raise HdcError(f"Don't know how to convert into {self.name}")
 
         if isinstance(value, bool):
-            if self == PropertyDataType.BOOL:
+            if self == DataType.BOOL:
                 return struct.pack(fmt, value)
             else:
                 raise HdcError(f"Vale of type {value.__class__} is unsuitable "
                                f"for a property of type {self.name}")
 
         if isinstance(value, int):
-            if self in (PropertyDataType.UINT8,
-                        PropertyDataType.UINT16,
-                        PropertyDataType.UINT32,
-                        PropertyDataType.INT8,
-                        PropertyDataType.INT16,
-                        PropertyDataType.INT32):
+            if self in (DataType.UINT8,
+                        DataType.UINT16,
+                        DataType.UINT32,
+                        DataType.INT8,
+                        DataType.INT16,
+                        DataType.INT32):
                 return struct.pack(fmt, value)
             else:
                 raise HdcError(f"Vale of type {value.__class__} is unsuitable "
                                f"for a property of type {self.name}")
 
         if isinstance(value, float):
-            if self in (PropertyDataType.FLOAT,
-                        PropertyDataType.DOUBLE):
+            if self in (DataType.FLOAT,
+                        DataType.DOUBLE):
                 return struct.pack(fmt, value)
             else:
                 raise HdcError(f"Vale of type {value.__class__} is unsuitable "
@@ -192,10 +193,10 @@ class PropertyDataType(enum.IntEnum):
 
     def bytes_to_value(self, value_as_bytes: bytes) -> int | float | str | bytes:
 
-        if self == PropertyDataType.UTF8:
+        if self == DataType.UTF8:
             return value_as_bytes.decode(encoding="utf-8", errors="strict")
 
-        if self == PropertyDataType.BLOB:
+        if self == DataType.BLOB:
             return value_as_bytes
 
         fmt = self.struct_format()

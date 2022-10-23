@@ -12,7 +12,7 @@ from datetime import datetime
 import common
 import host.router
 import transport.serialport
-from common import HdcError, CmdID, EvtID, PropID
+from common import HdcError, FeatureID, CmdID, EvtID, PropID
 
 DEFAULT_REPLY_TIMEOUT = 0.2
 
@@ -925,7 +925,7 @@ class FeatureProxyBase:
 
 class CoreFeatureProxyBase(FeatureProxyBase):
     def __init__(self, device_proxy: DeviceProxyBase):
-        super().__init__(device_proxy=device_proxy, feature_id=0x00)  # Address must be 0x00 for device-core feature!
+        super().__init__(device_proxy=device_proxy, feature_id=FeatureID.CORE)
 
         # Mandatory properties of a Core feature as required by HDC-spec
         self.prop_available_features = PropertyProxy_RO_BLOB(self, PropID.AVAIL_FEAT)

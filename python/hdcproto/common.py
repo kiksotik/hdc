@@ -17,6 +17,11 @@ class MessageType(enum.IntEnum):
 
 
 @enum.unique
+class FeatureID(enum.IntEnum):
+    CORE = 0x00
+
+
+@enum.unique
 class CmdID(enum.IntEnum):
     GET_PROP_NAME = 0xF1
     GET_PROP_TYPE = 0xF2

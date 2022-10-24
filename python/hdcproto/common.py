@@ -85,16 +85,16 @@ class EvtID(enum.IntEnum):
 
 
 @enum.unique
-class DataType(enum.IntEnum):
+class HdcDataType(enum.IntEnum):
     """
     All IDs of data-types defined by HDC-spec.
     Mainly used to define data-type of FeatureProperties, but also used
     to parse arguments and return values of FeatureCommands.
     Also implements serialization and de-serialization from raw bytes.
 
-    The ID value of each DataType can be interpreted as follows:
+    The ID value of each HdcDataType can be interpreted as follows:
 
-    Upper Nibble: Kind of DataType
+    Upper Nibble: Kind of HdcDataType
           0x0_ --> Unsigned integer number
           0x1_ --> Signed integer number
           0x2_ --> Floating point number
@@ -103,9 +103,9 @@ class DataType(enum.IntEnum):
           0xF_ --> UTF-8 encoded string
                    (Always variable size: 0xFF)
 
-    Lower Nibble: Size of DataType, given in number of bytes
+    Lower Nibble: Size of HdcDataType, given in number of bytes
                   i.e. 0x14 --> INT32, whose size is 4 bytes
-                  (Exception to the rule: 0x_F denotes a variable size DataType)
+                  (Exception to the rule: 0x_F denotes a variable size HdcDataType)
                   (Exception to the rule: 0xB0 --> BOOL, whose size is 1 bytes)
     """
 
@@ -122,27 +122,27 @@ class DataType(enum.IntEnum):
     UTF8 = 0xFF
 
     def struct_format(self) -> str | None:
-        if self == DataType.BOOL:
+        if self == HdcDataType.BOOL:
             return "?"
-        if self == DataType.UINT8:
+        if self == HdcDataType.UINT8:
             return "B"
-        if self == DataType.UINT16:
+        if self == HdcDataType.UINT16:
             return "<H"
-        if self == DataType.UINT32:
+        if self == HdcDataType.UINT32:
             return "<I"
-        if self == DataType.INT8:
+        if self == HdcDataType.INT8:
             return "<b"
-        if self == DataType.INT16:
+        if self == HdcDataType.INT16:
             return "<h"
-        if self == DataType.INT32:
+        if self == HdcDataType.INT32:
             return "<i"
-        if self == DataType.FLOAT:
+        if self == HdcDataType.FLOAT:
             return "<f"
-        if self == DataType.DOUBLE:
+        if self == HdcDataType.DOUBLE:
             return "<d"
-        if self == DataType.BLOB:
+        if self == HdcDataType.BLOB:
             return None  # Meaning: Variable size
-        if self == DataType.UTF8:
+        if self == HdcDataType.UTF8:
             return None  # Meaning: Variable size
 
     def size(self) -> int | None:
@@ -159,12 +159,12 @@ class DataType(enum.IntEnum):
     def value_to_bytes(self, value: int | float | str | bytes) -> bytes:
 
         if isinstance(value, str):
-            if self == DataType.UTF8:
+            if self == HdcDataType.UTF8:
                 return value.encode(encoding="utf-8", errors="strict")
             raise HdcError(f"Improper target data type {self.name} for a str value")
 
         if isinstance(value, bytes):
-            if self == DataType.BLOB:
+            if self == HdcDataType.BLOB:
                 return value
             raise HdcError(f"Improper target data type {self.name} for a bytes value")
 
@@ -174,27 +174,27 @@ class DataType(enum.IntEnum):
             raise HdcError(f"Don't know how to convert into {self.name}")
 
         if isinstance(value, bool):
-            if self == DataType.BOOL:
+            if self == HdcDataType.BOOL:
                 return struct.pack(fmt, value)
             else:
                 raise HdcError(f"Vale of type {value.__class__} is unsuitable "
                                f"for a property of type {self.name}")
 
         if isinstance(value, int):
-            if self in (DataType.UINT8,
-                        DataType.UINT16,
-                        DataType.UINT32,
-                        DataType.INT8,
-                        DataType.INT16,
-                        DataType.INT32):
+            if self in (HdcDataType.UINT8,
+                        HdcDataType.UINT16,
+                        HdcDataType.UINT32,
+                        HdcDataType.INT8,
+                        HdcDataType.INT16,
+                        HdcDataType.INT32):
                 return struct.pack(fmt, value)
             else:
                 raise HdcError(f"Vale of type {value.__class__} is unsuitable "
                                f"for a property of type {self.name}")
 
         if isinstance(value, float):
-            if self in (DataType.FLOAT,
-                        DataType.DOUBLE):
+            if self in (HdcDataType.FLOAT,
+                        HdcDataType.DOUBLE):
                 return struct.pack(fmt, value)
             else:
                 raise HdcError(f"Vale of type {value.__class__} is unsuitable "
@@ -205,10 +205,10 @@ class DataType(enum.IntEnum):
 
     def bytes_to_value(self, value_as_bytes: bytes) -> int | float | str | bytes:
 
-        if self == DataType.UTF8:
+        if self == HdcDataType.UTF8:
             return value_as_bytes.decode(encoding="utf-8", errors="strict")
 
-        if self == DataType.BLOB:
+        if self == HdcDataType.BLOB:
             return value_as_bytes
 
         fmt = self.struct_format()
@@ -229,7 +229,7 @@ class DataType(enum.IntEnum):
 
     @staticmethod
     def parse_payload(raw_payload: bytes,
-                      expected_data_types: DataType | list[DataType] | None
+                      expected_data_types: HdcDataType | list[HdcDataType] | None
                       ) -> typing.Any:
 
         if not expected_data_types:
@@ -238,7 +238,7 @@ class DataType(enum.IntEnum):
             return None
 
         return_as_list = True  # unless...
-        if isinstance(expected_data_types, DataType):
+        if isinstance(expected_data_types, HdcDataType):
             return_as_list = False  # Reminder about caller not expecting a list, but a single value, instead.
             expected_data_types = [expected_data_types, ]  # Just for it to work in the for-loop below
 
@@ -262,14 +262,14 @@ class DataType(enum.IntEnum):
         return return_values
 
     @staticmethod
-    def parse_reply_msg(reply_message: bytes, expected_data_types: DataType | list[DataType] | None) -> typing.Any:
+    def parse_reply_msg(reply_message: bytes, expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
         raw_payload = reply_message[4:]  # Strip 4 leading bytes: MsgID + FeatureID + EvtID + ReplyErrorCode
-        return DataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
+        return HdcDataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
 
     @staticmethod
-    def parse_event_msg(event_message: bytes, expected_data_types: DataType | list[DataType] | None) -> typing.Any:
+    def parse_event_msg(event_message: bytes, expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
         raw_payload = event_message[3:]  # Strip 3 leading bytes: MsgID + FeatureID + EvtID
-        return DataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
+        return HdcDataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
 
 
 def is_valid_uint8(value_to_check: int) -> bool:

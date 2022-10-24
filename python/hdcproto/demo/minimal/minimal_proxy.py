@@ -4,8 +4,8 @@ Proxy classes to communicate with i.e. a NUCLEO prototype board running any of t
 import enum
 from datetime import datetime
 
-import common
 import host.proxy
+from common import HdcDataType
 
 
 class MinimalCore(host.proxy.CoreFeatureProxyBase):
@@ -44,9 +44,9 @@ class MinimalCore(host.proxy.CoreFeatureProxyBase):
             #     self.button_state = event_message[4]
 
             # Otherwise, it might be better to do this:
-            self.button_id, self.button_state = common.DataType.parse_event_msg(
+            self.button_id, self.button_state = HdcDataType.parse_event_msg(
                 event_message=event_message,
-                expected_data_types=[common.DataType.UINT8, common.DataType.UINT8]
+                expected_data_types=[HdcDataType.UINT8, HdcDataType.UINT8]
             )
 
 

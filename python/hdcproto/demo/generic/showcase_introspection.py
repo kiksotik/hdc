@@ -54,7 +54,7 @@ for featureID in available_featureIDs:
         if skip_it(propID):
             continue
         propRO = featureProxy._cmd_get_property_readonly(propID, timeout=600)
-        propType: common.DataType = featureProxy._cmd_get_property_type(propID, timeout=600)
+        propType: common.HdcDataType = featureProxy._cmd_get_property_type(propID, timeout=600)
         propName = featureProxy._cmd_get_property_name(propID, timeout=600)
         propValue = featureProxy._cmd_get_property_value(propID, propType, timeout=600)
         if isinstance(propValue, bytes):

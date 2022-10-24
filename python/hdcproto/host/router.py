@@ -7,7 +7,7 @@ import logging
 import threading
 import typing
 
-from common import MessageType, HdcError
+from common import MessageType, HdcError, is_valid_uint8
 from transport.base import TransportBase
 
 
@@ -132,8 +132,8 @@ class RouterFeature:
     event_handlers: dict[int, typing.Callable[[bytes], None]]  # Handlers implemented on the proxy class
 
     def __init__(self, router: MessageRouter, feature_id: int):
-        if feature_id < 0 or feature_id > 255:
-            raise ValueError()
+        if not is_valid_uint8(feature_id):
+            raise ValueError(f"feature_id value of 0x{feature_id:02x} is beyond valid range from 0x00 to 0xFF")
         self.event_handlers = dict()
         self.feature_id = feature_id
         self.router = router

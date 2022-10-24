@@ -27,6 +27,10 @@ class CommandProxyBase:
                  feature_proxy: FeatureProxyBase,
                  command_id: int,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
+
+        if not is_valid_uint8(command_id):
+            raise ValueError(f"command_id value of 0x{command_id:02x} is beyond valid range from 0x00 to 0xFF")
+
         self.feature_proxy = feature_proxy
         self.command_id = command_id
         self.default_timeout = default_timeout
@@ -61,7 +65,7 @@ class CommandProxyBase:
         code = int(code)
 
         if not is_valid_uint8(code):
-            raise ValueError("Reply error codes must be in range 0x00 to 0xFF")
+            raise ValueError(f"Reply error code of 0x{code:02x} is beyond valid range from 0x00 to 0xFF")
 
         if error_name is None:
             error_name = f"Error 0x{code:02x}"  # Fallback for lazy callers
@@ -145,6 +149,9 @@ class GetPropertyNameCommandProxy(CommandProxyBase):
         self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
     def __call__(self, property_id: int, timeout: float | None = None) -> str:
+        if not is_valid_uint8(property_id):
+            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+
         return super()._call_cmd(
             cmd_args=[(HdcDataType.UINT8, property_id), ],
             return_types=HdcDataType.UTF8,
@@ -159,6 +166,9 @@ class GetPropertyTypeCommandProxy(CommandProxyBase):
         self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
     def __call__(self, property_id: int, timeout: float | None = None) -> HdcDataType:
+        if not is_valid_uint8(property_id):
+            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+
         property_type_id = super()._call_cmd(
             cmd_args=[(HdcDataType.UINT8, property_id), ],
             return_types=HdcDataType.UINT8,
@@ -175,6 +185,9 @@ class GetPropertyReadonlyCommandProxy(CommandProxyBase):
         self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
     def __call__(self, property_id: int, timeout: float | None = None) -> bool:
+        if not is_valid_uint8(property_id):
+            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+
         return super()._call_cmd(
             cmd_args=[(HdcDataType.UINT8, property_id), ],
             return_types=HdcDataType.BOOL,
@@ -192,6 +205,9 @@ class GetPropertyValueCommandProxy(CommandProxyBase):
                  property_id: int,
                  property_data_type: HdcDataType,
                  timeout: float | None = None) -> typing.Any:
+        if not is_valid_uint8(property_id):
+            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+
         return super()._call_cmd(
             cmd_args=[(HdcDataType.UINT8, property_id), ],
             return_types=property_data_type,
@@ -212,6 +228,9 @@ class SetPropertyValueCommandProxy(CommandProxyBase):
                  property_data_type: HdcDataType,
                  new_value: bool | int | float | str | bytes,
                  timeout: float | None = None) -> bool | int | float | str | bytes:
+        if not is_valid_uint8(property_id):
+            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+
         return super()._call_cmd(
             cmd_args=[
                 (HdcDataType.UINT8, property_id),
@@ -229,6 +248,9 @@ class GetPropertyDescriptionCommandProxy(CommandProxyBase):
         self.register_error(ReplyErrorCode.UNKNOWN_PROPERTY)
 
     def __call__(self, property_id: int, timeout: float | None = None) -> str:
+        if not is_valid_uint8(property_id):
+            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+
         return super()._call_cmd(
             cmd_args=[(HdcDataType.UINT8, property_id), ],
             return_types=HdcDataType.UTF8,
@@ -302,6 +324,8 @@ class EventProxyBase:
                  event_id: int,
                  payload_parser: typing.Type[object] | None = None,
                  deque_capacity: int = 100):
+        if not is_valid_uint8(event_id):
+            raise ValueError(f"event_id value of 0x{event_id:02x} is beyond valid range from 0x00 to 0xFF")
 
         self.event_id = event_id
         self.feature_proxy = feature_proxy
@@ -407,6 +431,9 @@ class PropertyProxyBase:
                  is_readonly: bool,
                  default_freshness: float,
                  default_timeout: float):
+        if not is_valid_uint8(property_id):
+            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+
         self.feature_proxy = feature_proxy
         self.property_id = property_id
         self.property_data_type = property_data_type
@@ -858,6 +885,9 @@ class FeatureProxyBase:
     router_feature: host.router.RouterFeature
 
     def __init__(self, device_proxy: DeviceProxyBase, feature_id: int):
+        if not is_valid_uint8(feature_id):
+            raise ValueError(f"feature_id value of 0x{feature_id:02x} is beyond valid range from 0x00 to 0xFF")
+
         self.router_feature = host.router.RouterFeature(router=device_proxy.router,
                                                         feature_id=feature_id)
         self.logger = \

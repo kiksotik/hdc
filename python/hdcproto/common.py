@@ -232,6 +232,9 @@ class HdcDataType(enum.IntEnum):
                       expected_data_types: HdcDataType | list[HdcDataType] | None
                       ) -> typing.Any:
 
+        if expected_data_types == [None]:  # Being tolerant with weird ways of saying 'void'
+            expected_data_types = None
+
         if not expected_data_types:
             if len(raw_payload) > 0:
                 raise ValueError("Payload was expected to be empty, but it isn't.")
@@ -240,11 +243,21 @@ class HdcDataType(enum.IntEnum):
         return_as_list = True  # unless...
         if isinstance(expected_data_types, HdcDataType):
             return_as_list = False  # Reminder about caller not expecting a list, but a single value, instead.
-            expected_data_types = [expected_data_types, ]  # Just for it to work in the for-loop below
+            expected_data_types = [expected_data_types, ]  # Just for it to work in the for-loops below
+
+        if any(not isinstance(t, HdcDataType) for t in expected_data_types):
+            raise TypeError("Only knows how to parse for HdcDataType. (Build-in python types are not supported)")
 
         return_values = list()
-        for return_data_type in expected_data_types:
-            size = return_data_type.size() or len(raw_payload)  # A size of None means it's variable length
+        for idx, return_data_type in enumerate(expected_data_types):
+            size = return_data_type.size()
+            if size is None:
+                # A size of None means it's variable length, which
+                # is only allowed as last of the expected values!
+                if idx != len(expected_data_types)-1:
+                    raise ValueError("Variable size values (UTF8, BLOB) are only allowed as last item")
+                else:
+                    size = len(raw_payload)  # Assume that the remainder of the payload is the actual value size
             if size > len(raw_payload):
                 raise ValueError("Payload is shorter than expected.")
             return_value_as_bytes = raw_payload[:size]

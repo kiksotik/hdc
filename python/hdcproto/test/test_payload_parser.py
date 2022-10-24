@@ -225,7 +225,73 @@ class TestPayloadParser(unittest.TestCase):
             utf8_value
         )
 
-    def test_parsing_multiple_values(self):
+    def test_parsing_multiple_values(self):  # Without any variable size types!
+        types_and_values: list[tuple[HdcDataType, typing.Any]] = [
+            (HdcDataType.UINT8, 0x42),
+            (HdcDataType.INT32, -0x42424242),
+            (HdcDataType.DOUBLE, -42.424242),
+            (HdcDataType.BOOL, True)
+        ]
+
+        payload = bytearray()
+        multiple_values = list()
+        expected_data_types = list()
+        for datatype, value in types_and_values:
+            payload.extend(datatype.value_to_bytes(value))
+            multiple_values.append(value)
+            expected_data_types.append(datatype)
+        payload = bytes(payload)
+
+        self.assertEqual(
+            HdcDataType.parse_payload(raw_payload=payload, expected_data_types=expected_data_types),
+            multiple_values
+        )
+
+    def test_parsing_multiple_values_with_longer_payload_than_expected(self):
+        types_and_values: list[tuple[HdcDataType, typing.Any]] = [
+            (HdcDataType.UINT8, 0x42),
+            (HdcDataType.INT32, -0x42424242),
+            (HdcDataType.DOUBLE, -42.424242),
+            (HdcDataType.BOOL, True)
+        ]
+
+        payload = bytearray()
+        multiple_values = list()
+        expected_data_types = list()
+        for datatype, value in types_and_values:
+            payload.extend(datatype.value_to_bytes(value))
+            multiple_values.append(value)
+            expected_data_types.append(datatype)
+
+        payload.append(0x42)  # This is the one bogus byte that the parser should be complaining about!
+        payload = bytes(payload)
+
+        with self.assertRaises(ValueError):
+            HdcDataType.parse_payload(raw_payload=payload, expected_data_types=expected_data_types)
+
+    def test_parsing_multiple_values_with_shorter_payload_than_expected(self):
+        types_and_values: list[tuple[HdcDataType, typing.Any]] = [
+            (HdcDataType.UINT8, 0x42),
+            (HdcDataType.INT32, -0x42424242),
+            (HdcDataType.DOUBLE, -42.424242),
+            (HdcDataType.BOOL, True)
+        ]
+
+        payload = bytearray()
+        multiple_values = list()
+        expected_data_types = list()
+        for datatype, value in types_and_values:
+            payload.extend(datatype.value_to_bytes(value))
+            multiple_values.append(value)
+            expected_data_types.append(datatype)
+
+        payload = payload[:-1]  # This is the one missing byte that the parser should be complaining about!
+        payload = bytes(payload)
+
+        with self.assertRaises(ValueError):
+            HdcDataType.parse_payload(raw_payload=payload, expected_data_types=expected_data_types)
+
+    def test_parsing_multiple_values_and_last_is_of_variable_size(self):
         types_and_values: list[tuple[HdcDataType, typing.Any]] = [
             (HdcDataType.UINT8, 0x42),
             (HdcDataType.INT32, -0x42424242),
@@ -248,7 +314,7 @@ class TestPayloadParser(unittest.TestCase):
             multiple_values
         )
 
-    def test_variable_size_argument_must_be_last(self):
+    def test_parsing_multiple_values_and_first_is_of_variable_size(self):
         types_and_values: list[tuple[HdcDataType, typing.Any]] = [
             (HdcDataType.UTF8, "Lorem ipsum ùոïċọɗẹ"),
             (HdcDataType.UINT8, 0x42),
@@ -264,4 +330,5 @@ class TestPayloadParser(unittest.TestCase):
         payload = bytes(payload)
 
         with self.assertRaises(ValueError):
+            # Should fail, because variable size can only be inferred for the last argument!
             HdcDataType.parse_payload(raw_payload=payload, expected_data_types=expected_data_types)

@@ -29,7 +29,7 @@ class CommandProxyBase:
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
 
         if not is_valid_uint8(command_id):
-            raise ValueError(f"command_id value of 0x{command_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"command_id value of {command_id} is beyond valid range from 0x00 to 0xFF")
 
         self.feature_proxy = feature_proxy
         self.command_id = command_id
@@ -65,7 +65,7 @@ class CommandProxyBase:
         code = int(code)
 
         if not is_valid_uint8(code):
-            raise ValueError(f"Reply error code of 0x{code:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"Reply error code of {code} is beyond valid range from 0x00 to 0xFF")
 
         if error_name is None:
             error_name = f"Error 0x{code:02x}"  # Fallback for lazy callers
@@ -150,7 +150,7 @@ class GetPropertyNameCommandProxy(CommandProxyBase):
 
     def __call__(self, property_id: int, timeout: float | None = None) -> str:
         if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
 
         return super()._call_cmd(
             cmd_args=[(HdcDataType.UINT8, property_id), ],
@@ -167,7 +167,7 @@ class GetPropertyTypeCommandProxy(CommandProxyBase):
 
     def __call__(self, property_id: int, timeout: float | None = None) -> HdcDataType:
         if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
 
         property_type_id = super()._call_cmd(
             cmd_args=[(HdcDataType.UINT8, property_id), ],
@@ -186,7 +186,7 @@ class GetPropertyReadonlyCommandProxy(CommandProxyBase):
 
     def __call__(self, property_id: int, timeout: float | None = None) -> bool:
         if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
 
         return super()._call_cmd(
             cmd_args=[(HdcDataType.UINT8, property_id), ],
@@ -206,7 +206,7 @@ class GetPropertyValueCommandProxy(CommandProxyBase):
                  property_data_type: HdcDataType,
                  timeout: float | None = None) -> typing.Any:
         if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
 
         return super()._call_cmd(
             cmd_args=[(HdcDataType.UINT8, property_id), ],
@@ -229,7 +229,7 @@ class SetPropertyValueCommandProxy(CommandProxyBase):
                  new_value: bool | int | float | str | bytes,
                  timeout: float | None = None) -> bool | int | float | str | bytes:
         if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
 
         return super()._call_cmd(
             cmd_args=[
@@ -249,7 +249,7 @@ class GetPropertyDescriptionCommandProxy(CommandProxyBase):
 
     def __call__(self, property_id: int, timeout: float | None = None) -> str:
         if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
 
         return super()._call_cmd(
             cmd_args=[(HdcDataType.UINT8, property_id), ],
@@ -432,7 +432,7 @@ class PropertyProxyBase:
                  default_freshness: float,
                  default_timeout: float):
         if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of 0x{property_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
 
         self.feature_proxy = feature_proxy
         self.property_id = property_id

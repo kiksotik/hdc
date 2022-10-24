@@ -133,7 +133,7 @@ class RouterFeature:
 
     def __init__(self, router: MessageRouter, feature_id: int):
         if not is_valid_uint8(feature_id):
-            raise ValueError(f"feature_id value of 0x{feature_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"feature_id value of {feature_id} is beyond valid range from 0x00 to 0xFF")
         self.event_handlers = dict()
         self.feature_id = feature_id
         self.router = router

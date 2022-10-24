@@ -28,7 +28,6 @@ logging.getLogger("HDC.packetizer").setLevel(logging.INFO)
 logging.getLogger("HDC.protocol").setLevel(logging.INFO)
 logging.getLogger("HDC.proxy").setLevel(logging.DEBUG)
 
-
 #################################################
 # Connect to HDC-device at a specific serial port
 deviceProxy = host.proxy.DeviceProxyBase(connection_url="COM10")
@@ -64,7 +63,7 @@ demo_logger.info(f"Re-setting LogLevelThreshold of Core-Feature to INFO "
                  f"and checking whether device does proper trimming of LogLevelThreshold values")
 deviceProxy.core.prop_log_event_threshold.set(logging.INFO)
 
-assert(deviceProxy.core.prop_log_event_threshold.set(logging.DEBUG - 1) == logging.DEBUG)
-assert(deviceProxy.core.prop_log_event_threshold.set(logging.CRITICAL + 1) == logging.CRITICAL)
+assert (deviceProxy.core.prop_log_event_threshold.set(logging.DEBUG - 1) == logging.DEBUG)
+assert (deviceProxy.core.prop_log_event_threshold.set(logging.CRITICAL + 1) == logging.CRITICAL)
 
 deviceProxy.router.close()

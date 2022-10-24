@@ -1,7 +1,7 @@
 import unittest
 
-from common import ReplyErrorCode
 import host.proxy
+from common import ReplyErrorCode
 
 
 class TestableDeviceProxy(host.proxy.DeviceProxyBase):
@@ -46,4 +46,3 @@ class TestReplyErrorCodeRegistration(unittest.TestCase):
         replyerrorcode_too_big = 256
         with self.assertRaises(ValueError):
             self.some_command_proxy.register_error(replyerrorcode_too_big)
-

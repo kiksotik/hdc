@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import enum
 import struct
 import typing
@@ -254,7 +255,7 @@ class HdcDataType(enum.IntEnum):
             if size is None:
                 # A size of None means it's variable length, which
                 # is only allowed as last of the expected values!
-                if idx != len(expected_data_types)-1:
+                if idx != len(expected_data_types) - 1:
                     raise ValueError("Variable size values (UTF8, BLOB) are only allowed as last item")
                 else:
                     size = len(raw_payload)  # Assume that the remainder of the payload is the actual value size
@@ -275,12 +276,14 @@ class HdcDataType(enum.IntEnum):
         return return_values
 
     @staticmethod
-    def parse_reply_msg(reply_message: bytes, expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
+    def parse_reply_msg(reply_message: bytes,
+                        expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
         raw_payload = reply_message[4:]  # Strip 4 leading bytes: MsgID + FeatureID + EvtID + ReplyErrorCode
         return HdcDataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
 
     @staticmethod
-    def parse_event_msg(event_message: bytes, expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
+    def parse_event_msg(event_message: bytes,
+                        expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
         raw_payload = event_message[3:]  # Strip 3 leading bytes: MsgID + FeatureID + EvtID
         return HdcDataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
 

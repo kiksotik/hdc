@@ -24,7 +24,6 @@ logging.getLogger("HDC.packetizer").setLevel(logging.INFO)
 logging.getLogger("HDC.protocol").setLevel(logging.INFO)
 logging.getLogger("HDC.proxy").setLevel(logging.INFO)
 
-
 #################################################
 # Connect to HDC-device at a specific serial port
 dev = MinimalDevice(connection_url="COM10")

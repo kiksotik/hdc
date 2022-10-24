@@ -21,6 +21,7 @@ class TestPayloadParser(unittest.TestCase):
                 expected_data_types=[])
         )
 
+        # noinspection PyTypeChecker
         self.assertIsNone(
             HdcDataType.parse_payload(
                 raw_payload=empty_payload,
@@ -43,6 +44,7 @@ class TestPayloadParser(unittest.TestCase):
             )
 
         with self.assertRaises(ValueError):
+            # noinspection PyTypeChecker
             HdcDataType.parse_payload(
                 raw_payload=non_empty_payload,
                 expected_data_types=[None]  # Very weird, I know. But why not?
@@ -52,12 +54,14 @@ class TestPayloadParser(unittest.TestCase):
         uint8_payload = bytes(range(1))
 
         with self.assertRaises(TypeError):
+            # noinspection PyTypeChecker
             HdcDataType.parse_payload(
                 raw_payload=uint8_payload,
                 expected_data_types=int
             )
 
         with self.assertRaises(TypeError):
+            # noinspection PyTypeChecker
             HdcDataType.parse_payload(
                 raw_payload=uint8_payload,
                 expected_data_types=[int]
@@ -152,7 +156,7 @@ class TestPayloadParser(unittest.TestCase):
             float_value,
             places=5  # Note the limited numeric precision of FLOAT !!!
         )
-        
+
     def test_parsing_of_double(self):
         double_value = -42.424242
         double_payload = HdcDataType.DOUBLE.value_to_bytes(double_value)
@@ -162,7 +166,7 @@ class TestPayloadParser(unittest.TestCase):
             double_value,
             places=6  # Note the better numeric precision of DOUBLE
         )
-        
+
     def test_parsing_of_bool_true(self):
         true_value = True
         true_payload = HdcDataType.BOOL.value_to_bytes(true_value)
@@ -202,7 +206,7 @@ class TestPayloadParser(unittest.TestCase):
             HdcDataType.parse_payload(raw_payload=blob_payload, expected_data_types=HdcDataType.BLOB),
             blob_value
         )
-        
+
     def test_parsing_of_nonempty_utf8(self):
         utf8_value = "Lorem ipsum ùոïċọɗẹ"
         utf8_payload = HdcDataType.UTF8.value_to_bytes(utf8_value)
@@ -222,7 +226,7 @@ class TestPayloadParser(unittest.TestCase):
         )
 
     def test_parsing_multiple_values(self):
-        types_and_values : list[tuple[HdcDataType, typing.Any]] = [
+        types_and_values: list[tuple[HdcDataType, typing.Any]] = [
             (HdcDataType.UINT8, 0x42),
             (HdcDataType.INT32, -0x42424242),
             (HdcDataType.DOUBLE, -42.424242),
@@ -245,7 +249,7 @@ class TestPayloadParser(unittest.TestCase):
         )
 
     def test_variable_size_argument_must_be_last(self):
-        types_and_values : list[tuple[HdcDataType, typing.Any]] = [
+        types_and_values: list[tuple[HdcDataType, typing.Any]] = [
             (HdcDataType.UTF8, "Lorem ipsum ùոïċọɗẹ"),
             (HdcDataType.UINT8, 0x42),
         ]

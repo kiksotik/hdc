@@ -1,11 +1,10 @@
-
-
 class DeviceBase:
     """
     Base class of an HDC-device
     """
+
     def __init__(self):
-        self.features : dict[int, FeatureBase] = dict()
+        self.features: dict[int, FeatureBase] = dict()
 
 
 class FeatureBase:

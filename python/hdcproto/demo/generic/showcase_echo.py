@@ -25,7 +25,6 @@ logging.getLogger("HDC.packetizer").setLevel(logging.INFO)
 logging.getLogger("HDC.protocol").setLevel(logging.INFO)
 logging.getLogger("HDC.proxy").setLevel(logging.INFO)
 
-
 #################################################
 # Connect to HDC-device at a specific serial port
 deviceProxy = host.proxy.DeviceProxyBase(connection_url="COM10")
@@ -38,7 +37,8 @@ num_requests = 100
 max_req_msg_size = deviceProxy.core.prop_max_req_msg_size.get()
 payload_size = max_req_msg_size - 1  # Because of the MessageType byte that the Echo-request will prepend
 
-demo_logger.info(f"Showcasing ECHO command. Sending {num_requests} requests with a payload of {payload_size} bytes each:")
+demo_logger.info(
+    f"Showcasing ECHO command. Sending {num_requests} requests with a payload of {payload_size} bytes each:")
 timestamp_start = time.time_ns()
 sent_data = bytes(range(payload_size))
 for i in range(num_requests):
@@ -46,6 +46,6 @@ for i in range(num_requests):
     assert replied_data == sent_data
 timestamp_stop = time.time_ns()
 duration_total_ms = (timestamp_stop - timestamp_start) / 1000000.0
-demo_logger.info(f"Completed in {duration_total_ms:.1f}ms --> {duration_total_ms/num_requests:.1f} ms/request")
+demo_logger.info(f"Completed in {duration_total_ms:.1f}ms --> {duration_total_ms / num_requests:.1f} ms/request")
 
 deviceProxy.router.close()

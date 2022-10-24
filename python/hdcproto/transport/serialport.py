@@ -1,12 +1,13 @@
 from __future__ import annotations
+
 import threading
 import time
 import typing
 
 import serial
 
-from transport.packetizer import Packetizer
 from transport.base import TransportBase
+from transport.packetizer import Packetizer
 
 
 class SerialTransport(TransportBase):
@@ -33,7 +34,7 @@ class SerialTransport(TransportBase):
         super().__init__(message_received_handler=message_received_handler,
                          connection_lost_handler=connection_lost_handler)
         self.serial_url = serial_url
-        self.serial_port = None      # Will be initialized on connection
+        self.serial_port = None  # Will be initialized on connection
         self.receiver_thread = None  # Will be initialized on connection
         self.keep_thread_alive = True
         self.packetizer = Packetizer()

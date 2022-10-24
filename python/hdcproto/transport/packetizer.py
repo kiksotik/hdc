@@ -8,8 +8,8 @@ class Packetizer:
     For details, please refer to the HDC-spec: https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-Spec.pdf
     """
 
-    TERMINATOR = 0x1E         # "Record Separator" as defined by the ASCII standard
-    MAX_PAYLOAD_SIZE = 0xFF   # Maximum payload that can be sent in a single package
+    TERMINATOR = 0x1E  # "Record Separator" as defined by the ASCII standard
+    MAX_PAYLOAD_SIZE = 0xFF  # Maximum payload that can be sent in a single package
     EMPTY_PACKET = bytearray([0, 0, TERMINATOR])  # payload_size=0 ; checksum=0 ; terminator
 
     incoming_raw_data_bytes: bytearray

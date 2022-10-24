@@ -95,7 +95,7 @@ class TestMessageRoundTrip(unittest.TestCase):
         messages = [bytes()]
         self.assertEqualAfterRoundTrip(messages, single_chunk)
         self.assertEqualAfterRoundTrip(messages, chunk_into_single_bytes)
-        
+
     def test_two_empty_messages(self):
         messages = [bytes(), bytes()]
         self.assertEqualAfterRoundTrip(messages, single_chunk)
@@ -105,7 +105,7 @@ class TestMessageRoundTrip(unittest.TestCase):
         messages = [bytes(range(1))]
         self.assertEqualAfterRoundTrip(messages, single_chunk)
         self.assertEqualAfterRoundTrip(messages, chunk_into_single_bytes)
-        
+
     def test_two_1byte_messages(self):
         messages = [bytes(range(1)), bytes(range(1))]
         self.assertEqualAfterRoundTrip(messages, single_chunk)
@@ -152,7 +152,7 @@ class TestMessageRoundTrip(unittest.TestCase):
         messages = [message, message]
         self.assertEqualAfterRoundTrip(messages, single_chunk)
         self.assertEqualAfterRoundTrip(messages, chunk_into_single_bytes)
-        
+
     def test_one_2551byte_message(self):
         message = bytes(i % 256 for i in range(2551))
         messages = [message]

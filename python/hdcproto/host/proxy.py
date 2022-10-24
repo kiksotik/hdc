@@ -115,40 +115,22 @@ class CommandProxyBase:
                                                          timeout=timeout)
         self.feature_proxy.logger.debug(f"Finished executing CommandID=0x{self.command_id:02X}")
 
-        reply_payload = reply_message[4:]
+        try:
+            return_values = DataType.parse_reply_msg(reply_message=reply_message,
+                                                     expected_data_types=return_types)
+        except ValueError as e:
+            raise HdcError(f"Failed to parse reply to CommandID={self.command_id:02x}, because: {e}")
 
-        if not return_types:
-            if len(reply_payload) > 0:
-                raise HdcError(f"Failed to parse reply to CommandID={self.command_id:02x}, because "
-                               f"payload was expected to be empty, but it isn't.")
-            return None
+        if isinstance(return_values, list):
+            # Be more pythonic by returning a tuple, instead of a list
+            return_values = tuple(return_values)
 
-        if isinstance(return_types, DataType):
-            return_types = [return_types, ]  # Put it in a list
-
-        return_values = list()
-        for return_data_type in return_types:
-            size = return_data_type.size() or len(reply_payload)  # A size of None means it's variable length
-            if size > len(reply_payload):
-                raise HdcError(f"Failed to parse reply to CommandID={self.command_id:02x}, because "
-                               f"payload is shorter than expected.")
-            return_value_as_bytes = reply_payload[:size]
-            return_value = return_data_type.bytes_to_value(return_value_as_bytes)
-            return_values.append(return_value)
-            reply_payload = reply_payload[size:]
-
-        if len(reply_payload) > 0:
-            raise HdcError(f"Failed to parse reply to CommandID={self.command_id:02x}, because "
-                           f"payload is longer than expected.")
-
-        if len(return_types) == 1:
-            return return_values[0]  # Return first item, without enclosing it in a list.
-
-        return tuple(return_values)  # Convert list into tuple.
+        return return_values
 
 
-class VoidWithoutArgsCommand(CommandProxyBase):
-    """"""
+class VoidWithoutArgsCommandProxy(CommandProxyBase):
+    """Convenience proxy-class for FeatureCommands that neither have arguments nor return values."""
+
     def __init__(self, feature_proxy: FeatureProxyBase, command_id: int, default_timeout: float | None = None):
         super().__init__(feature_proxy, command_id=command_id, default_timeout=default_timeout)
 

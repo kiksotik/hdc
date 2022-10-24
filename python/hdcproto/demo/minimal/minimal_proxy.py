@@ -4,6 +4,7 @@ Proxy classes to communicate with i.e. a NUCLEO prototype board running any of t
 import enum
 from datetime import datetime
 
+import common
 import host.proxy
 
 
@@ -13,7 +14,7 @@ class MinimalCore(host.proxy.CoreFeatureProxyBase):
         super().__init__(device_proxy=device_proxy)
 
         # Commands
-        self.cmd_reset = host.proxy.VoidWithoutArgsCommand(self, command_id=0xC1, default_timeout=1.23)
+        self.cmd_reset = host.proxy.VoidWithoutArgsCommandProxy(self, command_id=0xC1, default_timeout=1.23)
 
         # Events
         self.evt_button = host.proxy.EventProxyBase(self, event_id=0x01, payload_parser=self.ButtonEventPayload)
@@ -33,10 +34,20 @@ class MinimalCore(host.proxy.CoreFeatureProxyBase):
 
     class ButtonEventPayload:
         """Used by the self.evt_button proxy to parse raw event messages into custom event payload objects."""
+
         def __init__(self, event_message: bytes):
+            # Timestamp that might be handy when processing this event in a delayed manner
             self.received_at = datetime.utcnow()
-            self.button_id = event_message[3]
-            self.button_state = event_message[4]
+
+            # In simple cases like this and knowing some internals of the HDC-spec, it might be better to do this:
+            #     self.button_id = event_message[3]
+            #     self.button_state = event_message[4]
+
+            # Otherwise, it might be better to do this:
+            self.button_id, self.button_state = common.DataType.parse_event_msg(
+                event_message=event_message,
+                expected_data_types=[common.DataType.UINT8, common.DataType.UINT8]
+            )
 
 
 class MinimalDevice(host.proxy.DeviceProxyBase):

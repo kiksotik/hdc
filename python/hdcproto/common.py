@@ -1,5 +1,7 @@
+from __future__ import annotations
 import enum
 import struct
+import typing
 
 
 class HdcError(Exception):
@@ -224,6 +226,50 @@ class DataType(enum.IntEnum):
                 f"but attempted to convert {len(value_as_bytes)}")
 
         return struct.unpack(fmt, value_as_bytes)[0]
+
+    @staticmethod
+    def parse_payload(raw_payload: bytes,
+                      expected_data_types: DataType | list[DataType] | None
+                      ) -> typing.Any:
+
+        if not expected_data_types:
+            if len(raw_payload) > 0:
+                raise ValueError("Payload was expected to be empty, but it isn't.")
+            return None
+
+        return_as_list = True  # unless...
+        if isinstance(expected_data_types, DataType):
+            return_as_list = False  # Reminder about caller not expecting a list, but a single value, instead.
+            expected_data_types = [expected_data_types, ]  # Just for it to work in the for-loop below
+
+        return_values = list()
+        for return_data_type in expected_data_types:
+            size = return_data_type.size() or len(raw_payload)  # A size of None means it's variable length
+            if size > len(raw_payload):
+                raise ValueError("Payload is shorter than expected.")
+            return_value_as_bytes = raw_payload[:size]
+            return_value = return_data_type.bytes_to_value(return_value_as_bytes)
+            return_values.append(return_value)
+            raw_payload = raw_payload[size:]
+
+        if len(raw_payload) > 0:
+            raise ValueError("Payload is longer than expected.")
+
+        if not return_as_list:
+            assert len(expected_data_types) == 1
+            return return_values[0]  # Return first item, without enclosing it in a list.
+
+        return return_values
+
+    @staticmethod
+    def parse_reply_msg(reply_message: bytes, expected_data_types: DataType | list[DataType] | None) -> typing.Any:
+        raw_payload = reply_message[4:]  # Strip 4 leading bytes: MsgID + FeatureID + EvtID + ReplyErrorCode
+        return DataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
+
+    @staticmethod
+    def parse_event_msg(event_message: bytes, expected_data_types: DataType | list[DataType] | None) -> typing.Any:
+        raw_payload = event_message[3:]  # Strip 3 leading bytes: MsgID + FeatureID + EvtID
+        return DataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
 
 
 def is_valid_uint8(value_to_check: int) -> bool:

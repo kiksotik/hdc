@@ -22,7 +22,6 @@ logging.getLogger("HDC.packetizer").setLevel(logging.INFO)
 logging.getLogger("HDC.protocol").setLevel(logging.INFO)
 logging.getLogger("HDC.proxy").setLevel(logging.INFO)
 
-
 #################################################
 # Connect to HDC-device at a specific serial port
 dev = MinimalDevice(connection_url="COM10")  # Note how this implements all HDC specifics of a given device type
@@ -53,7 +52,6 @@ demo_logger.info("Resetting the Core-feature...")
 dev.core.cmd_reset()  # Blocks until it receives reply from HDC-device or the default timeout elapses.
 time.sleep(0.5)  # Allow for some time for the actual firmware reset to happen.
 
-
 ##################################################################
 # Example of how the host gets property values
 demo_logger.info("______________________________")
@@ -61,7 +59,6 @@ demo_logger.info("Obtain some property values...")
 demo_logger.info(f"   Microcontroller REVID: 0x{dev.core.prop_microcontroller_revid.get():08x}")
 demo_logger.info(f"   Microcontroller DEVID: 0x{dev.core.prop_microcontroller_devid.get():08x}")
 demo_logger.info(f"   Microcontroller   UID: 0x{dev.core.prop_microcontroller_uid.get().hex()}")
-
 
 ##################################################################
 # Example of how the host sets property values

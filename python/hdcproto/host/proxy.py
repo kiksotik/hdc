@@ -48,6 +48,17 @@ class CommandProxyBase:
         if isinstance(code, ReplyErrorCode):
             code = int(code)
             error_name = str(code)
+        else:
+            # Disallow overriding ReplyErrorCodes whose meaning is already predefined and thus reserved by HDC-spec
+            try:
+                code_as_defined_by_hdc_spec = ReplyErrorCode(code)
+            except ValueError:
+                pass  # Meaning this code is *not* defined by HDC-spec, thus it's available for custom use.
+            else:
+                raise ValueError(f"Failed to register ReplyErrorCode 0x{code:02x}:'{error_name}', because that it's "
+                                 f"already defined by HDC-spec to mean '{code_as_defined_by_hdc_spec}'")
+
+        code = int(code)
 
         if 0x00 > code > 0xFF:
             raise ValueError("Reply error codes must be in range 0x00 to 0xFF")
@@ -56,7 +67,7 @@ class CommandProxyBase:
             error_name = f"Error 0x{code:02x}"  # Fallback for lazy callers
 
         if code in self.known_errors:
-            raise RuntimeError(f'Already registered ErrorCode {code} as "{self.known_errors[code]}"')
+            raise ValueError(f'Already registered ErrorCode {code} as "{self.known_errors[code]}"')
         self.known_errors[code] = error_name
 
     def _send_request_and_get_reply(self, request_message: bytes, timeout: float) -> bytes:

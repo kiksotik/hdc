@@ -11,6 +11,7 @@ class HdcError(Exception):
 
 @enum.unique
 class MessageType(enum.IntEnum):
+    """HDC-message types as defined by HDC-spec"""
     CMD_ECHO = 0xCE
     CMD_FEATURE = 0xCF
     EVENT_FEATURE = 0xEF
@@ -18,11 +19,13 @@ class MessageType(enum.IntEnum):
 
 @enum.unique
 class FeatureID(enum.IntEnum):
+    """Reserved ID of the only mandatory HDC-feature required by HDC-spec: the Core feature."""
     CORE = 0x00
 
 
 @enum.unique
 class CmdID(enum.IntEnum):
+    """Reserved IDs of mandatory FeatureCommands required by HDC-spec"""
     GET_PROP_NAME = 0xF1
     GET_PROP_TYPE = 0xF2
     GET_PROP_RO = 0xF3
@@ -37,6 +40,7 @@ class CmdID(enum.IntEnum):
 
 @enum.unique
 class ReplyErrorCode(enum.IntEnum):
+    """Reserved IDs and names of error codes used in replies to FeatureCommands as defined by HDC-spec"""
     NO_ERROR = 0x00
     UNKNOWN_FEATURE = 0x01
     UNKNOWN_COMMAND = 0x02
@@ -73,6 +77,7 @@ class ReplyErrorCode(enum.IntEnum):
 
 @enum.unique
 class EvtID(enum.IntEnum):
+    """Reserved IDs of mandatory Events required by HDC-spec"""
     LOG = 0xF0
     STATE_TRANSITION = 0xF1
 
@@ -80,7 +85,12 @@ class EvtID(enum.IntEnum):
 @enum.unique
 class DataType(enum.IntEnum):
     """
-    The ID values of each DataType can be interpreted as follows:
+    All IDs of data-types defined by HDC-spec.
+    Mainly used to define data-type of FeatureProperties, but also used
+    to parse arguments and return values of FeatureCommands.
+    Also implements serialization and de-serialization from raw bytes.
+
+    The ID value of each DataType can be interpreted as follows:
 
     Upper Nibble: Kind of DataType
           0x0_ --> Unsigned integer number
@@ -129,9 +139,9 @@ class DataType(enum.IntEnum):
         if self == DataType.DOUBLE:
             return "<d"
         if self == DataType.BLOB:
-            return None
+            return None  # Meaning: Variable size
         if self == DataType.UTF8:
-            return None
+            return None  # Meaning: Variable size
 
     def size(self) -> int | None:
         """
@@ -218,7 +228,7 @@ class DataType(enum.IntEnum):
 
 @enum.unique
 class PropID(enum.IntEnum):
-    """Property IDs as defined by HDC-spec"""
+    """Reserved IDs of mandatory FeatureProperties required by HDC-spec"""
     FEAT_NAME = 0xF0
     FEAT_TYPE_NAME = 0xF1
     FEAT_TYPE_REV = 0xF2

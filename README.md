@@ -101,8 +101,8 @@ Please refer to the demo projects:
   - HDC-device implementation in [``STM32/demo/Demo_Minimal_NUCLEO-F303RE/Core/Src/feature_core.c``](https://github.com/kiksotik/hdc/blob/main/STM32/demo/Demo_Minimal_NUCLEO-F303RE/Core/Src/feature_core.c)  
     _The remainder of that example's source-code is just the very bloated way the STM32CubeMX wizzard sets up a HAL based project._
 	
-  - HDC-host python implementation in [``python/demo/cli_minimal/minimal_proxy.py``](https://github.com/kiksotik/hdc/blob/main/python/demo/cli_minimal/minimal_proxy.py)  
-    How to use said python proxy is demonstrated in [``python/demo/cli_minimal/showcase_minimal.py``](https://github.com/kiksotik/hdc/blob/main/python/demo/cli_minimal/showcase_minimal.py)  
+  - HDC-host python implementation in [``python/demo/cli_minimal/minimal_proxy.py``](https://github.com/kiksotik/hdc/blob/main/python/hdcproto/demo/minimal/minimal_proxy.py)  
+    How to use said python proxy is demonstrated in [``python/hdcproto/demo/minimal/showcase_minimal.py``](https://github.com/kiksotik/hdc/blob/main/python/hdcproto/demo/minimal/showcase_minimal.py)  
 
 
 ## Getting Started
@@ -115,9 +115,9 @@ For further details refer to [``STM32/README.md``](https://github.com/kiksotik/h
 [![STM32CubeIDE][STM32CubeIDE-shield]][STM32CubeIDE-url]
 
 ### Host example in python
-- Load the ``python`` folder as a PyCharm project.
+- Load the ``python/hdcproto`` folder as a PyCharm project.
 - Connect a HDC-device to the PC
-- Run any of the generic demo command-line showcase scripts.
+- Run any of the generic demo command-line showcase scripts from folder ``python/hdcproto/demo/generic/``
 
 [![python][python-shield]][python-url]
 [![PyCharm][PyCharm-shield]][PyCharm-url]

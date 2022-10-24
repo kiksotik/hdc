@@ -226,6 +226,11 @@ class DataType(enum.IntEnum):
         return struct.unpack(fmt, value_as_bytes)[0]
 
 
+def is_valid_uint8(value_to_check: int) -> bool:
+    """Utility method to validate whether a given int is a valid UINT8 value in an efficient and readable manner."""
+    return 0x00 <= value_to_check <= 0xFF
+
+
 @enum.unique
 class PropID(enum.IntEnum):
     """Reserved IDs of mandatory FeatureProperties required by HDC-spec"""

@@ -60,7 +60,7 @@ class CommandProxyBase:
 
         code = int(code)
 
-        if 0x00 > code > 0xFF:
+        if not 0x00 <= code <= 0xFF:
             raise ValueError("Reply error codes must be in range 0x00 to 0xFF")
 
         if error_name is None:
@@ -954,7 +954,7 @@ class FeatureProxyBase:
         deadline = time.perf_counter() + timeout
 
         if exits is not None:
-            if any(0x00 > v > 0xFF for v in exits):
+            if any(not 0x00 <= v <= 0xFF for v in exits):
                 raise ValueError("State ID values must be in range 0x00 to 0xFF")
 
             while self.prop_feature_state.get() in exits:
@@ -963,7 +963,7 @@ class FeatureProxyBase:
                 time.sleep(polling_period)
 
         if enters is not None:
-            if any(0x00 > v > 0xFF for v in enters):
+            if any(not 0x00 <= v <= 0xFF for v in enters):
                 raise ValueError("State ID values must be in range 0x00 to 0xFF")
 
             while self.prop_feature_state.get() not in enters:

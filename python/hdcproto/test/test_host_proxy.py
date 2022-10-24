@@ -36,3 +36,14 @@ class TestReplyErrorCodeRegistration(unittest.TestCase):
         replyerrorcode_predefined_by_hdc = int(ReplyErrorCode.UNKNOWN_FEATURE)
         with self.assertRaises(ValueError):
             self.some_command_proxy.register_error(replyerrorcode_predefined_by_hdc)
+
+    def test_custom_replyerrorcode_which_is_below_valid_range(self):
+        replyerrorcode_negative = -1
+        with self.assertRaises(ValueError):
+            self.some_command_proxy.register_error(replyerrorcode_negative)
+
+    def test_custom_replyerrorcode_which_is_beyond_valid_range(self):
+        replyerrorcode_too_big = 256
+        with self.assertRaises(ValueError):
+            self.some_command_proxy.register_error(replyerrorcode_too_big)
+

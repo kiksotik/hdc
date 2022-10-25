@@ -1,26 +1,19 @@
-#####################
-# Python
 
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 
-#####################
-# PyCharm
 
-# User-specific stuff
+# PyCharm
 **/.idea/workspace.xml
 **/.idea/tasks.xml
 **/.idea/usage.statistics.xml
-#**/.idea/dictionaries
+**/.idea/dictionaries
 **/.idea/shelf
 
-# AWS User-specific
-**/.idea/aws.xml
-
 # Generated files
-**/.idea/contentModel.xml
+#**/.idea/contentModel.xml
 
 # Sensitive or high-churn files
 **/.idea/dataSources/
@@ -31,3 +24,8 @@ __pycache__/
 **/.idea/uiDesigner.xml
 **/.idea/dbnavigator.xml
 
+##########################
+# Distribution / packaging
+dist/
+
+MANIFEST

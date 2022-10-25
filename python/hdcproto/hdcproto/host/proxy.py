@@ -9,9 +9,10 @@ import time
 import typing
 from datetime import datetime
 
-import host.router
-import transport.serialport
-from common import HdcError, MessageType, FeatureID, CmdID, ReplyErrorCode, EvtID, PropID, HdcDataType, is_valid_uint8
+import hdcproto.host.router
+import hdcproto.transport.serialport
+from hdcproto.common import (HdcError, MessageType, FeatureID, CmdID, ReplyErrorCode, EvtID, PropID, HdcDataType,
+                             is_valid_uint8)
 
 DEFAULT_REPLY_TIMEOUT = 0.2
 
@@ -882,14 +883,14 @@ class PropertyProxy_LogEventThreshold(PropertyProxy_RW_UINT8):
 
 
 class FeatureProxyBase:
-    router_feature: host.router.RouterFeature
+    router_feature: hdcproto.host.router.RouterFeature
 
     def __init__(self, device_proxy: DeviceProxyBase, feature_id: int):
         if not is_valid_uint8(feature_id):
             raise ValueError(f"feature_id value of 0x{feature_id:02x} is beyond valid range from 0x00 to 0xFF")
 
-        self.router_feature = host.router.RouterFeature(router=device_proxy.router,
-                                                        feature_id=feature_id)
+        self.router_feature = hdcproto.host.router.RouterFeature(router=device_proxy.router,
+                                                                 feature_id=feature_id)
         self.logger = \
             logging.getLogger("HDC.proxy").getChild(device_proxy.__class__.__name__).getChild(self.__class__.__name__)
 
@@ -997,12 +998,12 @@ class CoreFeatureProxyBase(FeatureProxyBase):
 
 
 class DeviceProxyBase:
-    router: host.router.MessageRouter
+    router: hdcproto.host.router.MessageRouter
     core: CoreFeatureProxyBase
 
     def __init__(self, connection_url: str):
-        serial_transport = transport.serialport.SerialTransport(serial_url=connection_url)
-        self.router = host.router.MessageRouter(transport=serial_transport)
+        serial_transport = hdcproto.transport.serialport.SerialTransport(serial_url=connection_url)
+        self.router = hdcproto.host.router.MessageRouter(transport=serial_transport)
 
         # The following may be needed for introspection when using bare DeviceProxyBase objects.
         # Sub-classes will typically override it with a more specific core-feature proxy.

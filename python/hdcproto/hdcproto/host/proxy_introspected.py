@@ -4,12 +4,12 @@ EXPERIMENTAL: Proxy classes that generate themselves by using HDC introspection
 import ast
 import enum
 
-import host.proxy
+from hdcproto.host.proxy import FeatureProxyBase, DeviceProxyBase
 
 
-class IntrospectedFeatureProxy(host.proxy.FeatureProxyBase):
+class IntrospectedFeatureProxy(FeatureProxyBase):
 
-    def __init(self, device_proxy: host.proxy.DeviceProxyBase, feature_id: int):
+    def __init(self, device_proxy: DeviceProxyBase, feature_id: int):
 
         super().__init__(device_proxy=device_proxy, feature_id=feature_id)
 

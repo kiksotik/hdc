@@ -1,7 +1,7 @@
 import typing
 import unittest
 
-from common import HdcDataType
+from hdcproto.common import HdcDataType
 
 
 class TestPayloadParser(unittest.TestCase):
@@ -332,3 +332,7 @@ class TestPayloadParser(unittest.TestCase):
         with self.assertRaises(ValueError):
             # Should fail, because variable size can only be inferred for the last argument!
             HdcDataType.parse_payload(raw_payload=payload, expected_data_types=expected_data_types)
+
+
+if __name__ == '__main__':
+    unittest.main()

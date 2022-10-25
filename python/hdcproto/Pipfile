@@ -5,8 +5,11 @@ name = "pypi"
 
 [packages]
 pyserial = "*"
+hatch = "*"
+build = "*"
 
 [dev-packages]
 
 [requires]
 python_version = "3.10"
+python_full_version = "3.10.8"

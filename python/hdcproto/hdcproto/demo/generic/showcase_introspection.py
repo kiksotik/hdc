@@ -6,8 +6,8 @@ https://en.wikipedia.org/wiki/Type_introspection
 
 This script has also been handy to debug the C implementation of the HDC-device.
 """
-import common
-import host.proxy
+from hdcproto.common import HdcDataType
+from hdcproto.host.proxy import DeviceProxyBase, FeatureProxyBase
 
 skip_mandatory_members = False
 
@@ -16,7 +16,7 @@ def skip_it(member_id: int) -> bool:
     return skip_mandatory_members and (member_id & 0xF0) == 0xF0
 
 
-deviceProxy = host.proxy.DeviceProxyBase(connection_url="COM10")
+deviceProxy = DeviceProxyBase(connection_url="COM10")
 deviceProxy.router.connect()
 
 # Introspection: Available Features
@@ -24,7 +24,7 @@ available_featureIDs = deviceProxy.core.prop_available_features.get(timeout=6)
 print(f"Features: {available_featureIDs}")
 
 for featureID in available_featureIDs:
-    featureProxy = host.proxy.FeatureProxyBase(device_proxy=deviceProxy, feature_id=featureID)
+    featureProxy = FeatureProxyBase(device_proxy=deviceProxy, feature_id=featureID)
     print(f"Feature[0x{featureID:02X}]: {featureProxy.prop_feature_name.get(timeout=600)}")
 
     # Introspection: Available Commands on Core feature
@@ -54,7 +54,7 @@ for featureID in available_featureIDs:
         if skip_it(propID):
             continue
         propRO = featureProxy._cmd_get_property_readonly(propID, timeout=600)
-        propType: common.HdcDataType = featureProxy._cmd_get_property_type(propID, timeout=600)
+        propType: HdcDataType = featureProxy._cmd_get_property_type(propID, timeout=600)
         propName = featureProxy._cmd_get_property_name(propID, timeout=600)
         propValue = featureProxy._cmd_get_property_value(propID, propType, timeout=600)
         if isinstance(propValue, bytes):

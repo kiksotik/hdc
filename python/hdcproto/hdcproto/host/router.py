@@ -7,8 +7,8 @@ import logging
 import threading
 import typing
 
-from common import MessageType, HdcError, is_valid_uint8
-from transport.base import TransportBase
+from hdcproto.common import MessageType, HdcError, is_valid_uint8
+from hdcproto.transport.base import TransportBase
 
 
 class MessageRouter:

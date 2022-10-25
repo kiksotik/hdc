@@ -10,7 +10,7 @@ This script has also been handy to debug the C implementation of the HDC-device.
 import logging
 import time
 
-import host.proxy
+from hdcproto.host.proxy import DeviceProxyBase
 
 #########################################################
 # This example uses python logging to explain the
@@ -30,7 +30,7 @@ logging.getLogger("HDC.proxy").setLevel(logging.DEBUG)
 
 #################################################
 # Connect to HDC-device at a specific serial port
-deviceProxy = host.proxy.DeviceProxyBase(connection_url="COM10")
+deviceProxy = DeviceProxyBase(connection_url="COM10")
 deviceProxy.router.connect()
 
 

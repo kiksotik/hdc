@@ -4,26 +4,27 @@ Proxy classes to communicate with i.e. a NUCLEO prototype board running any of t
 import enum
 from datetime import datetime
 
-import host.proxy
-from common import HdcDataType
+from hdcproto.common import HdcDataType
+from hdcproto.host.proxy import (DeviceProxyBase, CoreFeatureProxyBase, VoidWithoutArgsCommandProxy, EventProxyBase,
+                                 PropertyProxy_RO_UINT32, PropertyProxy_RO_BLOB, PropertyProxy_RW_UINT8)
 
 
-class MinimalCore(host.proxy.CoreFeatureProxyBase):
+class MinimalCore(CoreFeatureProxyBase):
 
-    def __init__(self, device_proxy: host.proxy.DeviceProxyBase):
+    def __init__(self, device_proxy: DeviceProxyBase):
         super().__init__(device_proxy=device_proxy)
 
         # Commands
-        self.cmd_reset = host.proxy.VoidWithoutArgsCommandProxy(self, command_id=0xC1, default_timeout=1.23)
+        self.cmd_reset = VoidWithoutArgsCommandProxy(self, command_id=0xC1, default_timeout=1.23)
 
         # Events
-        self.evt_button = host.proxy.EventProxyBase(self, event_id=0x01, payload_parser=self.ButtonEventPayload)
+        self.evt_button = EventProxyBase(self, event_id=0x01, payload_parser=self.ButtonEventPayload)
 
         # Properties
-        self.prop_microcontroller_devid = host.proxy.PropertyProxy_RO_UINT32(self, property_id=0x010)
-        self.prop_microcontroller_revid = host.proxy.PropertyProxy_RO_UINT32(self, property_id=0x11)
-        self.prop_microcontroller_uid = host.proxy.PropertyProxy_RO_BLOB(self, property_id=0x12)
-        self.prop_led_blinking_rate = host.proxy.PropertyProxy_RW_UINT8(self, property_id=0x13)
+        self.prop_microcontroller_devid = PropertyProxy_RO_UINT32(self, property_id=0x010)
+        self.prop_microcontroller_revid = PropertyProxy_RO_UINT32(self, property_id=0x11)
+        self.prop_microcontroller_uid = PropertyProxy_RO_BLOB(self, property_id=0x12)
+        self.prop_led_blinking_rate = PropertyProxy_RW_UINT8(self, property_id=0x13)
 
     class FeatureStateEnum(enum.IntEnum):
         """Used by FeatureProxyBase.resolve_state_name() to resolve names of states of the MinimalCore feature."""
@@ -50,7 +51,7 @@ class MinimalCore(host.proxy.CoreFeatureProxyBase):
             )
 
 
-class MinimalDevice(host.proxy.DeviceProxyBase):
+class MinimalDevice(DeviceProxyBase):
     core: MinimalCore
 
     def __init__(self, connection_url: str):

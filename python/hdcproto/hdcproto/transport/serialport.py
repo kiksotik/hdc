@@ -6,8 +6,8 @@ import typing
 
 import serial
 
-from transport.base import TransportBase
-from transport.packetizer import Packetizer
+from hdcproto.transport.base import TransportBase
+from hdcproto.transport.packetizer import Packetizer
 
 
 class SerialTransport(TransportBase):

@@ -1,15 +1,21 @@
+<!-- 
+      This is the main README.md file at the top of the folder hierarchy of the git repository. 
+      Since the GitHub repository is used as the project's homepage, this file is meant to welcome people
+      who might not know anything about HDC yet.
+-->
+
 <a name="readme-top"></a>
 
-# HDC: Host Device Communication protocol
-Specification and implementation of the "Host Device Communication" protocol, which is meant 
-to lower the typical _impedance_ between microcontroller firmware and the software 
-communicating with it on a hosting PC.
+# The HDC protocol
+Specification and implementation of the **Host Device Communication** protocol, whose purpose is to simplify the 
+communication between the firmware of a device with limited computing resources and the software on the computer 
+to which it's connected via a serial communication link, like UART / USB-CDC / Virtual COM Port.
 
-Warning: The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-Spec.pdf) is still work in progress!
+> WARNING:  The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-Spec.pdf) is still work in progress!
 
 ## Features
 
-- Despite the long list of features below, HDC is quite lightweigt on microcontroller resources.
+- Despite the long list of features below, HDC is quite lightweight on microcontroller resources.
   - A typical HDC-device implementation consumes less than 10KB of FLASH and 1KB of RAM.
   
   - Protocol overhead is typically 6 bytes per HDC-message.  
@@ -32,9 +38,9 @@ Warning: The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-S
 	i.e.: The ``hdc_device`` driver is writen in plain and simple C.  
 	There's no obligation to code in C++ nor Objective-C!
 	
-  - Encourages source-code modularity and reusability.
-    Device ``features`` can be reused accross different device-implementations.  
-	Both, their device side as well as their host side implementations.
+  - Encourages source-code modularity and re-usability.
+    Device ``features`` can be reused across different device-implementations.  
+	Both, their device side and their host side implementations.
 
 	
 - [Introspection](https://en.wikipedia.org/wiki/Type_introspection)
@@ -44,7 +50,7 @@ Warning: The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-S
     programming language the host is written in. _(Work in progress and not fully implemented yet!)_
   
   - Much more than just data-types can be introspected:
-  	- Human readable documentation of ``features``, ``properties``, ``commands``, ``events`` 
+  	- Human-readable documentation of ``features``, ``properties``, ``commands``, ``events`` 
 	  and ``states`` in the manner of [docstrings](https://en.wikipedia.org/wiki/Docstring)
 	  
     - Revision number of a ``feature``'s implementation  
@@ -52,7 +58,7 @@ Warning: The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-S
 
 - Properties
   - Each ``feature`` can expose its own set of properties and define their data-type, 
-    whether it's read-only, its human readable name and docstring.
+    whether it's read-only, its human-readable name and docstring.
 
 - Commands
   - Those are essentially *Remote Procedure Calls* of methods implemented on a ``feature``
@@ -70,15 +76,15 @@ Warning: The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-S
 - Streaming
   - Each ``feature`` can send multiple, independent streams of data to the host.
     Streamed data-items are actually handled in the same manner as regular ``events``, 
-	each ``EventID`` constitutes a _stream_ and it's always up to the device to 
-	decide when it sends the next data-item or chunk, whithout having to care about 
+	each ``EventID`` constitutes a _stream_, and it's always up to the device to 
+	decide when it sends the next data-item or chunk, without having to care about 
 	buffer management, because the ``hdc_device`` driver takes care of sending data almost 
 	immediately to the HDC-host.  
 	On the receiving end, the corresponding proxy-class takes care of buffering the 
 	received data, thus unburdening the host application of having to poll or even 
 	care at all about any received data.
 	Data type of the streamed data-items can be as simple or as complex as the device 
-	developer may require. Also whether a stream is initiated and stopped by ``commands`` 
+	developer may require. Also, whether a stream is initiated and stopped by ``commands`` 
 	or otherwise is also up to the device developer to decide.
 	
 - Logging
@@ -96,32 +102,16 @@ Warning: The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-S
 
 
 ## Usage
-Please refer to the demo projects:
-- Minimal_Demo:
-  - HDC-device implementation in [``STM32/demo/Demo_Minimal_NUCLEO-F303RE/Core/Src/feature_core.c``](https://github.com/kiksotik/hdc/blob/main/STM32/demo/Demo_Minimal_NUCLEO-F303RE/Core/Src/feature_core.c)  
-    _The remainder of that example's source-code is just the very bloated way the STM32CubeMX wizzard sets up a HAL based project._
-	
-  - HDC-host python implementation in [``python/demo/cli_minimal/minimal_proxy.py``](https://github.com/kiksotik/hdc/blob/main/python/hdcproto/demo/minimal/minimal_proxy.py)  
-    How to use said python proxy is demonstrated in [``python/hdcproto/demo/minimal/showcase_minimal.py``](https://github.com/kiksotik/hdc/blob/main/python/hdcproto/demo/minimal/showcase_minimal.py)  
+An HDC-host uses predefined 
+[proxy-classes](https://github.com/kiksotik/hdc/blob/main/python/hdcproto/hdcproto/demo/minimal/minimal_proxy.py) as an 
+API to [communicate](https://github.com/kiksotik/hdc/blob/main/python/hdcproto/hdcproto/demo/minimal/showcase_minimal.py) 
+with the [firmware](https://github.com/kiksotik/hdc/blob/main/STM32/demo/Demo_Minimal_NUCLEO-F303RE/Core/Src/feature_core.c) 
+of an HDC-device.
 
-
-## Getting Started
-
-### Device firmware for STM32 microcontrollers
-Create your own STM32CubeIDE workspace directly in the ``STM32`` folder and import the demo 
-project that matches the version of the NUCLEO prototyping board of your choice.  
-For further details refer to [``STM32/README.md``](https://github.com/kiksotik/hdc/blob/main/STM32/README.md)
-
-[![STM32CubeIDE][STM32CubeIDE-shield]][STM32CubeIDE-url]
-
-### Host example in python
-- Load the ``python/hdcproto`` folder as a PyCharm project.
-- Connect a HDC-device to the PC
-- Run any of the generic demo command-line showcase scripts from folder ``python/hdcproto/demo/generic/``
-
-[![python][python-shield]][python-url]
-[![PyCharm][PyCharm-shield]][PyCharm-url]
-
+Target specific documentation:
+- [STM32](https://github.com/kiksotik/hdc/blob/main/STM32/README.md)
+- [Python](https://github.com/kiksotik/hdc/blob/main/python/README.md)
+    
 
 ## Roadmap
 - [X] Setup a public repository.
@@ -155,14 +145,3 @@ Project Link: [https://github.com/kiksotik/hdc](https://github.com/kiksotik/hdc)
   
   
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-
-[STM32CubeIDE-shield]: https://img.shields.io/badge/STM32CubeIDE-v1.10.1-brightgreen
-[STM32CubeIDE-url]: https://www.st.com/en/development-tools/stm32cubeide.html
-[python-shield]: https://img.shields.io/badge/python-v3.10-brightgreen
-[python-url]: https://www.python.org/downloads/release/python-3100/
-[PyCharm-shield]: https://img.shields.io/badge/PyCharm-2021.2.2-brightgreen
-[PyCharm-url]: https://www.jetbrains.com/pycharm/

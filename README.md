@@ -88,12 +88,12 @@ on the computer to which it's connected via a serial communication link, like UA
 	or otherwise is also up to the device developer to decide.
 	
 - Logging
-  - Each ``feature`` has its own logger, which the proxy-class can seamlessly map into the native logging infrastructure of the host.
- 
-  - Logging directly from the firmware to the host software provides an incredibly 
-    powerful tool to debug and troubleshoot issues, without any need for any JTAG or SWD probes.  
+  - Each ``feature`` has its own logger, such that the firmware can emit log entries, which the proxy-classes 
+    can seamlessly map into the native logging infrastructure of the host software.
+    - Logging directly from the firmware to the host software provides an incredibly 
+      powerful tool to debug and troubleshoot issues, without any need for any JTAG or SWD probes.  
 	
-  - Hosts can tune the log verbosity in a similar manner as python handles
+  - Hosts can tune the verbosity of each individual ``feature``, in a similar manner as python handles
     [logging levels](https://docs.python.org/3/library/logging.html#logging-levels).
 	
 - Feature states
@@ -118,12 +118,21 @@ The HDC protocol addresses the needs of a quite specific scenario.
 Please consider the following list of alternatives and related technologies, which might be a better fit 
 for your project:
 
+- [Microcontroller Interconnect Network (MIN)](https://github.com/min-protocol/min)
+  - Stumbled over this in [stackoverflow](https://stackoverflow.com/a/28589141/20337562) and was struck by how 
+    similar [its rationale](https://github.com/min-protocol/min/wiki) is to that of the HDC protocol.
+  - It is much lighter on resources than HDC, and is targeted at 8bit microcontrollers.
+
 - [Modbus](https://modbus.org/faq.php)
   - Widespread industry standard for networking of distributed automation devices.
 
 - [TinyProto](https://github.com/lexus2k/tinyproto)
   - An implementation of [RFC 1662](https://www.rfc-editor.org/rfc/rfc1662), which is only OSI layer 2.
   - Excellent [arduino implementation](https://www.arduino.cc/reference/en/libraries/tinyproto/)
+
+- [HDLC](https://en.wikipedia.org/wiki/High-Level_Data_Link_Control)
+  - A bit-oriented code-transparent synchronous data link layer protocol developed and published 
+    by ISO as [ISO/IEC 13239:2002](https://www.iso.org/standard/37010.html).
 
 - [nanoFramework](https://github.com/nanoframework/nf-interpreter)
   - Not a protocol, but C# code for embedded systems: https://www.nanoframework.net/

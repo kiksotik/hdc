@@ -70,21 +70,3 @@ and
 [how they are used](https://github.com/kiksotik/hdc/blob/main/python/hdcproto/hdcproto/demo/minimal/showcase_minimal.py) 
 to communicate with an HDC-device running the [Demo_Minimal firmware](https://github.com/kiksotik/hdc/blob/main/STM32/demo/Demo_Minimal_NUCLEO-F303RE/Core/Src/feature_core.c) example.
 
-
-## Build with
-
-[![python][python-shield]][python-url]  
-[![pyserial][pyserial-shield]][pyserial-url]  
-
-[![PyCharm][PyCharm-shield]][PyCharm-url]
-
-
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-
-[python-shield]: https://img.shields.io/pypi/pyversions/hdcproto
-[python-url]: https://www.python.org/downloads/release/python-3100/
-[pyserial-shield]: https://img.shields.io/badge/pyserial-3.5-brightgreen
-[pyserial-url]: https://pyserial.readthedocs.io/en/latest/
-[PyCharm-shield]: https://img.shields.io/badge/PyCharm-2022.2.3-brightgreen
-[PyCharm-url]: https://www.jetbrains.com/pycharm/

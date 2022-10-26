@@ -113,11 +113,29 @@ Target specific documentation:
 - [Python](https://github.com/kiksotik/hdc/blob/main/python/README.md)
     
 
+## Alternatives
+The HDC protocol addresses the needs of a quite specific scenario.  
+Please consider the following list of alternatives and related technologies, which might be a better fit 
+for your project:
+
+- [Modbus](https://modbus.org/faq.php)
+  - Widespread industry standard for networking of distributed automation devices.
+
+- [TinyProto](https://github.com/lexus2k/tinyproto)
+  - An implementation of [RFC 1662](https://www.rfc-editor.org/rfc/rfc1662), which is only OSI layer 2.
+  - Excellent [arduino implementation](https://www.arduino.cc/reference/en/libraries/tinyproto/)
+
+- [nanoFramework](https://github.com/nanoframework/nf-interpreter)
+  - Not a protocol, but C# code for embedded systems: https://www.nanoframework.net/
+  - Designed to support many targets: STM32, ESP32, NXP, TI, ... 
+
+
 ## Roadmap
 - [X] Setup a public repository.
-- [ ] Optimize repository structure for ease of use and extensibility.
-- [ ] Mature the HDC-Spec, challenging it with increasingly realistic use-cases.
-- [ ] Release first sufficiently mature version.
+- [X] Publish first [pre-alpha package on PyPi](https://pypi.org/project/hdcproto/0.0.7).
+- [ ] Freeze HDC-spec version 1.0
+- [ ] Release first beta version
+- [ ] Release first stable version
 
 See the [open issues](https://github.com/kiksotik/hdc/issues) for a full list of proposed features (and known issues).
 
@@ -125,7 +143,11 @@ See the [open issues](https://github.com/kiksotik/hdc/issues) for a full list of
 ## Contributing
 I'm a newbie to open-source and am grateful for any suggestion on how to be a better maintainer.  
 The HDC-spec is currently work in progress; any feedback on how I could improve HDC is very welcome.  
-Pull-requests are not yet appropriate at this point in time, since I'm still rearranging the folder structure of this repository.  
+Use the [issue tracker](https://github.com/kiksotik/hdc/issues) to report your feedback 
+or drop me an [email](mailto:kiksotik@gmail.com).  
+
+Pull-requests are not a good idea at this point in time, since the HDC-spec is still in pre-alpha and 
+also because I'm still rearranging the basic folder structure of this repository on a weekly basis.  
 
 
 ## License

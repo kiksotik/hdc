@@ -8,8 +8,8 @@
 
 # The HDC protocol
 Specification and implementation of the **Host Device Communication** protocol, whose purpose is to simplify the 
-communication between the firmware of a device with limited computing resources and the software on the computer 
-to which it's connected via a serial communication link, like UART / USB-CDC / Virtual COM Port.
+communication between the firmware of a device with severely limited computing resources and the software 
+on the computer to which it's connected via a serial communication link, like UART / USB-CDC / Virtual COM Port.
 
 > WARNING:  The [HDC-Spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-Spec.pdf) is still work in progress!
 

@@ -11,6 +11,9 @@ from hdcproto.common import MessageType, HdcError, is_valid_uint8
 from hdcproto.transport.base import TransportBase
 
 
+logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.router"
+
+
 class MessageRouter:
     """
     Plugs things together:
@@ -26,7 +29,6 @@ class MessageRouter:
     received_reply_event: threading.Event
     last_reply_message: bytes
     strict_event_handling: bool
-    logger: logging.Logger
 
     def __init__(self, transport: TransportBase):
         self.features = dict()
@@ -37,18 +39,17 @@ class MessageRouter:
         self.received_reply_event = threading.Event()
         self.last_reply_message = bytes()
         self.strict_event_handling = False
-        self.logger = logging.getLogger("HDC.protocol")
 
     def connect(self):
-        self.logger.info(f"Connecting via {self.transport}")
+        logger.info(f"Connecting via {self.transport}")
         self.transport.connect()
 
     def close(self):
-        self.logger.info(f"Closing connection via {self.transport}")
+        logger.info(f"Closing connection via {self.transport}")
         self.transport.close()
 
     def handle_lost_connection(self):
-        self.logger.error(f"Lost connection via {self.transport}")
+        logger.error(f"Lost connection via {self.transport}")
         raise NotImplementedError()
 
     def handle_message(self, message: bytes):
@@ -69,7 +70,7 @@ class MessageRouter:
             self.handle_event(message)
 
     def handle_command_reply(self, message: bytes):
-        # Note how we do not need to lookup neither FeatureID nor CommandID, because whatever command
+        # Note how we do not need to look up neither FeatureID nor CommandID, because whatever command
         # issued the request is currently blocking and awaiting the received_reply_event.
 
         if not self.request_reply_lock.locked():
@@ -88,7 +89,7 @@ class MessageRouter:
             if self.strict_event_handling:
                 raise HdcError(f"EventID=0x{event_id:02X} raised by unknown FeatureID=0x{feature_id:02X}")
             else:
-                self.logger.debug(f"Ignoring EventID=0x{event_id:02X} raised by unknown FeatureID=0x{feature_id:02X}")
+                logger.debug(f"Ignoring EventID=0x{event_id:02X} raised by unknown FeatureID=0x{feature_id:02X}")
                 return
 
         self.features[feature_id].handle_event(message)
@@ -138,7 +139,7 @@ class RouterFeature:
         self.feature_id = feature_id
         self.router = router
         if feature_id in router.features:
-            self.router.logger.warning(f"Re-registering a feature with ID {feature_id}")
+            logger.warning(f"Re-registering a feature with ID {feature_id}")
         router.features[feature_id] = self
 
     def register_event_handler(self, event_id: int, event_handler: typing.Callable[[bytes], None]) -> None:
@@ -157,8 +158,8 @@ class RouterFeature:
             if self.router.strict_event_handling:
                 raise HdcError(f"Unknown EventID=0x{event_id:02X} raised by FeatureID=0x{self.feature_id:02X}")
             else:
-                self.router.logger.debug(f"Ignoring EventID=0x{event_id:02X} "
-                                         f"raised by FeatureID=0x{self.feature_id:02X}")
+                logger.debug(f"Ignoring EventID=0x{event_id:02X} "
+                             f"raised by FeatureID=0x{self.feature_id:02X}")
                 return
 
         event_handler = self.event_handlers[event_id]

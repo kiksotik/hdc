@@ -14,6 +14,8 @@ import hdcproto.transport.serialport
 from hdcproto.common import (HdcError, MessageType, FeatureID, CmdID, ReplyErrorCode, EvtID, PropID, HdcDataType,
                              is_valid_uint8)
 
+logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.proxy"
+
 DEFAULT_REPLY_TIMEOUT = 0.2
 
 
@@ -29,6 +31,13 @@ class CommandProxyBase:
                  command_id: int,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
 
+        # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
+        # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy.MyFeatureProxy.MyCommandProxy"
+        self.logger = feature_proxy.logger.getChild(self.__class__.__name__)
+
+        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
+                          f"as proxy for CommandID=0x{command_id:02X} on FeatureID=0x{feature_proxy.feature_id:02X}")
+
         if not is_valid_uint8(command_id):
             raise ValueError(f"command_id value of {command_id} is beyond valid range from 0x00 to 0xFF")
 
@@ -38,7 +47,7 @@ class CommandProxyBase:
         self.known_errors = dict()
 
         self.msg_prefix = bytes([int(MessageType.CMD_FEATURE),
-                                 self.feature_proxy.router_feature.feature_id,
+                                 self.feature_proxy.feature_id,
                                  self.command_id])
 
         # Register mandatory error codes
@@ -60,7 +69,7 @@ class CommandProxyBase:
             except ValueError:
                 pass  # Meaning this code is *not* defined by HDC-spec, thus it's available for custom use.
             else:
-                raise ValueError(f"Failed to register ReplyErrorCode 0x{code:02x}:'{error_name}', because that it's "
+                raise ValueError(f"Failed to register ReplyErrorCode 0x{code:02X}:'{error_name}', because that it's "
                                  f"already defined by HDC-spec to mean '{code_as_defined_by_hdc_spec}'")
 
         code = int(code)
@@ -69,7 +78,7 @@ class CommandProxyBase:
             raise ValueError(f"Reply error code of {code} is beyond valid range from 0x00 to 0xFF")
 
         if error_name is None:
-            error_name = f"Error 0x{code:02x}"  # Fallback for lazy callers
+            error_name = f"Error 0x{code:02X}"  # Fallback for lazy callers
 
         if code in self.known_errors:
             raise ValueError(f'Already registered ErrorCode {code} as "{self.known_errors[code]}"')
@@ -94,7 +103,7 @@ class CommandProxyBase:
 
         error_code = reply_message[3]
         if error_code != ReplyErrorCode.NO_ERROR:
-            error_name = self.known_errors.get(error_code, f"Unknown error code 0x{error_code:02x}")
+            error_name = self.known_errors.get(error_code, f"Unknown error code 0x{error_code:02X}")
             raise HdcReplyError(error_name, reply_message)
 
         return reply_message
@@ -115,16 +124,16 @@ class CommandProxyBase:
         if timeout is None:
             timeout = self.default_timeout
 
-        self.feature_proxy.logger.debug(f"Executing CommandID=0x{self.command_id:02X}")
+        self.logger.info(f"Executing CommandID=0x{self.command_id:02X}")
         reply_message = self._send_request_and_get_reply(request_message=request_message,
                                                          timeout=timeout)
-        self.feature_proxy.logger.debug(f"Finished executing CommandID=0x{self.command_id:02X}")
+        self.logger.debug(f"Finished executing CommandID=0x{self.command_id:02X}")
 
         try:
             return_values = HdcDataType.parse_reply_msg(reply_message=reply_message,
                                                         expected_data_types=return_types)
         except ValueError as e:
-            raise HdcError(f"Failed to parse reply to CommandID={self.command_id:02x}, because: {e}")
+            raise HdcError(f"Failed to parse reply to CommandID={self.command_id:02X}, because: {e}")
 
         if isinstance(return_values, list):
             # Be more pythonic by returning a tuple, instead of a list
@@ -325,8 +334,16 @@ class EventProxyBase:
                  event_id: int,
                  payload_parser: typing.Type[object] | None = None,
                  deque_capacity: int = 100):
+
+        # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
+        # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy.MyFeatureProxy.MyEventProxy"
+        self.logger = feature_proxy.logger.getChild(self.__class__.__name__)
+
+        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
+                          f"as proxy for EventID=0x{event_id:02X} on FeatureID=0x{feature_proxy.feature_id:02X}")
+
         if not is_valid_uint8(event_id):
-            raise ValueError(f"event_id value of 0x{event_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"event_id value of 0x{event_id:02X} is beyond valid range from 0x00 to 0xFF")
 
         self.event_id = event_id
         self.feature_proxy = feature_proxy
@@ -380,7 +397,6 @@ class LogEventProxy(EventProxyBase):
         super().__init__(feature_proxy,
                          event_id=EvtID.LOG,
                          payload_parser=LogEventProxy.LogEventPayload)
-        self.logger = feature_proxy.logger.getChild("LogEvent")
         # This is how HDC-logging is mapped directly into python logging:
         self.register_event_payload_handler(lambda e: self.logger.log(level=e.log_level, msg=e.log_message))
 
@@ -398,7 +414,6 @@ class StateTransitionEventProxy(EventProxyBase):
         super().__init__(feature_proxy,
                          event_id=EvtID.STATE_TRANSITION,
                          payload_parser=StateTransitionEventProxy.StateTransitionEventPayload)
-        self.logger = feature_proxy.logger.getChild("StateTransitionEvent")
         self.register_event_payload_handler(self.event_payload_handler)
 
     class StateTransitionEventPayload:
@@ -432,6 +447,14 @@ class PropertyProxyBase:
                  is_readonly: bool,
                  default_freshness: float,
                  default_timeout: float):
+
+        # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
+        # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy.MyFeatureProxy.MyPropertyProxy"
+        self.logger = feature_proxy.logger.getChild(self.__class__.__name__)
+
+        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
+                          f"as proxy for PropertyID=0x{property_id:02X} on FeatureID=0x{feature_proxy.feature_id:02X}")
+
         if not is_valid_uint8(property_id):
             raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
 
@@ -464,17 +487,17 @@ class PropertyProxyBase:
 
         age_of_cached_value = time.perf_counter() - self._timestamp_of_cached_value
         if age_of_cached_value > freshness or self._cached_value is None:
+            self.logger.debug(f"Getting value of PropertyID=0x{self.property_id:02X}")
             property_value = self.feature_proxy._cmd_get_property_value(property_id=self.property_id,
                                                                         property_data_type=self.property_data_type,
                                                                         timeout=timeout)
+            self.logger.info(f"PropertyID=0x{self.property_id:02X} getter returns {property_value}")
             self._update_cached_value(property_value)
-            self.feature_proxy.logger.debug(f"PropertyID=0x{self.property_id:02X} getter "
-                                            f"returns {self._cached_value}")
         else:
-            self.feature_proxy.logger.debug(f"PropertyID=0x{self.property_id:02X} getter "
-                                            f"returns {self._cached_value} from cache "
-                                            f"which was updated {age_of_cached_value:.3f}s ago "
-                                            f"and thus is fresher than {freshness:.3f}s")
+            self.logger.info(f"PropertyID=0x{self.property_id:02X} getter "
+                             f"returns {self._cached_value} from cache "
+                             f"which was updated {age_of_cached_value:.3f}s ago "
+                             f"and thus is fresher than {freshness:.3f}s")
 
         return self._cached_value
 
@@ -483,16 +506,16 @@ class PropertyProxyBase:
              timeout: float | None = None
              ) -> bool | int | float | str | bytes:
 
+        self.logger.info(f"Setting PropertyID=0x{self.property_id:02X} to a value of {new_value}")
+
         if self.is_readonly:
             raise RuntimeError()
 
         if timeout is None:
             timeout = self.default_timeout
 
-        self.feature_proxy.logger.info(f"Setting PropertyID=0x{self.property_id:02X} to a value of {new_value}")
-
         # Note how the value returned with the reply is the actual value set on
-        # the device and it may differ from the value sent in the request!
+        # the device, and it may differ from the value sent in the request!
         property_value = self.feature_proxy._cmd_set_property_value(
             property_id=self.property_id,
             property_data_type=self.property_data_type,
@@ -502,9 +525,11 @@ class PropertyProxyBase:
         self._update_cached_value(property_value)
 
         if property_value != new_value:
-            self.feature_proxy.logger.warning(f"Attempted to set PropertyID=0x{self.property_id:02X} "
-                                              f"to a value of {new_value}, but "
-                                              f"effectively a value of {property_value} was set.")
+            self.logger.warning(f"Attempted to set PropertyID=0x{self.property_id:02X} "
+                                f"to a value of {new_value}, but "
+                                f"effectively a value of {property_value} was set.")
+
+        self.logger.debug(f"Completed setting value of PropertyID=0x{self.property_id:02X}")
 
         return self._cached_value
 
@@ -866,7 +891,7 @@ class PropertyProxy_FeatureState(PropertyProxy_RO_UINT8):
                          default_freshness=float('inf'))
 
     def get_value_name(self, freshness: float | None = None, timeout: float | None = None) -> str:
-        """Human readable name of the numeric FeatureState."""
+        """Human-readable name of the numeric FeatureState."""
         return self.feature_proxy.resolve_state_name(self.get(freshness=freshness, timeout=timeout))
 
 
@@ -877,7 +902,7 @@ class PropertyProxy_LogEventThreshold(PropertyProxy_RW_UINT8):
         super().__init__(feature_proxy, property_id=PropID.LOG_EVT_THRESHOLD)
 
     def get_value_name(self, freshness: float | None = None, timeout: float | None = None) -> str:
-        """Human readable name of the numeric LogLevel-Threshold."""
+        """Human-readable name of the numeric LogLevel-Threshold."""
         uint8_level = self.get(freshness=freshness, timeout=timeout)
         return logging.getLevelName(uint8_level)
 
@@ -886,14 +911,18 @@ class FeatureProxyBase:
     router_feature: hdcproto.host.router.RouterFeature
 
     def __init__(self, device_proxy: DeviceProxyBase, feature_id: int):
+        # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
+        # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy.MyFeatureProxy"
+        self.logger = device_proxy.logger.getChild(self.__class__.__name__)
+
+        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
+                          f"as proxy for FeatureID=0x{feature_id:02X}")
+
         if not is_valid_uint8(feature_id):
-            raise ValueError(f"feature_id value of 0x{feature_id:02x} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"feature_id value of 0x{feature_id:02X} is beyond valid range from 0x00 to 0xFF")
 
         self.router_feature = hdcproto.host.router.RouterFeature(router=device_proxy.router,
                                                                  feature_id=feature_id)
-        self.logger = \
-            logging.getLogger("HDC.proxy").getChild(device_proxy.__class__.__name__).getChild(self.__class__.__name__)
-
         # Commands
         self._cmd_get_property_name = GetPropertyNameCommandProxy(self)
         self._cmd_get_property_type = GetPropertyTypeCommandProxy(self)
@@ -932,15 +961,19 @@ class FeatureProxyBase:
         self.prop_feature_state = PropertyProxy_FeatureState(self)
         self.prop_log_event_threshold = PropertyProxy_LogEventThreshold(self)
 
+    @property
+    def feature_id(self) -> int:
+        return self.router_feature.feature_id
+
     def resolve_state_name(self, state_id: int) -> str:
         try:
-            # The following expects a nested IntEnum as defined within the most derived sub-class of FeatureProxyBase!
+            # The following expects a nested IntEnum as defined within the most derived subclass of FeatureProxyBase!
             # noinspection PyUnresolvedReferences
             return type(self).FeatureStateEnum(state_id).name
         except Exception:
             if type(self) is not FeatureProxyBase:  # Suppress warning in ad-hoc usages of FeatureProxyBase
                 # Forgot to define all states in "FeatureStateEnum" nested within the sub-classed feature-proxy?
-                self.logger.warning(f"Can't resolve name of FeatureState 0x{state_id:02X}")
+                self.logger.warning(f"Can't resolve name of FeatureStateID 0x{state_id:02X}")
             return f"0x{state_id:02X}"  # Use hexadecimal representation as a fallback
 
     def await_state(self,
@@ -1002,11 +1035,18 @@ class DeviceProxyBase:
     core: CoreFeatureProxyBase
 
     def __init__(self, connection_url: str):
+        # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
+        # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy"
+        self.logger = logger.getChild(self.__class__.__name__)
+
+        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
+                          f"as proxy for device connected at '{connection_url}'")
+
         serial_transport = hdcproto.transport.serialport.SerialTransport(serial_url=connection_url)
         self.router = hdcproto.host.router.MessageRouter(transport=serial_transport)
 
         # The following may be needed for introspection when using bare DeviceProxyBase objects.
-        # Sub-classes will typically override it with a more specific core-feature proxy.
+        # Subclasses will typically override it with a more specific core-feature proxy.
         self.core = CoreFeatureProxyBase(self)
 
 

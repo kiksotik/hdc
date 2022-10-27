@@ -69,7 +69,7 @@ class TestMessageRoundTrip(unittest.TestCase):
         # messages --> packets
         packets = list()
         for message in messages:
-            packets.extend(Packetizer.packetize_message(message))
+            packets.extend(Packetizer.pack_message(message))
         self.assertGreaterEqual(len(packets), 1)
 
         # packets --> messages
@@ -170,7 +170,7 @@ class TestReadingFrameErrors(unittest.TestCase):
     def test_bogus_first_byte_caught_by_terminator_mismatch(self):
         message = bytes(range(32))
         packetizer = Packetizer()
-        packets = packetizer.packetize_message(message)
+        packets = packetizer.pack_message(message)
         raw_data = single_chunk(packets)[0]
 
         # The bogus byte fools packetizer into expecting a much shorter message
@@ -187,7 +187,7 @@ class TestReadingFrameErrors(unittest.TestCase):
     def test_bogus_first_byte_caught_by_checksum_mismatch(self):
         message = bytes([Packetizer.TERMINATOR] * 32)
         packetizer = Packetizer()
-        packets = packetizer.packetize_message(message)
+        packets = packetizer.pack_message(message)
         raw_data = single_chunk(packets)[0]
 
         # The bogus byte fools packetizer into expecting a much shorter message
@@ -204,7 +204,7 @@ class TestReadingFrameErrors(unittest.TestCase):
     def test_bogus_first_byte_caught_by_end_of_burst(self):
         message = bytes(range(32))
         packetizer = Packetizer()
-        packets = packetizer.packetize_message(message)
+        packets = packetizer.pack_message(message)
         raw_data = single_chunk(packets)[0]
 
         # The bogus byte fools packetizer into expecting a much longer message
@@ -222,7 +222,7 @@ class TestReadingFrameErrors(unittest.TestCase):
     def test_bogus_first_5bytes(self):
         message = bytes(range(32))
         packetizer = Packetizer()
-        packets = packetizer.packetize_message(message)
+        packets = packetizer.pack_message(message)
         raw_data = single_chunk(packets)[0]
         bogus_byte = b'\x00\x00\x00\x00\x00'  # A typical burst of bogus zeroes
         packetizer.data_received(bogus_byte + raw_data)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import threading
 import time
 import typing
@@ -8,6 +9,9 @@ import serial
 
 from hdcproto.transport.base import TransportBase
 from hdcproto.transport.packetizer import Packetizer
+
+
+logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.transport.serialport"
 
 
 class SerialTransport(TransportBase):
@@ -43,6 +47,7 @@ class SerialTransport(TransportBase):
     def connect(self):
         if not self.message_received_handler or not self.connection_lost_handler:
             raise RuntimeError("Must assign message_received_handler and connection_lost_handler before connecting")
+        logger.info(f"Connecting to {self.serial_url}")
         self.serial_port = serial.serial_for_url(self.serial_url, timeout=self.TIMEOUT_READ, baudrate=115200)
         self.receiver_thread = threading.Thread(target=self.receiver_thread_loop,
                                                 kwargs={'transport': self},
@@ -52,7 +57,7 @@ class SerialTransport(TransportBase):
 
     def send_message(self, message: bytes):
         with self.port_access_lock:
-            for packet in self.packetizer.packetize_message(message):
+            for packet in self.packetizer.pack_message(message):
                 self.serial_port.write(packet)  # ToDo: Maybe we should concatenate all packets and just call this once?
 
     def flush(self):
@@ -98,6 +103,7 @@ class SerialTransport(TransportBase):
         This will be executed in a dedicated Thread, to ensure that any received messages are being handled as
         soon as they are being received.
         """
+        logger.info(f"Started receiver-thread with native id: {threading.get_native_id()}")
 
         if transport.serial_port is None and transport.connection_lost_handler:
             transport.connection_lost_handler(Exception("Failed to start receiver-thread, because port is not open"))
@@ -111,21 +117,31 @@ class SerialTransport(TransportBase):
                 # Empty data means we reached the timeout without any new bytes
                 data = transport.serial_port.read(transport.serial_port.in_waiting or 1)
             except serial.SerialException as e:
+                logger.exception("Serial connection has failed.")
                 # probably some I/O problem such as disconnected USB serial adapters -> exit
                 if transport.connection_lost_handler:
+                    logger.info("About to call the connection_lost_handler.")
                     transport.connection_lost_handler(e)
+                else:
+                    logger.info("Not calling any connection_lost_handler.")
                 return
             else:
-                # make a separated try-except for called user code
-                try:
-                    packetizer.data_received(data)
-                    received_messages = packetizer.get_received_messages()
+
+                # No need for DEBUG logging here, because it would be redundant with what the packetizer logs.
+
+                packetizer.data_received(data)
+                received_messages = packetizer.get_received_messages()
+
+                try:  # Catch any exception thrown by user-code that processes the received messages
                     for message in received_messages:
                         transport.message_received_handler(message)
                 except Exception as e:
                     # ToDo: Should we log and ignore or disconnect with an exception?
                     if transport.connection_lost_handler:
+                        logger.info("About to call the connection_lost_handler.")
                         transport.connection_lost_handler(e)
+                    else:
+                        logger.info("Not calling any connection_lost_handler.")
                     return
 
 

@@ -9,58 +9,62 @@ This script has also been handy to debug the C implementation of the HDC-device.
 from hdcproto.common import HdcDataType
 from hdcproto.host.proxy import DeviceProxyBase, FeatureProxyBase
 
-skip_mandatory_members = False
+
+def is_hdc_internal(member_id: int) -> bool:
+    return (member_id & 0xF0) == 0xF0
 
 
-def skip_it(member_id: int) -> bool:
-    return skip_mandatory_members and (member_id & 0xF0) == 0xF0
+def showcase_introspection(skip_mandatory_members: bool = False):
+
+    device_proxy = DeviceProxyBase(connection_url="COM10")
+    device_proxy.router.connect()
+
+    # Introspection: Available Features
+    available_feature_ids = device_proxy.core.prop_available_features.get(timeout=6)
+    print(f"Features: {available_feature_ids}")
+
+    for featureID in available_feature_ids:
+        feature_proxy = FeatureProxyBase(device_proxy=device_proxy, feature_id=featureID)
+        print(f"Feature[0x{featureID:02X}]: {feature_proxy.prop_feature_name.get(timeout=600)}")
+
+        # Introspection: Available Commands on Core feature
+        available_command_ids = feature_proxy.prop_available_commands.get(timeout=600)
+
+        for cmdID in available_command_ids:
+            if skip_mandatory_members and is_hdc_internal(cmdID):
+                continue
+            cmd_name = feature_proxy._cmd_get_command_name(cmdID, timeout=600)
+            cmd_desc = feature_proxy._cmd_get_command_description(cmdID, timeout=600).replace("\n", "\n\t\t\t")
+            print(f"\tCommand[0x{cmdID:02X}]: {cmd_name} {cmd_desc}")
+
+        # Introspection: Available Events on Core feature
+        available_event_ids = feature_proxy.prop_available_events.get(timeout=600)
+
+        for evtID in available_event_ids:
+            if skip_mandatory_members and is_hdc_internal(evtID):
+                continue
+            evt_name = feature_proxy._cmd_get_event_name(evtID, timeout=600)
+            evt_desc = feature_proxy._cmd_get_event_description(evtID, timeout=600).replace("\n", "\n\t\t\t")
+            print(f"\tEvent[0x{evtID:02X}]: {evt_name} {evt_desc}")
+
+        # Introspection: Available Properties on Core feature
+        available_property_ids = feature_proxy.prop_available_properties.get(timeout=600)
+
+        for propID in available_property_ids:
+            if skip_mandatory_members and is_hdc_internal(propID):
+                continue
+            prop_ro = feature_proxy._cmd_get_property_readonly(propID, timeout=600)
+            prop_type: HdcDataType = feature_proxy._cmd_get_property_type(propID, timeout=600)
+            prop_name = feature_proxy._cmd_get_property_name(propID, timeout=600)
+            prop_value = feature_proxy._cmd_get_property_value(propID, prop_type, timeout=600)
+            if isinstance(prop_value, bytes):
+                prop_value = ', '.join(f'0x{byte:02X}' for byte in prop_value)
+                prop_value = '[' + prop_value + ']'
+            prop_desc = feature_proxy._cmd_get_property_description(propID, timeout=600).replace("\n", "\n\t\t\t")
+            print(f"\tProperty[0x{propID:02X}]: "
+                  f"{'RO' if prop_ro else 'RW'} "
+                  f"{prop_type.name} {prop_name} = {prop_value} {prop_desc}")
 
 
-deviceProxy = DeviceProxyBase(connection_url="COM10")
-deviceProxy.router.connect()
-
-# Introspection: Available Features
-available_featureIDs = deviceProxy.core.prop_available_features.get(timeout=6)
-print(f"Features: {available_featureIDs}")
-
-for featureID in available_featureIDs:
-    featureProxy = FeatureProxyBase(device_proxy=deviceProxy, feature_id=featureID)
-    print(f"Feature[0x{featureID:02X}]: {featureProxy.prop_feature_name.get(timeout=600)}")
-
-    # Introspection: Available Commands on Core feature
-    available_commandIDs = featureProxy.prop_available_commands.get(timeout=600)
-
-    for cmdID in available_commandIDs:
-        if skip_it(cmdID):
-            continue
-        cmdName = featureProxy._cmd_get_command_name(cmdID, timeout=600)
-        cmdDesc = featureProxy._cmd_get_command_description(cmdID, timeout=600).replace("\n", "\n\t\t\t")
-        print(f"\tCommand[0x{cmdID:02X}]: {cmdName} {cmdDesc}")
-
-    # Introspection: Available Events on Core feature
-    available_eventIDs = featureProxy.prop_available_events.get(timeout=600)
-
-    for evtID in available_eventIDs:
-        if skip_it(evtID):
-            continue
-        evtName = featureProxy._cmd_get_event_name(evtID, timeout=600)
-        evtDesc = featureProxy._cmd_get_event_description(evtID, timeout=600).replace("\n", "\n\t\t\t")
-        print(f"\tEvent[0x{evtID:02X}]: {evtName} {evtDesc}")
-
-    # Introspection: Available Properties on Core feature
-    available_propertyIDs = featureProxy.prop_available_properties.get(timeout=600)
-
-    for propID in available_propertyIDs:
-        if skip_it(propID):
-            continue
-        propRO = featureProxy._cmd_get_property_readonly(propID, timeout=600)
-        propType: HdcDataType = featureProxy._cmd_get_property_type(propID, timeout=600)
-        propName = featureProxy._cmd_get_property_name(propID, timeout=600)
-        propValue = featureProxy._cmd_get_property_value(propID, propType, timeout=600)
-        if isinstance(propValue, bytes):
-            propValue = ', '.join(f'0x{byte:02x}' for byte in propValue)
-            propValue = '[' + propValue + ']'
-        propDesc = featureProxy._cmd_get_property_description(propID, timeout=600).replace("\n", "\n\t\t\t")
-        print(f"\tProperty[0x{propID:02X}]: "
-              f"{'RO' if propRO else 'RW'} "
-              f"{propType.name} {propName} = {propValue} {propDesc}")
+if __name__ == '__main__':
+    showcase_introspection(skip_mandatory_members=False)

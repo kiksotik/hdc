@@ -261,10 +261,10 @@ void HDC_Flush(void);
 /////////////////////////////////////////
 // HDC replies to FeatureCommand requests
 
-void HDC_Reply_Void(
+void HDC_CmdReply_Void(
     const uint8_t* pMsgHeader);
 
-void HDC_Reply_From_Pieces(
+void HDC_CmdReply_From_Pieces(
     const uint8_t FeatureID,
     const uint8_t CmdID,
     const HDC_ReplyErrorCode_t ReplyErrorCode,
@@ -273,39 +273,39 @@ void HDC_Reply_From_Pieces(
     const uint8_t* pMsgPayloadSuffix,
     const size_t MsgPayloadSuffixSize);
 
-void HDC_Reply_Error_WithDescription(
+void HDC_CmdReply_Error_WithDescription(
     const HDC_ReplyErrorCode_t ReplyErrorCode,
     const char* ErrorDescription,
     const uint8_t* pMsgHeader);
 
-void HDC_Reply_Error(  // Without error-description string.
+void HDC_CmdReply_Error(  // Without error-description string.
     const HDC_ReplyErrorCode_t ReplyErrorCode,
     const uint8_t* pMsgHeader);
 
 //////////////////////////////////////////
 // HDC replies to PropertyGet/Set requests
 
-void HDC_Reply_BlobValue(const uint8_t* pBlob, const size_t BlobSize, const uint8_t* pMsgHeader);
+void HDC_CmdReply_BlobValue(const uint8_t* pBlob, const size_t BlobSize, const uint8_t* pMsgHeader);
 
-void HDC_Reply_BoolValue(const bool value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_BoolValue(const bool value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_UInt8Value(const uint8_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_UInt8Value(const uint8_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_UInt16Value(const uint16_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_UInt16Value(const uint16_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_UInt32Value(const uint32_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_UInt32Value(const uint32_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_Int8Value(const int8_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_Int8Value(const int8_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_Int16Value(const int16_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_Int16Value(const int16_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_Int32Value(const int32_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_Int32Value(const int32_t value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_FloatValue(const float value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_FloatValue(const float value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_DoubleValue(const double value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_DoubleValue(const double value, const uint8_t* pMsgHeader);
 
-void HDC_Reply_StringValue(const char* value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_StringValue(const char* value, const uint8_t* pMsgHeader);
 
 ////////////////////
 // Raising of events

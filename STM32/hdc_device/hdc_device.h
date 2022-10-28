@@ -66,7 +66,6 @@ typedef void (*HDC_PropertyValueSetter_t)(
 ///////////////////////////////
 // Magic numbers defined by the HDC specification
 #define HDC_PACKAGE_TERMINATOR 0x1E
-#define HDC_FEATUREID_CORE 0x00
 
 
 //////////////////////////////
@@ -76,7 +75,11 @@ typedef enum {
   HDC_MessageTypeID_EchoCommand = 0xCE,
   HDC_MessageTypeID_FeatureCommand = 0xCF,
   HDC_MessageTypeID_FeatureEvent = 0xEF,
-} HDC_MessageType_t;
+} HDC_MessageTypeID_t;
+
+typedef enum {
+  HDC_FeatureID_Core = 0x00,
+} HDC_FeatureID_t;
 
 typedef enum {
   HDC_CommandID_GetPropertyName = 0xF0,

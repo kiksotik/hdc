@@ -290,7 +290,7 @@ const HDC_Property_Descriptor_t* HDC_GetProperty(const HDC_Feature_Descriptor_t 
     if (HDC_MandatoryProperties[i]->PropertyID == propertyID)
       return HDC_MandatoryProperties[i];
 
-  if (hHDC_Feature->FeatureID == HDC_FEATUREID_CORE) {
+  if (hHDC_Feature->FeatureID == HDC_FeatureID_Core) {
     for (uint8_t i=0; i<NUM_MANDATORY_PROPERTIES_OF_CORE_FEATURE ; i++)
       if (HDC_MandatoryPropertiesOfCoreFeature[i]->PropertyID == propertyID)
         return HDC_MandatoryPropertiesOfCoreFeature[i];
@@ -1239,7 +1239,7 @@ void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_F
     availableProperties[n++] = hHDC_Feature->Properties[i]->PropertyID;
   for (uint8_t i=0; i < NUM_MANDATORY_PROPERTIES;i++)
     availableProperties[n++] = HDC_MandatoryProperties[i]->PropertyID;
-  if (hHDC_Feature->FeatureID == HDC_FEATUREID_CORE) {
+  if (hHDC_Feature->FeatureID == HDC_FeatureID_Core) {
     for (uint8_t i=0; i < NUM_MANDATORY_PROPERTIES_OF_CORE_FEATURE;i++)
       availableProperties[n++] = HDC_MandatoryPropertiesOfCoreFeature[i]->PropertyID;
   }

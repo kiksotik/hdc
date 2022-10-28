@@ -158,7 +158,7 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
 // Example of an HDC-feature descriptor.
 // In this case for the mandatory core-feature of this device.
 HDC_Feature_Descriptor_t Core_HDC_Feature = {
-  .FeatureID = HDC_FEATUREID_CORE,      // A FeatureID of 0x00 is what makes this the mandatory Core-Feature of this device.
+  .FeatureID = HDC_FeatureID_Core,      // A FeatureID of 0x00 is what makes this the mandatory Core-Feature of this device.
   .FeatureName = "Core",                // Name of this feature instance --> name of the proxy instance
   .FeatureTypeName = "MinimalCore",     // Name of this feature's implementation --> name of the proxy class
   .FeatureTypeRevision = 1,             // Revision number of this feature's implementation

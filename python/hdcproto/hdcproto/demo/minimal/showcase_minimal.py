@@ -61,8 +61,8 @@ def showcase_minimal():
     dev.core.cmd_reset()  # Blocks until it receives reply from HDC-device or the default timeout elapses.
     time.sleep(0.5)  # Allow for some time for the actual firmware reset to happen.
 
-    #############################################################################################
-    # Example of how "composition" keeps stuff defined in FeatureProxyBase separate in self.hdc
+    ################################################################################################
+    # Example of how "composition" keeps stuff defined in CoreFeatureProxyBase separate in self.hdc
     demo_logger.info("_____________________________________")
     demo_logger.info("Obtain some mandatory property values...")
     demo_logger.info(f"       LogEventThreshold: {dev.core.hdc.prop_log_event_threshold.get_value_name()}")
@@ -75,8 +75,6 @@ def showcase_minimal():
     demo_logger.info(f"   Microcontroller DEVID: 0x{dev.core.prop_microcontroller_devid.get():08x}")
     demo_logger.info(f"   Microcontroller   UID: 0x{dev.core.prop_microcontroller_uid.get().hex()}")
 
-    ##################################################################
-    # Example of how the host sets property values
     demo_logger.info("_____________________________________________________________________________")
     demo_logger.info("Change LED blinking rate, depending on most recently received button event...")
     try:

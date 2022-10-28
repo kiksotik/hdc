@@ -29,7 +29,7 @@ class FeatureID(enum.IntEnum):
 
 @enum.unique
 class CmdID(enum.IntEnum):
-    """Reserved IDs of mandatory FeatureCommands required by HDC-spec"""
+    """Reserved IDs of mandatory Commands required by HDC-spec"""
     GET_PROP_NAME = 0xF0
     GET_PROP_TYPE = 0xF1
     GET_PROP_RO = 0xF2
@@ -44,7 +44,7 @@ class CmdID(enum.IntEnum):
 
 @enum.unique
 class ReplyErrorCode(enum.IntEnum):
-    """Reserved IDs and names of error codes used in replies to FeatureCommands as defined by HDC-spec"""
+    """Reserved IDs and names of error codes used in replies to Commands as defined by HDC-spec"""
     NO_ERROR = 0x00
     UNKNOWN_FEATURE = 0xF0
     UNKNOWN_COMMAND = 0xF1
@@ -90,8 +90,8 @@ class EvtID(enum.IntEnum):
 class HdcDataType(enum.IntEnum):
     """
     All IDs of data-types defined by HDC-spec.
-    Mainly used to define data-type of FeatureProperties, but also used
-    to parse arguments and return values of FeatureCommands.
+    Mainly used to define data-type of Properties, but also used
+    to parse arguments and return values of Commands.
     Also implements serialization and de-serialization from raw bytes.
 
     The ID value of each HdcDataType can be interpreted as follows:
@@ -298,7 +298,7 @@ def is_valid_uint8(value_to_check: int) -> bool:
 
 @enum.unique
 class PropID(enum.IntEnum):
-    """Reserved IDs of mandatory FeatureProperties required by HDC-spec"""
+    """Reserved IDs of mandatory Properties required by HDC-spec"""
     FEAT_NAME = 0xF0
     FEAT_TYPE_NAME = 0xF1
     FEAT_TYPE_REV = 0xF2

@@ -411,7 +411,7 @@ void HDC_Compose_Packets(const uint8_t* pMsg, const uint16_t MsgSize) {
  * callers to compose the HDC-message themselves, thus reducing RAM consumption.
  * Besides specifying the four header bytes individually, the message payload can
  * be provided as two chunks (prefix&suffix), which is convenient in many use-cases.
- * The ReplyErrorCode argument will only be used, whenever the MsgType is a FeatureCommand.
+ * The ReplyErrorCode argument will only be used, whenever the MsgType is a Command.
  * As required by HDC-Spec:
  *  - Messages larger than 255 bytes will be split into multiple packets.
  *  - Messages that are an exact multiple of 255 will be terminated with an empty package.
@@ -497,7 +497,7 @@ void HDC_Compose_Packets_From_Pieces(
 
 
 /////////////////////////////////////////
-// HDC replies to FeatureCommand requests
+// HDC replies to Command requests
 
 void HDC_CmdReply_From_Pieces(
     const uint8_t FeatureID,
@@ -544,7 +544,7 @@ void HDC_CmdReply_Error(
   HDC_CmdReply_Error_WithDescription(ReplyErrorCode, NULL, pRequestMessage);
 }
 
-// Reply by FeatureCommands that return no values. (a.k.a. a "void" command reply)
+// Reply of Commands that return no values. (a.k.a. a "void" command reply)
 void HDC_CmdReply_Void(const uint8_t* pRequestMessage)
 {
   HDC_CmdReply_Error(HDC_ReplyErrorCode_NO_ERROR, pRequestMessage);
@@ -1026,7 +1026,7 @@ void HDC_Cmd_GetEventDescription(
 
 
 ///////////////////////////////////////////
-// Descriptors of mandatory FeatureCommands
+// Descriptors of mandatory Commands
 
 const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = {
   &(HDC_Command_Descriptor_t){

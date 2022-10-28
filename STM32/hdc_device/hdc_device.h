@@ -259,7 +259,7 @@ void HDC_Flush(void);
 
 
 /////////////////////////////////////////
-// HDC replies to FeatureCommand requests
+// HDC replies to Command requests
 
 void HDC_CmdReply_Void(
     const uint8_t* pMsgHeader);

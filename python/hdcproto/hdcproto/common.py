@@ -45,16 +45,16 @@ class CmdID(enum.IntEnum):
 class ReplyErrorCode(enum.IntEnum):
     """Reserved IDs and names of error codes used in replies to FeatureCommands as defined by HDC-spec"""
     NO_ERROR = 0x00
-    UNKNOWN_FEATURE = 0x01
-    UNKNOWN_COMMAND = 0x02
-    INCORRECT_COMMAND_ARGUMENTS = 0x03
-    COMMAND_NOT_ALLOWED_NOW = 0x04
-    COMMAND_FAILED = 0x05
-    UNKNOWN_PROPERTY = 0xF0
-    INVALID_PROPERTY_VALUE = 0xF1
-    PROPERTY_IS_READ_ONLY = 0xF2
+    UNKNOWN_FEATURE = 0xF0
+    UNKNOWN_COMMAND = 0xF1
+    UNKNOWN_PROPERTY = 0xF2
     UNKNOWN_EVENT = 0xF3
-
+    INCORRECT_COMMAND_ARGUMENTS = 0xF4
+    COMMAND_NOT_ALLOWED_NOW = 0xF5
+    COMMAND_FAILED = 0xF6
+    INVALID_PROPERTY_VALUE = 0xF7
+    PROPERTY_IS_READ_ONLY = 0xF8
+    
     def __str__(self):
         if self == ReplyErrorCode.NO_ERROR:
             return "No error"

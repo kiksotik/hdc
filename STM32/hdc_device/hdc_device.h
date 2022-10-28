@@ -93,15 +93,15 @@ typedef enum {
 
 typedef enum {
   HDC_ReplyErrorCode_NO_ERROR = 0x00,
-  HDC_ReplyErrorCode_UNKNOWN_FEATURE = 0x01,
-  HDC_ReplyErrorCode_UNKNOWN_COMMAND = 0x02,
-  HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS = 0x03,
-  HDC_ReplyErrorCode_COMMAND_NOT_ALLOWED_NOW = 0x04,
-  HDC_ReplyErrorCode_COMMAND_FAILED = 0x05,
-  HDC_ReplyErrorCode_UNKNOWN_PROPERTY = 0xF0,
-  HDC_ReplyErrorCode_INVALID_PROPERTY_VALUE = 0xF1,
-  HDC_ReplyErrorCode_PROPERTY_IS_READONLY = 0xF2,
-  HDC_ReplyErrorCode_UNKNOWN_EVENT = 0xF3
+  HDC_ReplyErrorCode_UNKNOWN_FEATURE = 0xF0,
+  HDC_ReplyErrorCode_UNKNOWN_COMMAND = 0xF1,
+  HDC_ReplyErrorCode_UNKNOWN_PROPERTY = 0xF2,
+  HDC_ReplyErrorCode_UNKNOWN_EVENT = 0xF3,
+  HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS = 0xF4,
+  HDC_ReplyErrorCode_COMMAND_NOT_ALLOWED_NOW = 0xF5,
+  HDC_ReplyErrorCode_COMMAND_FAILED = 0xF6,
+  HDC_ReplyErrorCode_INVALID_PROPERTY_VALUE = 0xF7,
+  HDC_ReplyErrorCode_PROPERTY_IS_READONLY = 0xF8,
 } HDC_ReplyErrorCode_t;
 
 typedef enum {

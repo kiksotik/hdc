@@ -73,9 +73,9 @@ typedef void (*HDC_PropertyValueSetter_t)(
 // Enums
 
 typedef enum {
-  HDC_MessageType_COMMAND_ECHO = 0xCE,
-  HDC_MessageType_COMMAND_FEATURE = 0xCF,
-  HDC_MessageType_EVENT_FEATURE = 0xEF,
+  HDC_MessageTypeID_EchoCommand = 0xCE,
+  HDC_MessageTypeID_FeatureCommand = 0xCF,
+  HDC_MessageTypeID_FeatureEvent = 0xEF,
 } HDC_MessageType_t;
 
 typedef enum {
@@ -121,18 +121,35 @@ typedef enum {
   //               (Exception to the rule: 0x_F denotes a variable size DataType)
   //               (Exception to the rule: 0xB0 --> BOOL, whose size is 1 bytes)
 
-  HDC_DataType_UINT8 = 0x01,
-  HDC_DataType_UINT16 = 0x02,
-  HDC_DataType_UINT32 = 0x04,
-  HDC_DataType_INT8 = 0x11,
-  HDC_DataType_INT16 = 0x12,
-  HDC_DataType_INT32 = 0x14,
-  HDC_DataType_FLOAT = 0x24,
-  HDC_DataType_DOUBLE = 0x28,
-  HDC_DataType_BOOL = 0xB0,
-  HDC_DataType_BLOB = 0xBF,
-  HDC_DataType_UTF8 = 0xFF
-} HDC_DataType_t;
+  HDC_DataTypeID_UINT8 = 0x01,
+  HDC_DataTypeID_UINT16 = 0x02,
+  HDC_DataTypeID_UINT32 = 0x04,
+  HDC_DataTypeID_INT8 = 0x11,
+  HDC_DataTypeID_INT16 = 0x12,
+  HDC_DataTypeID_INT32 = 0x14,
+  HDC_DataTypeID_FLOAT = 0x24,
+  HDC_DataTypeID_DOUBLE = 0x28,
+  HDC_DataTypeID_BOOL = 0xB0,
+  HDC_DataTypeID_BLOB = 0xBF,
+  HDC_DataTypeID_UTF8 = 0xFF
+} HDC_DataTypeID_t;
+
+
+typedef enum {
+  HDC_PropertyID_FeatureName = 0xF0,
+  HDC_PropertyID_FeatureTypeName = 0xF1,
+  HDC_PropertyID_FeatureTypeRevision = 0xF2,
+  HDC_PropertyID_FeatureDescription = 0xF3,
+  HDC_PropertyID_FeatureTags = 0xF4,
+  HDC_PropertyID_AvailableCommands = 0xF5,
+  HDC_PropertyID_AvailableEvents = 0xF6,
+  HDC_PropertyID_AvailableProperties = 0xF7,
+  HDC_PropertyID_FeatureState = 0xF8,
+  HDC_PropertyID_LogEventThreshold = 0xF9,
+  HDC_PropertyID_AvailableFeatures = 0xFA,  // Only mandatory for the Core-feature
+  HDC_PropertyID_MaxReqMsgSize = 0xFB,  // Only mandatory for the Core-feature
+} HDC_PropertyID_t;
+
 
 // Using same numeric LogLevel values as Python's logging module
 typedef enum {
@@ -164,12 +181,12 @@ typedef struct {
 typedef struct HDC_Property_struct {
   uint8_t PropertyID;
   char* PropertyName;
-  HDC_DataType_t PropertyDataType;
+  HDC_DataTypeID_t PropertyDataType;
   bool PropertyIsReadonly;
   HDC_PropertyValueGetter_t GetPropertyValue;
   HDC_PropertyValueSetter_t SetPropertyValue;
   void *pValue;
-  size_t ValueSize; // Only required for PropertyDataType=HDC_DataType_BLOB, will otherwise be overridden by size of PropertyDataType
+  size_t ValueSize; // Only required for PropertyDataType=HDC_DataTypeID_BLOB, will otherwise be overridden by size of PropertyDataType
   char* PropertyDescription;
 } HDC_Property_Descriptor_t;
 

@@ -112,7 +112,7 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
   &(HDC_Property_Descriptor_t ) {
     .PropertyID = 0x10,          // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .PropertyName = "uC_DEVID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
-    .PropertyDataType = HDC_DataType_UINT32,
+    .PropertyDataType = HDC_DataTypeID_UINT32,
     .PropertyIsReadonly = true,
     .GetPropertyValue = Core_HDC_Property_uC_DEVID_get,  // hdc_driver will use this getter to obtain the value.
     .PropertyDescription = "32bit Device-ID of STM32 microcontroller."
@@ -121,7 +121,7 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
   &(HDC_Property_Descriptor_t ) {
     .PropertyID = 0x11,          // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .PropertyName = "uC_REVID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
-    .PropertyDataType = HDC_DataType_UINT32,
+    .PropertyDataType = HDC_DataTypeID_UINT32,
     .PropertyIsReadonly = true,
     .GetPropertyValue = Core_HDC_Property_uC_REVID_get,  // hdc_driver will use this getter to obtain the value.
     .PropertyDescription = "32bit Revision-ID of STM32 microcontroller."
@@ -130,7 +130,7 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
   &(HDC_Property_Descriptor_t ) {
     .PropertyID = 0x12,        // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .PropertyName = "uC_UID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
-    .PropertyDataType = HDC_DataType_BLOB,
+    .PropertyDataType = HDC_DataTypeID_BLOB,
     .PropertyIsReadonly = true,
     .pValue = (void*) UID_BASE,  // hdc_driver will use this pointer/address to obtain the value.
     .ValueSize = 12,             //
@@ -140,7 +140,7 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
   &(HDC_Property_Descriptor_t ) {
     .PropertyID = 0x13,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .PropertyName = "LedBlinkingRate",  // Name of the corresponding, automatically generated API-property in a proxy-class.
-    .PropertyDataType = HDC_DataType_UINT8,
+    .PropertyDataType = HDC_DataTypeID_UINT8,
     .PropertyIsReadonly = false,
     .pValue = &led_blinking_rate,  // hdc_driver will read/write value directly from/to this memory address.
                                    // No need to specify any ValueSize, because hdc_driver infers it from the data type.

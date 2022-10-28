@@ -29,16 +29,16 @@ class FeatureID(enum.IntEnum):
 @enum.unique
 class CmdID(enum.IntEnum):
     """Reserved IDs of mandatory FeatureCommands required by HDC-spec"""
-    GET_PROP_NAME = 0xF1
-    GET_PROP_TYPE = 0xF2
-    GET_PROP_RO = 0xF3
-    GET_PROP_VALUE = 0xF4
-    SET_PROP_VALUE = 0xF5
-    GET_PROP_DESCR = 0xF6
-    GET_CMD_NAME = 0xF7
-    GET_CMD_DESCR = 0xF8
-    GET_EVT_NAME = 0xF9
-    GET_EVT_DESCR = 0xFA
+    GET_PROP_NAME = 0xF0
+    GET_PROP_TYPE = 0xF1
+    GET_PROP_RO = 0xF2
+    GET_PROP_VALUE = 0xF3
+    SET_PROP_VALUE = 0xF4
+    GET_PROP_DESCR = 0xF5
+    GET_CMD_NAME = 0xF6
+    GET_CMD_DESCR = 0xF7
+    GET_EVT_NAME = 0xF8
+    GET_EVT_DESCR = 0xF9
 
 
 @enum.unique

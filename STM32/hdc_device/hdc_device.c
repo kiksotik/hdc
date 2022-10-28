@@ -646,7 +646,7 @@ void HDC_MandatoryCmd_GetPropertyName(
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
   assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(pRequestMessage[2] == 0xF1);  // CommandID
+  assert_param(pRequestMessage[2] == HDC_CommandID_GetPropertyName);
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t PropertyID = pRequestMessage[3];
@@ -674,7 +674,7 @@ void HDC_MandatoryCmd_GetPropertyType(
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
   assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(pRequestMessage[2] == 0xF2);  // CommandID
+  assert_param(pRequestMessage[2] == HDC_CommandID_GetPropertyType);
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t PropertyID = pRequestMessage[3];
@@ -701,7 +701,7 @@ void HDC_MandatoryCmd_GetPropertyReadonly(
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
   assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(pRequestMessage[2] == 0xF3);  // CommandID
+  assert_param(pRequestMessage[2] == HDC_CommandID_GetPropertyReadonly);
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t PropertyID = pRequestMessage[3];
@@ -725,11 +725,11 @@ void HDC_MandatoryCmd_GetPropertyValue(
     const uint8_t Size)
 {
   uint8_t CommandID = pRequestMessage[2];
-  if (CommandID==0x04 && Size != 4)  // Skip validation whenever called from HDC_MandatoryCmd_SetPropertyValue()
+  if (CommandID==HDC_CommandID_GetPropertyValue && Size != 4)  // Skip validation whenever called from HDC_MandatoryCmd_SetPropertyValue()
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
   assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(CommandID == 0xF4 || CommandID == 0xF5);  // This may have been called via HDC_MandatoryCmd_SetPropertyValue()
+  assert_param(CommandID == HDC_CommandID_GetPropertyValue || CommandID == HDC_CommandID_SetPropertyValue);  // This may have been called via HDC_MandatoryCmd_SetPropertyValue()
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t PropertyID = pRequestMessage[3];
@@ -800,7 +800,7 @@ void HDC_MandatoryCmd_SetPropertyValue(
     const uint8_t Size)
 {
   assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(pRequestMessage[2] == 0xF5);  // CommandID
+  assert_param(pRequestMessage[2] == HDC_CommandID_SetPropertyValue);
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t PropertyID = pRequestMessage[3];
@@ -872,7 +872,7 @@ void HDC_MandatoryCmd_GetPropertyDescription(
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
   assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(pRequestMessage[2] == 0xF6);  // CommandID
+  assert_param(pRequestMessage[2] == HDC_CommandID_GetPropertyDescription);
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t PropertyID = pRequestMessage[3];
@@ -906,7 +906,7 @@ void HDC_MandatoryCmd_GetCommandName(
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
   assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(pRequestMessage[2] == 0xF7);  // CommandID of the GetCommandName command
+  assert_param(pRequestMessage[2] == HDC_CommandID_GetCommandName);
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t CommandID = pRequestMessage[3];  // Not the CommandID of the GetCommandName command, but the CommandID whose name is being requested here. :o)
@@ -934,7 +934,7 @@ void HDC_MandatoryCmd_GetCommandDescription(
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
   assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(pRequestMessage[2] == 0xF8);  // CommandID of the GetCommandDescription command
+  assert_param(pRequestMessage[2] == HDC_CommandID_GetCommandDescription);
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t CommandID = pRequestMessage[3];  // Not the CommandID of the GetCommandName command, but the CommandID whose name is being requested here. :o)
@@ -961,7 +961,7 @@ void HDC_MandatoryCmd_GetEventName(
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
   assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(pRequestMessage[2] == 0xF9);  // CommandID
+  assert_param(pRequestMessage[2] == HDC_CommandID_GetEventName);
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t EventID = pRequestMessage[3];
@@ -988,7 +988,7 @@ void HDC_MandatoryCmd_GetEventDescription(
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
   assert_param(pRequestMessage[0] == HDC_MessageType_COMMAND_FEATURE);
-  assert_param(pRequestMessage[2] == 0xFA);  // CommandID
+  assert_param(pRequestMessage[2] == HDC_CommandID_GetEventDescription);
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t EventID = pRequestMessage[3];
@@ -1012,35 +1012,35 @@ void HDC_MandatoryCmd_GetEventDescription(
 
 const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = {
   &(HDC_Command_Descriptor_t){
-    .CommandID = 0xF1,
+    .CommandID = HDC_CommandID_GetPropertyName,
     .CommandName = "GetPropertyName",
     .CommandHandler = &HDC_MandatoryCmd_GetPropertyName,
     .CommandDescription = "(UINT8 PropertyID) -> UTF8"
   },
 
   &(HDC_Command_Descriptor_t){
-    .CommandID = 0xF2,
+    .CommandID = HDC_CommandID_GetPropertyType,
     .CommandName = "GetPropertyType",
     .CommandHandler = &HDC_MandatoryCmd_GetPropertyType,
     .CommandDescription = "(UINT8 PropertyID) -> UINT8"
   },
 
   &(HDC_Command_Descriptor_t){
-    .CommandID = 0xF3,
+    .CommandID = HDC_CommandID_GetPropertyReadonly,
     .CommandName = "GetPropertyReadonly",
     .CommandHandler = &HDC_MandatoryCmd_GetPropertyReadonly,
     .CommandDescription = "(UINT8 PropertyID) -> BOOL"
   },
 
   &(HDC_Command_Descriptor_t){
-    .CommandID = 0xF4,
+    .CommandID = HDC_CommandID_GetPropertyValue,
     .CommandName = "GetPropertyValue",
     .CommandHandler = &HDC_MandatoryCmd_GetPropertyValue,
     .CommandDescription = "(UINT8 PropertyID) -> PropertyType"
   },
 
   &(HDC_Command_Descriptor_t){
-    .CommandID = 0xF5,
+    .CommandID = HDC_CommandID_SetPropertyValue,
     .CommandName = "SetPropertyValue",
     .CommandHandler = &HDC_MandatoryCmd_SetPropertyValue,
     .CommandDescription = "(UINT8 PropertyID, PropertyType NewValue) -> return value as for GetPropertyValue.\n"
@@ -1048,21 +1048,21 @@ const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
   },
 
   &(HDC_Command_Descriptor_t){
-      .CommandID = 0xF6,
+      .CommandID = HDC_CommandID_GetPropertyDescription,
       .CommandName = "GetPropertyDescription",
       .CommandHandler = &HDC_MandatoryCmd_GetPropertyDescription,
       .CommandDescription = "(UINT8 PropertyID) -> UTF8"
     },
 
   &(HDC_Command_Descriptor_t){
-    .CommandID = 0xF7,
+    .CommandID = HDC_CommandID_GetCommandName,
     .CommandName = "GetCommandName",
     .CommandHandler = &HDC_MandatoryCmd_GetCommandName,
     .CommandDescription = "(UINT8 CommandID) -> UTF8"
   },
 
   &(HDC_Command_Descriptor_t){
-    .CommandID = 0xF8,
+    .CommandID = HDC_CommandID_GetCommandDescription,
     .CommandName = "GetCommandDescription",
     .CommandHandler = &HDC_MandatoryCmd_GetCommandDescription,
     .CommandDescription = "(UINT8 CommandID) -> UTF8"
@@ -1070,14 +1070,14 @@ const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
 
 
   &(HDC_Command_Descriptor_t){
-    .CommandID = 0xF9,
+    .CommandID = HDC_CommandID_GetEventName,
     .CommandName = "GetEventName",
     .CommandHandler = &HDC_MandatoryCmd_GetEventName,
     .CommandDescription = "(UINT8 EventID) -> UTF8"
   },
 
   &(HDC_Command_Descriptor_t){
-    .CommandID = 0xFA,
+    .CommandID = HDC_CommandID_GetEventDescription,
     .CommandName = "GetEventDescription",
     .CommandHandler = &HDC_MandatoryCmd_GetEventDescription,
     .CommandDescription = "(UINT8 EventID) -> UTF8"

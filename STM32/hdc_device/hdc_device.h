@@ -79,6 +79,19 @@ typedef enum {
 } HDC_MessageType_t;
 
 typedef enum {
+  HDC_CommandID_GetPropertyName = 0xF0,
+  HDC_CommandID_GetPropertyType = 0xF1,
+  HDC_CommandID_GetPropertyReadonly = 0xF2,
+  HDC_CommandID_GetPropertyValue = 0xF3,
+  HDC_CommandID_SetPropertyValue = 0xF4,
+  HDC_CommandID_GetPropertyDescription = 0xF5,
+  HDC_CommandID_GetCommandName = 0xF6,
+  HDC_CommandID_GetCommandDescription = 0xF7,
+  HDC_CommandID_GetEventName = 0xF8,
+  HDC_CommandID_GetEventDescription = 0xF9,
+} HDC_CommandID_t;
+
+typedef enum {
   HDC_ReplyErrorCode_NO_ERROR = 0x00,
   HDC_ReplyErrorCode_UNKNOWN_FEATURE = 0x01,
   HDC_ReplyErrorCode_UNKNOWN_COMMAND = 0x02,

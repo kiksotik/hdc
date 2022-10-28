@@ -633,7 +633,7 @@ void HDC_MsgReply_HdcVersion(
 
   // Build reply
   // This is not a Command, but just a plain Message: Do not include any reply-error code!
-  char pReplyMessage[] = "_HDC 1.0.0-alpha.8";  // Leading underscore is just a placeholder for the MessageTypeID.
+  char pReplyMessage[] = "_HDC 1.0.0-alpha.9";  // Leading underscore is just a placeholder for the MessageTypeID.
   pReplyMessage[0] = HDC_MessageTypeID_HdcVersion;
 
   HDC_Compose_Packets((uint8_t*)pReplyMessage, strlen(pReplyMessage+1)+1);  // strlen will choke on MessageTypeID prefix, therefore skipping it!

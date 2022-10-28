@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hdcproto"
-version = "0.0.8"
+version = "0.0.9"
 description = 'Host Device Communication protocol'
 readme = "README.md"
 requires-python = ">=3.7"
@@ -14,7 +14,7 @@ authors = [
   { name = "Axel T. J. Rohde", email = "kiksotik@gmail.com" },
 ]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 3 - Alpha",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.7",

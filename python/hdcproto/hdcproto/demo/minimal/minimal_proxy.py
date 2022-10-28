@@ -13,12 +13,12 @@ class MinimalCore:
 
     def __init__(self, device_proxy: DeviceProxyBase):
 
-        # We could inherit from CoreFeatureProxyBase, but we choose composition, instead, because
+        # We could "inherit" from CoreFeatureProxyBase, but we choose "composition", instead, because
         # it allows us to separate more cleanly our custom proxies from those defined in DeviceProxyBase.
-        # This is for example useful to keep the autocompletion list short and readable.
-        # https://en.wikipedia.org/wiki/Composition_over_inheritance
+        # This is for example useful to keep the autocompletion list short and readable while coding.
         self.hdc = CoreFeatureProxyBase(device_proxy=device_proxy)
 
+        # Registration of states allows DeviceProxyBase to resolve names and produce more readable logs
         self.hdc.register_states(MinimalCore.FeatureStateEnum)
 
         # Commands
@@ -35,7 +35,7 @@ class MinimalCore:
         self.prop_led_blinking_rate = PropertyProxy_RW_UINT8(self.hdc, property_id=0x13)
 
     class FeatureStateEnum(enum.IntEnum):
-        """Used by FeatureProxyBase.resolve_state_name() to resolve names of states of the MinimalCore feature."""
+        """Custom states of the Core-feature of the Demo_Minimal firmware."""
         OFF = 0
         INITIALIZING = 1
         READY = 2

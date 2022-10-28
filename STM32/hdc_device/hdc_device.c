@@ -188,7 +188,7 @@ uint32_t HDC_Work() {
     }
 
     if (hHDC.PendingEvent_ReadingFrameError > 0) {
-      HDC_Raise_Event_Log(NULL, HDC_EventLogLevel_WARNING, "Reading-frame-errors detected while parsing request message on device.");
+      HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_WARNING, "Reading-frame-errors detected while parsing request message on device.");
       hHDC.PendingEvent_ReadingFrameError = 0;
     }
 
@@ -1130,7 +1130,7 @@ const HDC_Event_Descriptor_t *HDC_MandatoryEvents[NUM_MANDATORY_EVENTS] = {
 //////////////////////////////
 // Event API
 
-void HDC_Raise_Event(const HDC_Feature_Descriptor_t *hHDC_Feature,
+void HDC_EvtMsg(const HDC_Feature_Descriptor_t *hHDC_Feature,
                      const uint8_t EventID,
                      const uint8_t* pEvtPayloadPrefix,
                      const size_t EvtPayloadPrefixSize,
@@ -1153,7 +1153,7 @@ void HDC_Raise_Event(const HDC_Feature_Descriptor_t *hHDC_Feature,
 
 }
 
-void HDC_Raise_Event_Log(
+void HDC_EvtMsg_Log(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
     HDC_EventLogLevel_t logLevel,
     char* logText) {
@@ -1165,7 +1165,7 @@ void HDC_Raise_Event_Log(
   if (logLevel < hHDC_Feature->LogEventThreshold)
     return;
 
-  HDC_Raise_Event(
+  HDC_EvtMsg(
     hHDC_Feature,
     HDC_Event_Log.EventID,
     &logLevel,
@@ -1193,7 +1193,7 @@ void HDC_FeatureStateTransition(HDC_Feature_Descriptor_t *hHDC_Feature, uint8_t 
   uint8_t oldState = hHDC_Feature->FeatureState;
   hHDC_Feature->FeatureState = newState;
 
-  HDC_Raise_Event(
+  HDC_EvtMsg(
     hHDC_Feature,
     HDC_Event_FeatureStateTransition.EventID,
     &oldState,
@@ -1460,7 +1460,7 @@ void HDC_ProcessRxPacket(const uint8_t *packet) {
   if (MessageType != HDC_MessageTypeID_Command)
     // Note how we can't reply with a ReplyErrorCode, because we don't
     // even know if this is a proper Command request.
-    return HDC_Raise_Event_Log(NULL, HDC_EventLogLevel_ERROR, "Unknown message type");
+    return HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_ERROR, "Unknown message type");
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t CommandID = pRequestMessage[2];

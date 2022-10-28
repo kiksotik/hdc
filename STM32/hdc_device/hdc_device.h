@@ -310,7 +310,7 @@ void HDC_CmdReply_StringValue(const char* value, const uint8_t* pMsgHeader);
 ////////////////////
 // Raising of events
 
-void HDC_Raise_Event(
+void HDC_EvtMsg(
     const HDC_Feature_Descriptor_t *hHdcFeature,
     const uint8_t EventID,
     const uint8_t* pEvtPayloadPrefix,
@@ -318,7 +318,7 @@ void HDC_Raise_Event(
     const uint8_t* pEvtPayloadSuffix,
     const size_t EvtPayloadSuffixSize);
 
-void HDC_Raise_Event_Log(
+void HDC_EvtMsg_Log(
     const HDC_Feature_Descriptor_t *hHdcFeature,
     HDC_EventLogLevel_t logLevel,
     char* logText);

@@ -70,10 +70,10 @@ const HDC_Event_Descriptor_t *Core_HDC_Events[] = {
 // Example of an API for raising a custom HDC-event.
 void Core_HDC_Raise_Event_Button(uint8_t ButtonID, uint8_t ButtonState) {
 
-  HDC_Raise_Event(
+  HDC_EvtMsg(
     &Core_HDC_Feature,
     Core_HDC_Event_Button.EventID,
-    // Note how HDC_Raise_Event() allows to provide the payload in two separate chunks.
+    // Note how HDC_EvtMsg() allows to provide the payload in two separate chunks.
     // In this case we just sent one byte in the payload-prefix and another byte in the payload-suffix.
     &ButtonID, 1,
     &ButtonState, 1);
@@ -233,7 +233,7 @@ void Core_Work(void) {
   // Demonstrate HDC-logging capabilities
   static uint32_t ticksNextDummyTransfer = 1000;
   if (ticksNow > ticksNextDummyTransfer) {
-    HDC_Raise_Event_Log(NULL, HDC_EventLogLevel_DEBUG, "This is just to showcase how to use the logging capabilities of HDC.");
+    HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_DEBUG, "This is just to showcase how to use the logging capabilities of HDC.");
     ticksNextDummyTransfer = ticksNow + 1000;
   }
 
@@ -248,5 +248,5 @@ void Core_ErrorHandler(HDC_EventLogLevel_t logLevel, char* errorMessage) {
 
   HDC_FeatureStateTransition(&Core_HDC_Feature, Core_State_Error);
   // Log error message after entering the error state.
-  HDC_Raise_Event_Log(&Core_HDC_Feature, logLevel, errorMessage);
+  HDC_EvtMsg_Log(&Core_HDC_Feature, logLevel, errorMessage);
 }

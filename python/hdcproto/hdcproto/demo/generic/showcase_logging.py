@@ -57,23 +57,23 @@ def showcase_logging():
     demo_logger.info("__________________________________________________________________________________________")
     demo_logger.info(f"Setting LogLevelThreshold of Core-Feature to DEBUG (To receive some heart-beat LogEvents)")
     demo_logger.info("Note: The Demo_Minimal firmware emits a DEBUG LogEvent once a second; a heartbeat for demo.")
-    device_proxy.core._evt_log.set_log_threshold(logging.DEBUG)
+    device_proxy.core.evt_log.set_log_threshold(logging.DEBUG)
     provoke_some_log_events(device_proxy.router.transport)
 
     demo_logger.info("__________________________________________________________________________________________")
     demo_logger.info(f"Setting LogLevelThreshold of Core-Feature to WARNING")
-    device_proxy.core._evt_log.set_log_threshold(logging.WARNING)
+    device_proxy.core.evt_log.set_log_threshold(logging.WARNING)
     provoke_some_log_events(device_proxy.router.transport)
 
     demo_logger.info("________________________________________________________________________________________")
     demo_logger.info(f"Setting LogLevelThreshold of Core-Feature to ERROR")
-    device_proxy.core._evt_log.set_log_threshold(logging.ERROR)
+    device_proxy.core.evt_log.set_log_threshold(logging.ERROR)
     provoke_some_log_events(device_proxy.router.transport)
 
     demo_logger.info("________________________________________________________________________________________")
     demo_logger.info(f"Re-setting LogLevelThreshold of Core-Feature to INFO "
                      f"and checking whether device does proper trimming of LogLevelThreshold values")
-    device_proxy.core._evt_log.set_log_threshold(logging.INFO)
+    device_proxy.core.evt_log.set_log_threshold(logging.INFO)
 
     assert (device_proxy.core.prop_log_event_threshold.set(logging.DEBUG - 1) == logging.DEBUG)
     assert (device_proxy.core.prop_log_event_threshold.set(logging.DEBUG + 4) == logging.DEBUG)

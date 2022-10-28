@@ -4,6 +4,7 @@ Proxy classes for the device and its features and properties
 from __future__ import annotations
 
 import collections
+import enum
 import logging
 import semver
 import time
@@ -443,7 +444,7 @@ class StateTransitionEventProxy(EventProxyBase):
                          self.feature_proxy.resolve_state_name(event_payload.previous_state_id),
                          self.feature_proxy.resolve_state_name(event_payload.current_state_id))
         # Inject new state into the cache for the FeatureState property
-        self.feature_proxy.prop_feature_state._update_cached_value(event_payload.current_state_id)
+        self.feature_proxy.prop_feature_state.update_cached_value(event_payload.current_state_id)
 
 
 class PropertyProxyBase:
@@ -486,7 +487,7 @@ class PropertyProxyBase:
         self._cached_value = None
         self._timestamp_of_cached_value = 0.0
 
-    def _update_cached_value(self, new_value: bool | int | float | str | bytes):
+    def update_cached_value(self, new_value: bool | int | float | str | bytes):
         self._cached_value = new_value
         self._timestamp_of_cached_value = time.perf_counter()
 
@@ -504,11 +505,11 @@ class PropertyProxyBase:
         age_of_cached_value = time.perf_counter() - self._timestamp_of_cached_value
         if age_of_cached_value > freshness or self._cached_value is None:
             self.logger.debug(f"Getting value of PropertyID=0x{self.property_id:02X}")
-            property_value = self.feature_proxy._cmd_get_property_value(property_id=self.property_id,
-                                                                        property_data_type=self.property_data_type,
-                                                                        timeout=timeout)
+            property_value = self.feature_proxy.cmd_get_property_value(property_id=self.property_id,
+                                                                       property_data_type=self.property_data_type,
+                                                                       timeout=timeout)
             self.logger.info(f"PropertyID=0x{self.property_id:02X} getter returns {property_value}")
-            self._update_cached_value(property_value)
+            self.update_cached_value(property_value)
         else:
             self.logger.info(f"PropertyID=0x{self.property_id:02X} getter "
                              f"returns {self._cached_value} from cache "
@@ -532,13 +533,13 @@ class PropertyProxyBase:
 
         # Note how the value returned with the reply is the actual value set on
         # the device, and it may differ from the value sent in the request!
-        property_value = self.feature_proxy._cmd_set_property_value(
+        property_value = self.feature_proxy.cmd_set_property_value(
             property_id=self.property_id,
             property_data_type=self.property_data_type,
             new_value=new_value,
             timeout=timeout)
 
-        self._update_cached_value(property_value)
+        self.update_cached_value(property_value)
 
         if property_value != new_value:
             self.logger.warning(f"Attempted to set PropertyID=0x{self.property_id:02X} "
@@ -925,8 +926,12 @@ class PropertyProxy_LogEventThreshold(PropertyProxy_RW_UINT8):
 
 class FeatureProxyBase:
     router_feature: hdcproto.host.router.RouterFeature
+    state_names_by_id: dict[int, str]
 
-    def __init__(self, device_proxy: DeviceProxyBase, feature_id: int):
+    def __init__(self,
+                 device_proxy: DeviceProxyBase,
+                 feature_id: int,
+                 state_names_by_id: dict[int, str] | enum.EnumMeta | None = None):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy.MyFeatureProxy"
         self.logger = device_proxy.logger.getChild(self.__class__.__name__)
@@ -939,21 +944,26 @@ class FeatureProxyBase:
 
         self.router_feature = hdcproto.host.router.RouterFeature(router=device_proxy.router,
                                                                  feature_id=feature_id)
+        self.state_names_by_id = dict()
+
+        if state_names_by_id:
+            self.register_states(state_names_by_id)
+
         # Commands
-        self._cmd_get_property_name = GetPropertyNameCommandProxy(self)
-        self._cmd_get_property_type = GetPropertyTypeCommandProxy(self)
-        self._cmd_get_property_readonly = GetPropertyReadonlyCommandProxy(self)
-        self._cmd_get_property_value = GetPropertyValueCommandProxy(self)
-        self._cmd_set_property_value = SetPropertyValueCommandProxy(self)
-        self._cmd_get_property_description = GetPropertyDescriptionCommandProxy(self)
-        self._cmd_get_command_name = GetCommandNameCommandProxy(self)
-        self._cmd_get_command_description = GetCommandDescriptionCommandProxy(self)
-        self._cmd_get_event_name = GetEventNameCommandProxy(self)
-        self._cmd_get_event_description = GetEventDescriptionCommandProxy(self)
+        self.cmd_get_property_name = GetPropertyNameCommandProxy(self)
+        self.cmd_get_property_type = GetPropertyTypeCommandProxy(self)
+        self.cmd_get_property_readonly = GetPropertyReadonlyCommandProxy(self)
+        self.cmd_get_property_value = GetPropertyValueCommandProxy(self)
+        self.cmd_set_property_value = SetPropertyValueCommandProxy(self)
+        self.cmd_get_property_description = GetPropertyDescriptionCommandProxy(self)
+        self.cmd_get_command_name = GetCommandNameCommandProxy(self)
+        self.cmd_get_command_description = GetCommandDescriptionCommandProxy(self)
+        self.cmd_get_event_name = GetEventNameCommandProxy(self)
+        self.cmd_get_event_description = GetEventDescriptionCommandProxy(self)
 
         # Events
-        self._evt_log = LogEventProxy(self)
-        self._evt_state_transition = StateTransitionEventProxy(self)
+        self.evt_log = LogEventProxy(self)
+        self.evt_state_transition = StateTransitionEventProxy(self)
 
         # Properties (immutable)
         inf = float('inf')  # Infinity, meaning that the cached value will not expire (by default)
@@ -981,16 +991,39 @@ class FeatureProxyBase:
     def feature_id(self) -> int:
         return self.router_feature.feature_id
 
+    def register_state(self, state_id: int, state_name: str):
+        if not is_valid_uint8(state_id):
+            raise ValueError(f"state_id value of 0x{state_id:02X} is beyond valid range from 0x00 to 0xFF")
+
+        if state_id in self.state_names_by_id:
+            self.logger.warning(f"Re-registering state_id=0x{state_id:02X} as '{state_name}'. "
+                                f"Previously registered as '{self.state_names_by_id[state_id]}'")
+        self.state_names_by_id[state_id] = state_name
+
+    def register_states(self, state_names_by_id: dict[int, str] | enum.EnumMeta):
+        if isinstance(state_names_by_id, enum.EnumMeta):
+            state_names_by_id = {e.value: e.name for e in state_names_by_id}
+        elif isinstance(state_names_by_id, dict):
+            pass
+        else:
+            raise TypeError()
+
+        for state_id, state_name in state_names_by_id.items():
+            assert isinstance(state_id, int)
+            assert isinstance(state_name, str)
+            self.register_state(state_id=state_id, state_name=state_name)
+
     def resolve_state_name(self, state_id: int) -> str:
-        try:
-            # The following expects a nested IntEnum as defined within the most derived subclass of FeatureProxyBase!
-            # noinspection PyUnresolvedReferences
-            return type(self).FeatureStateEnum(state_id).name
-        except Exception:
-            if type(self) is not FeatureProxyBase:  # Suppress warning in ad-hoc usages of FeatureProxyBase
-                # Forgot to define all states in "FeatureStateEnum" nested within the sub-classed feature-proxy?
-                self.logger.warning(f"Can't resolve name of FeatureStateID 0x{state_id:02X}")
+        if not self.state_names_by_id:
+            self.logger.warning(f"Can't resolve name of FeatureStateID 0x{state_id:02X}, because "
+                                f"no states were registered with this proxy.")
+
+        if not state_id in self.state_names_by_id:
+            self.logger.warning(f"Can't resolve name of FeatureStateID 0x{state_id:02X}, because "
+                                f"no name was registered for this ID.")
             return f"0x{state_id:02X}"  # Use hexadecimal representation as a fallback
+
+        return self.state_names_by_id[state_id]
 
     def await_state(self,
                     exits: int | typing.Iterable[int] | None = None,

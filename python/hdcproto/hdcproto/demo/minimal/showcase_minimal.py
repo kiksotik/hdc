@@ -24,20 +24,19 @@ def showcase_minimal():
     logging.getLogger("hdcproto.transport.packetizer").setLevel(logging.WARNING)
     logging.getLogger("hdcproto.transport.serialport").setLevel(logging.WARNING)
     logging.getLogger("hdcproto.host.router").setLevel(logging.WARNING)
-    logging.getLogger("hdcproto.host.proxy").setLevel(logging.INFO)
+    logging.getLogger("hdcproto.host.proxy").setLevel(logging.NOTSET)
 
     #################################################
     # Connect to HDC-device at a specific serial port
     dev = MinimalDevice(connection_url="COM10")  # Note how this implements all HDC specifics of a given device type
     dev.router.connect()  # Will fail if your device is connected at a different port.
 
-    ########################################################
-    # Example of how to figure out to which HDC-spec version
-    # a device is (allegedly ;-) compliant with.
+    ######################################################################################
+    # Example of how "inheritance" mixes-in the stuff defined in DeviceProxyBase into self
     demo_logger.info("--------------------------------------------------------------")
     demo_logger.info("Asking device about the HDC-spec version it is compliant with:")
     demo_logger.info(f"Raw version string: '{dev.get_hdc_version_string()}'")
-    demo_logger.info(f"Parsed version: '{repr(dev.get_hdc_version())}'")
+    demo_logger.info(f"    Parsed version: '{repr(dev.get_hdc_version())}'")
 
     ########################################################################
     # Example of how to react to an event on the very moment it is received.
@@ -62,10 +61,16 @@ def showcase_minimal():
     dev.core.cmd_reset()  # Blocks until it receives reply from HDC-device or the default timeout elapses.
     time.sleep(0.5)  # Allow for some time for the actual firmware reset to happen.
 
+    #############################################################################################
+    # Example of how "composition" keeps stuff defined in FeatureProxyBase separate in self.hdc
+    demo_logger.info("_____________________________________")
+    demo_logger.info("Obtain some mandatory property values...")
+    demo_logger.info(f"       LogEventThreshold: {dev.core.hdc.prop_log_event_threshold.get_value_name()}")
+
     ##################################################################
     # Example of how the host gets property values
-    demo_logger.info("______________________________")
-    demo_logger.info("Obtain some property values...")
+    demo_logger.info("_____________________________________")
+    demo_logger.info("Obtain some custom property values...")
     demo_logger.info(f"   Microcontroller REVID: 0x{dev.core.prop_microcontroller_revid.get():08x}")
     demo_logger.info(f"   Microcontroller DEVID: 0x{dev.core.prop_microcontroller_devid.get():08x}")
     demo_logger.info(f"   Microcontroller   UID: 0x{dev.core.prop_microcontroller_uid.get().hex()}")

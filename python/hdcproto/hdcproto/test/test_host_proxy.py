@@ -12,7 +12,7 @@ class TestableDeviceProxy(DeviceProxyBase):
 class TestReplyErrorCodeRegistration(unittest.TestCase):
     def setUp(self) -> None:
         my_device = TestableDeviceProxy(connection_url="loop:")
-        self.some_command_proxy = my_device.core._cmd_get_property_value
+        self.some_command_proxy = my_device.core.cmd_get_property_value
 
     def test_predefined_replyerrorcode_which_is_not_yet_registered(self):
         replyerrorcode_not_yet_registered = ReplyErrorCode.UNKNOWN_EVENT

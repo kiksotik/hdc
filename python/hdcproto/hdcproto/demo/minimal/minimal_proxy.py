@@ -9,23 +9,30 @@ from hdcproto.host.proxy import (DeviceProxyBase, CoreFeatureProxyBase, VoidWith
                                  PropertyProxy_RO_UINT32, PropertyProxy_RO_BLOB, PropertyProxy_RW_UINT8)
 
 
-class MinimalCore(CoreFeatureProxyBase):
+class MinimalCore:
 
     def __init__(self, device_proxy: DeviceProxyBase):
-        super().__init__(device_proxy=device_proxy)
+
+        # We could inherit from CoreFeatureProxyBase, but we choose composition, instead, because
+        # it allows us to separate more cleanly our custom proxies from those defined in DeviceProxyBase.
+        # This is for example useful to keep the autocompletion list short and readable.
+        # https://en.wikipedia.org/wiki/Composition_over_inheritance
+        self.hdc = CoreFeatureProxyBase(device_proxy=device_proxy)
+
+        self.hdc.register_states(MinimalCore.FeatureStateEnum)
 
         # Commands
         # ToDo: A reset command handler is responsible to evict any cached values/states on the proxies!
-        self.cmd_reset = VoidWithoutArgsCommandProxy(self, command_id=0xC1, default_timeout=1.23)
+        self.cmd_reset = VoidWithoutArgsCommandProxy(self.hdc, command_id=0xC1, default_timeout=1.23)
 
         # Events
-        self.evt_button = EventProxyBase(self, event_id=0x01, payload_parser=self.ButtonEventPayload)
+        self.evt_button = EventProxyBase(self.hdc, event_id=0x01, payload_parser=self.ButtonEventPayload)
 
         # Properties
-        self.prop_microcontroller_devid = PropertyProxy_RO_UINT32(self, property_id=0x010)
-        self.prop_microcontroller_revid = PropertyProxy_RO_UINT32(self, property_id=0x11)
-        self.prop_microcontroller_uid = PropertyProxy_RO_BLOB(self, property_id=0x12)
-        self.prop_led_blinking_rate = PropertyProxy_RW_UINT8(self, property_id=0x13)
+        self.prop_microcontroller_devid = PropertyProxy_RO_UINT32(self.hdc, property_id=0x010)
+        self.prop_microcontroller_revid = PropertyProxy_RO_UINT32(self.hdc, property_id=0x11)
+        self.prop_microcontroller_uid = PropertyProxy_RO_BLOB(self.hdc, property_id=0x12)
+        self.prop_led_blinking_rate = PropertyProxy_RW_UINT8(self.hdc, property_id=0x13)
 
     class FeatureStateEnum(enum.IntEnum):
         """Used by FeatureProxyBase.resolve_state_name() to resolve names of states of the MinimalCore feature."""
@@ -53,6 +60,7 @@ class MinimalCore(CoreFeatureProxyBase):
 
 
 class MinimalDevice(DeviceProxyBase):
+    # Note how this class *inherits* from DeviceProxyBase, but it could also choose to use it for "composition"
     core: MinimalCore
 
     def __init__(self, connection_url: str):

@@ -35,8 +35,8 @@ def showcase_introspection(skip_mandatory_members: bool = False):
         for cmdID in available_command_ids:
             if skip_mandatory_members and is_hdc_internal(cmdID):
                 continue
-            cmd_name = feature_proxy._cmd_get_command_name(cmdID, timeout=600)
-            cmd_desc = feature_proxy._cmd_get_command_description(cmdID, timeout=600).replace("\n", "\n\t\t\t")
+            cmd_name = feature_proxy.cmd_get_command_name(cmdID, timeout=600)
+            cmd_desc = feature_proxy.cmd_get_command_description(cmdID, timeout=600).replace("\n", "\n\t\t\t")
             print(f"\tCommand[0x{cmdID:02X}]: {cmd_name} {cmd_desc}")
 
         # Introspection: Available Events on Core feature
@@ -45,8 +45,8 @@ def showcase_introspection(skip_mandatory_members: bool = False):
         for evtID in available_event_ids:
             if skip_mandatory_members and is_hdc_internal(evtID):
                 continue
-            evt_name = feature_proxy._cmd_get_event_name(evtID, timeout=600)
-            evt_desc = feature_proxy._cmd_get_event_description(evtID, timeout=600).replace("\n", "\n\t\t\t")
+            evt_name = feature_proxy.cmd_get_event_name(evtID, timeout=600)
+            evt_desc = feature_proxy.cmd_get_event_description(evtID, timeout=600).replace("\n", "\n\t\t\t")
             print(f"\tEvent[0x{evtID:02X}]: {evt_name} {evt_desc}")
 
         # Introspection: Available Properties on Core feature
@@ -55,14 +55,14 @@ def showcase_introspection(skip_mandatory_members: bool = False):
         for propID in available_property_ids:
             if skip_mandatory_members and is_hdc_internal(propID):
                 continue
-            prop_ro = feature_proxy._cmd_get_property_readonly(propID, timeout=600)
-            prop_type: HdcDataType = feature_proxy._cmd_get_property_type(propID, timeout=600)
-            prop_name = feature_proxy._cmd_get_property_name(propID, timeout=600)
-            prop_value = feature_proxy._cmd_get_property_value(propID, prop_type, timeout=600)
+            prop_ro = feature_proxy.cmd_get_property_readonly(propID, timeout=600)
+            prop_type: HdcDataType = feature_proxy.cmd_get_property_type(propID, timeout=600)
+            prop_name = feature_proxy.cmd_get_property_name(propID, timeout=600)
+            prop_value = feature_proxy.cmd_get_property_value(propID, prop_type, timeout=600)
             if isinstance(prop_value, bytes):
                 prop_value = ', '.join(f'0x{byte:02X}' for byte in prop_value)
                 prop_value = '[' + prop_value + ']'
-            prop_desc = feature_proxy._cmd_get_property_description(propID, timeout=600).replace("\n", "\n\t\t\t")
+            prop_desc = feature_proxy.cmd_get_property_description(propID, timeout=600).replace("\n", "\n\t\t\t")
             print(f"\tProperty[0x{propID:02X}]: "
                   f"{'RO' if prop_ro else 'RW'} "
                   f"{prop_type.name} {prop_name} = {prop_value} {prop_desc}")

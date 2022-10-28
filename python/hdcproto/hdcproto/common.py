@@ -54,7 +54,7 @@ class ReplyErrorCode(enum.IntEnum):
     COMMAND_FAILED = 0xF6
     INVALID_PROPERTY_VALUE = 0xF7
     PROPERTY_IS_READ_ONLY = 0xF8
-    
+
     def __str__(self):
         if self == ReplyErrorCode.NO_ERROR:
             return "No error"
@@ -82,7 +82,7 @@ class ReplyErrorCode(enum.IntEnum):
 class EvtID(enum.IntEnum):
     """Reserved IDs of mandatory Events required by HDC-spec"""
     LOG = 0xF0
-    STATE_TRANSITION = 0xF1
+    FEATURE_STATE_TRANSITION = 0xF1
 
 
 @enum.unique
@@ -253,7 +253,7 @@ class HdcDataType(enum.IntEnum):
         for idx, return_data_type in enumerate(expected_data_types):
             size = return_data_type.size()
             if size is None:
-                # A size of None means it's variable length, which
+                # A size of None means it is variable length, which
                 # is only allowed as last of the expected values!
                 if idx != len(expected_data_types) - 1:
                     raise ValueError("Variable size values (UTF8, BLOB) are only allowed as last item")

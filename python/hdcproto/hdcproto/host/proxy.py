@@ -427,7 +427,7 @@ class StateTransitionEventProxy(EventProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy,
-                         event_id=EvtID.STATE_TRANSITION,
+                         event_id=EvtID.FEATURE_STATE_TRANSITION,
                          payload_parser=StateTransitionEventProxy.StateTransitionEventPayload)
         self.register_event_payload_handler(self.event_payload_handler)
 

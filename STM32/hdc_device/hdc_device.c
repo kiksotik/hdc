@@ -1088,7 +1088,7 @@ const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
 // Event descriptors
 
 const HDC_Event_Descriptor_t HDC_MandatoryEvent_Log = {
-  .EventID = 0xF0,
+  .EventID = HDC_EventID_Log,
   .EventName = "Log",
   .EventDescription =
       "-> UINT8 LogLevel, UTF8 LogText\n"
@@ -1096,7 +1096,7 @@ const HDC_Event_Descriptor_t HDC_MandatoryEvent_Log = {
 };
 
 const HDC_Event_Descriptor_t HDC_MandatoryEvent_FeatureStateTransition = {
-  .EventID = 0xF1,
+  .EventID = HDC_EventID_FeatureStateTransition,
   .EventName = "FeatureStateTransition",
   .EventDescription =
       "-> UINT8 PreviousStateID , UINT8 CurrentStateID\n"

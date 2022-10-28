@@ -154,6 +154,12 @@ typedef enum {
 } HDC_PropertyID_t;
 
 
+typedef enum {
+  HDC_EventID_Log = 0xF0,
+  HDC_EventID_FeatureStateTransition = 0xF1,
+} HDC_EventID_t;
+
+
 // Using same numeric LogLevel values as Python's logging module
 typedef enum {
   HDC_EventLogLevel_DEBUG = 10,

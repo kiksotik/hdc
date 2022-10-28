@@ -18,7 +18,7 @@ class MessageRouter:
     """
     Plugs things together:
         - receiving and sending of raw bytes over a specific transport,
-        - packetizing and de-packetizing of messages to/from a stream of raw bytes
+        - packing and unpacking of messages to/from a stream of raw bytes
         - routing of messages received from the device
         - sending of messages to the device
     Not to be confused with the Device-Proxy classes!

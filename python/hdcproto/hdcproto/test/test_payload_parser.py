@@ -208,6 +208,7 @@ class TestPayloadParser(unittest.TestCase):
         )
 
     def test_parsing_of_nonempty_utf8(self):
+        # noinspection SpellCheckingInspection
         utf8_value = "Lorem ipsum ùոïċọɗẹ"
         utf8_payload = HdcDataType.UTF8.value_to_bytes(utf8_value)
 
@@ -292,6 +293,7 @@ class TestPayloadParser(unittest.TestCase):
             HdcDataType.parse_payload(raw_payload=payload, expected_data_types=expected_data_types)
 
     def test_parsing_multiple_values_and_last_is_of_variable_size(self):
+        # noinspection SpellCheckingInspection
         types_and_values: list[tuple[HdcDataType, typing.Any]] = [
             (HdcDataType.UINT8, 0x42),
             (HdcDataType.INT32, -0x42424242),
@@ -315,6 +317,7 @@ class TestPayloadParser(unittest.TestCase):
         )
 
     def test_parsing_multiple_values_and_first_is_of_variable_size(self):
+        # noinspection SpellCheckingInspection
         types_and_values: list[tuple[HdcDataType, typing.Any]] = [
             (HdcDataType.UTF8, "Lorem ipsum ùոïċọɗẹ"),
             (HdcDataType.UINT8, 0x42),

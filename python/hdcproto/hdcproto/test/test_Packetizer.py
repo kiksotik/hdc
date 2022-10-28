@@ -173,7 +173,7 @@ class TestReadingFrameErrors(unittest.TestCase):
         packets = packetizer.pack_message(message)
         raw_data = single_chunk(packets)[0]
 
-        # The bogus byte fools packetizer into expecting a much shorter message
+        # The bogus byte fools packetizer into expecting a much shorter message,
         # but it won't find any terminator where expected.
         bogus_byte = b'\x05'
         packetizer.data_received(bogus_byte + raw_data)
@@ -190,7 +190,7 @@ class TestReadingFrameErrors(unittest.TestCase):
         packets = packetizer.pack_message(message)
         raw_data = single_chunk(packets)[0]
 
-        # The bogus byte fools packetizer into expecting a much shorter message
+        # The bogus byte fools packetizer into expecting a much shorter message,
         # and it coincidentally will even find a terminator where expected, but the checksum will not match.
         bogus_byte = b'\x05'
         packetizer.data_received(bogus_byte + raw_data)

@@ -1275,6 +1275,11 @@ void HDC_Property_LogEventThreshold_set(
 
   newValue = CONSTRAIN(newValue, HDC_EventLogLevel_DEBUG, HDC_EventLogLevel_CRITICAL);
 
+  // Disallowing custom levels because of the same rationale as explained here:
+  //     https://docs.python.org/3.10/howto/logging.html#custom-levels
+  // Therefore rounding to the nearest multiple of 10. https://stackoverflow.com/a/2422723/20337562
+  newValue = ((newValue + 5) / 10) * 10;
+
   hHDC_Feature->LogEventThreshold = newValue;
   HDC_Reply_UInt8Value(hHDC_Feature->LogEventThreshold, pRequestMessage);
 }

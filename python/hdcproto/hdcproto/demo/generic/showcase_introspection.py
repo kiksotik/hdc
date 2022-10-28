@@ -19,6 +19,8 @@ def showcase_introspection(skip_mandatory_members: bool = False):
     device_proxy = DeviceProxyBase(connection_url="COM10")
     device_proxy.router.connect()
 
+    print(f"Device reports to be compliant with: {device_proxy.get_hdc_version_string()}")
+
     # Introspection: Available Features
     available_feature_ids = device_proxy.core.prop_available_features.get(timeout=6)
     print(f"Features: {available_feature_ids}")

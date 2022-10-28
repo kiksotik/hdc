@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hdcproto"
-version = "0.0.7"
+version = "0.0.8"
 description = 'Host Device Communication protocol'
 readme = "README.md"
 requires-python = ">=3.7"
@@ -27,6 +27,7 @@ classifiers = [
 ]
 dependencies = [
   "pyserial~=3.5",
+  "semver~=2.13.0"
 ]
 dynamic = []
 

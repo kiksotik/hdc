@@ -427,7 +427,7 @@ void HDC_Compose_Packets_From_Pieces(
     const size_t MsgPayloadSuffixSize
    )
 {
-  const uint8_t MsgHeaderSize = (MsgType==HDC_MessageTypeID_FeatureCommand) ? 4 : 3;  // MsgType ; FeatureID ; CmdOrEvtID ; (ReplyErrorCode)
+  const uint8_t MsgHeaderSize = (MsgType==HDC_MessageTypeID_Command) ? 4 : 3;  // MsgType ; FeatureID ; CmdOrEvtID ; (ReplyErrorCode)
   const uint16_t MsgSize = MsgHeaderSize + MsgPayloadPrefixSize + MsgPayloadSuffixSize;
   uint8_t PacketPayloadSize;
   uint16_t nMsg = 0;
@@ -458,7 +458,7 @@ void HDC_Compose_Packets_From_Pieces(
       nMsg++;
       nPkt++;
 
-      if (MsgType == HDC_MessageTypeID_FeatureCommand) {
+      if (MsgType == HDC_MessageTypeID_Command) {
         // ReplyErrorCode
         checksum += (uint8_t)ReplyErrorCode;
         pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)ReplyErrorCode;
@@ -510,7 +510,7 @@ void HDC_Reply_From_Pieces(
 {
 
   HDC_Compose_Packets_From_Pieces(
-    HDC_MessageTypeID_FeatureCommand,
+    HDC_MessageTypeID_Command,
     FeatureID,
     CmdID,
     ReplyErrorCode,
@@ -622,20 +622,38 @@ void HDC_Reply_StringValue(const char* value, const uint8_t* pRequestMessage) {
 
 
 /////////////////////////////////////////////////
-// Request Handlers for mandatory FeatureCommands
+// Request Handlers for mandatory Messages
 
-void HDC_MandatoryCmd_Echo(
-    const HDC_Feature_Descriptor_t *hHDC_Feature,
+void HDC_MsgReply_HdcVersion(
     const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_EchoCommand);
-  assert_param(hHDC_Feature == NULL);
+  // Validate request
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_HdcVersion);
+
+  // Build reply
+  // This is not a Command, but just a plain Message: Do not include any reply-error code!
+  char pReplyMessage[] = "_HDC 1.0.0-alpha.8";  // Leading underscore is just a placeholder for the MessageTypeID.
+  pReplyMessage[0] = HDC_MessageTypeID_HdcVersion;
+
+  HDC_Compose_Packets((uint8_t*)pReplyMessage, strlen(pReplyMessage+1)+1);  // strlen will choke on MessageTypeID prefix, therefore skipping it!
+}
+
+
+void HDC_MsgReply_Echo(
+    const uint8_t* pRequestMessage,
+    const uint8_t Size)
+{
+  // Validate request
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Echo);
 
   // Reply message must be exactly equal to the full request message.
-  // Do not include any reply-error code!
+  // This is not a Command, but just a plain Message: Do not include any reply-error code!
   HDC_Compose_Packets(pRequestMessage, Size);
 }
+
+/////////////////////////////////////////////////
+// Request Handlers for mandatory Commands
 
 void HDC_MandatoryCmd_GetPropertyName(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
@@ -645,7 +663,7 @@ void HDC_MandatoryCmd_GetPropertyName(
   if (Size != 4)
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_FeatureCommand);
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(pRequestMessage[2] == HDC_CommandID_GetPropertyName);
 
   uint8_t FeatureID = pRequestMessage[1];
@@ -673,7 +691,7 @@ void HDC_MandatoryCmd_GetPropertyType(
   if (Size != 4)
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_FeatureCommand);
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(pRequestMessage[2] == HDC_CommandID_GetPropertyType);
 
   uint8_t FeatureID = pRequestMessage[1];
@@ -700,7 +718,7 @@ void HDC_MandatoryCmd_GetPropertyReadonly(
   if (Size != 4)
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_FeatureCommand);
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(pRequestMessage[2] == HDC_CommandID_GetPropertyReadonly);
 
   uint8_t FeatureID = pRequestMessage[1];
@@ -728,7 +746,7 @@ void HDC_MandatoryCmd_GetPropertyValue(
   if (CommandID==HDC_CommandID_GetPropertyValue && Size != 4)  // Skip validation whenever called from HDC_MandatoryCmd_SetPropertyValue()
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_FeatureCommand);
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(CommandID == HDC_CommandID_GetPropertyValue || CommandID == HDC_CommandID_SetPropertyValue);  // This may have been called via HDC_MandatoryCmd_SetPropertyValue()
 
   uint8_t FeatureID = pRequestMessage[1];
@@ -799,7 +817,7 @@ void HDC_MandatoryCmd_SetPropertyValue(
     const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_FeatureCommand);
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(pRequestMessage[2] == HDC_CommandID_SetPropertyValue);
 
   uint8_t FeatureID = pRequestMessage[1];
@@ -871,7 +889,7 @@ void HDC_MandatoryCmd_GetPropertyDescription(
   if (Size != 4)
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_FeatureCommand);
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(pRequestMessage[2] == HDC_CommandID_GetPropertyDescription);
 
   uint8_t FeatureID = pRequestMessage[1];
@@ -905,7 +923,7 @@ void HDC_MandatoryCmd_GetCommandName(
   if (Size != 4)
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_FeatureCommand);
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(pRequestMessage[2] == HDC_CommandID_GetCommandName);
 
   uint8_t FeatureID = pRequestMessage[1];
@@ -933,7 +951,7 @@ void HDC_MandatoryCmd_GetCommandDescription(
   if (Size != 4)
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_FeatureCommand);
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(pRequestMessage[2] == HDC_CommandID_GetCommandDescription);
 
   uint8_t FeatureID = pRequestMessage[1];
@@ -960,7 +978,7 @@ void HDC_MandatoryCmd_GetEventName(
   if (Size != 4)
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_FeatureCommand);
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(pRequestMessage[2] == HDC_CommandID_GetEventName);
 
   uint8_t FeatureID = pRequestMessage[1];
@@ -987,7 +1005,7 @@ void HDC_MandatoryCmd_GetEventDescription(
   if (Size != 4)
     return HDC_Reply_Error(HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
 
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_FeatureCommand);
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(pRequestMessage[2] == HDC_CommandID_GetEventDescription);
 
   uint8_t FeatureID = pRequestMessage[1];
@@ -1124,7 +1142,7 @@ void HDC_Raise_Event(const HDC_Feature_Descriptor_t *hHDC_Feature,
     hHDC_Feature = hHDC.Features[0];
 
   HDC_Compose_Packets_From_Pieces(
-    HDC_MessageTypeID_FeatureEvent,
+    HDC_MessageTypeID_Event,
     hHDC_Feature->FeatureID,
     EventID,
     HDC_ReplyErrorCode_NO_ERROR,  // Will be ignored by packetizer method, due to MessageType being Event
@@ -1433,10 +1451,13 @@ void HDC_ProcessRxPacket(const uint8_t *packet) {
   const uint8_t *pRequestMessage = packet+1;
   const uint8_t MessageType = pRequestMessage[0];
 
-  if (MessageType == HDC_MessageTypeID_EchoCommand)
-    return HDC_MandatoryCmd_Echo(NULL, pRequestMessage, MessageSize);
+  if (MessageType == HDC_MessageTypeID_HdcVersion)
+    return HDC_MsgReply_HdcVersion(pRequestMessage, MessageSize);
 
-  if (MessageType != HDC_MessageTypeID_FeatureCommand)
+  if (MessageType == HDC_MessageTypeID_Echo)
+    return HDC_MsgReply_Echo(pRequestMessage, MessageSize);
+
+  if (MessageType != HDC_MessageTypeID_Command)
     // Note how we can't reply with a ReplyErrorCode, because we don't
     // even know if this is a proper Command request.
     return HDC_Raise_Event_Log(NULL, HDC_EventLogLevel_ERROR, "Unknown message type");

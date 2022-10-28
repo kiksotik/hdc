@@ -7,7 +7,7 @@ import logging
 import threading
 import typing
 
-from hdcproto.common import MessageType, HdcError, is_valid_uint8
+from hdcproto.common import MessageTypeID, HdcError, is_valid_uint8
 from hdcproto.transport.base import TransportBase
 
 
@@ -63,15 +63,23 @@ class MessageRouter:
 
         msg_type_id = message[0]
 
-        if msg_type_id == MessageType.CMD_ECHO or msg_type_id == MessageType.CMD_FEATURE:
-            self.handle_command_reply(message)
-
-        if msg_type_id == MessageType.EVENT_FEATURE:
+        if msg_type_id in [MessageTypeID.HDC_VERSION, MessageTypeID.ECHO, MessageTypeID.COMMAND]:
+            self.handle_requested_reply(message)
+        elif msg_type_id == MessageTypeID.EVENT:
             self.handle_event(message)
+        else:
+            # ToDo: Should we fail silently, instead, to be forward-compatible with future versions of HDC-spec?
+            raise HdcError(f"Don't know how to handle MessageTypeID=0x{msg_type_id:02X}")
 
-    def handle_command_reply(self, message: bytes):
-        # Note how we do not need to look up neither FeatureID nor CommandID, because whatever command
-        # issued the request is currently blocking and awaiting the received_reply_event.
+    def handle_requested_reply(self, message: bytes):
+        """
+        Handler for any kind reply that has been explicitly requested,
+           i.e.: VersionMessages, EchoMessages, CommandMessages
+
+        Note how replies to Command-requests do not need to look up neither FeatureID nor CommandID, because
+        whatever command issued the request is currently blocking and awaiting the received_reply_event.
+        """
+        # Note how we do
 
         if not self.request_reply_lock.locked():
             # If the lock is not currently taken, then no-one is awaiting this reply (anymore)!
@@ -114,13 +122,6 @@ class MessageRouter:
 
         finally:
             self.request_reply_lock.release()
-
-    def cmd_echo(self, echo_payload: bytes, timeout: float = 0.2) -> bytes:
-        request_message = bytearray()
-        request_message.append(MessageType.CMD_ECHO)
-        request_message.extend(echo_payload)
-        reply_message = self.send_request_and_get_reply(request_message, timeout)
-        return reply_message[1:]  # Only return the payload, without the MessageTypeID prefix
 
 
 class RouterFeature:

@@ -50,6 +50,8 @@ def showcase_logging():
     device_proxy.router.connect()
 
     demo_logger.info("__________________________________________________________________________________________")
+    demo_logger.info(f"Device reports to be compliant with: '{device_proxy.get_hdc_version_string()}'")
+    demo_logger.info("__________________________________________________________________________________________")
     demo_logger.info("This demonstration will intentionally send some corrupt request to the HDC-device, for it")
     demo_logger.info("to complain via LogEvents about different degrees of severity. ")
     demo_logger.info("__________________________________________________________________________________________")

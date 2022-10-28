@@ -72,9 +72,10 @@ typedef void (*HDC_PropertyValueSetter_t)(
 // Enums
 
 typedef enum {
-  HDC_MessageTypeID_EchoCommand = 0xCE,
-  HDC_MessageTypeID_FeatureCommand = 0xCF,
-  HDC_MessageTypeID_FeatureEvent = 0xEF,
+  HDC_MessageTypeID_HdcVersion = 0xF0,
+  HDC_MessageTypeID_Echo = 0xF1,
+  HDC_MessageTypeID_Command = 0xF2,
+  HDC_MessageTypeID_Event = 0xF3,
 } HDC_MessageTypeID_t;
 
 typedef enum {

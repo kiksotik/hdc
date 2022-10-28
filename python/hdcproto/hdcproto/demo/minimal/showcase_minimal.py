@@ -21,15 +21,23 @@ def showcase_minimal():
     hdc_root_logger.addHandler(log_handler)
 
     # You can tweak the following log-levels to tune verbosity of HDC internals:
-    logging.getLogger("hdcproto.transport.packetizer").setLevel(logging.DEBUG)
-    logging.getLogger("hdcproto.transport.serialport").setLevel(logging.DEBUG)
-    logging.getLogger("hdcproto.host.router").setLevel(logging.DEBUG)
-    logging.getLogger("hdcproto.host.proxy").setLevel(logging.DEBUG)
+    logging.getLogger("hdcproto.transport.packetizer").setLevel(logging.WARNING)
+    logging.getLogger("hdcproto.transport.serialport").setLevel(logging.WARNING)
+    logging.getLogger("hdcproto.host.router").setLevel(logging.WARNING)
+    logging.getLogger("hdcproto.host.proxy").setLevel(logging.INFO)
 
     #################################################
     # Connect to HDC-device at a specific serial port
     dev = MinimalDevice(connection_url="COM10")  # Note how this implements all HDC specifics of a given device type
     dev.router.connect()  # Will fail if your device is connected at a different port.
+
+    ########################################################
+    # Example of how to figure out to which HDC-spec version
+    # a device is (allegedly ;-) compliant with.
+    demo_logger.info("--------------------------------------------------------------")
+    demo_logger.info("Asking device about the HDC-spec version it is compliant with:")
+    demo_logger.info(f"Raw version string: '{dev.get_hdc_version_string()}'")
+    demo_logger.info(f"Parsed version: '{repr(dev.get_hdc_version())}'")
 
     ########################################################################
     # Example of how to react to an event on the very moment it is received.

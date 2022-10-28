@@ -13,11 +13,12 @@ class HdcError(Exception):
 
 
 @enum.unique
-class MessageType(enum.IntEnum):
-    """HDC-message types as defined by HDC-spec"""
-    CMD_ECHO = 0xCE
-    CMD_FEATURE = 0xCF
-    EVENT_FEATURE = 0xEF
+class MessageTypeID(enum.IntEnum):
+    """As defined by HDC-spec"""
+    HDC_VERSION = 0xF0
+    ECHO = 0xF1
+    COMMAND = 0xF2
+    EVENT = 0xF3
 
 
 @enum.unique

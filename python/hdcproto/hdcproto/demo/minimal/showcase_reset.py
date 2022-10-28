@@ -32,6 +32,7 @@ def showcase_reset():
     # Connect to HDC-device at a specific serial port
     dev = MinimalDevice(connection_url="COM10")
     dev.router.connect()
+    demo_logger.info(f"Device reports to be compliant with: '{dev.get_hdc_version_string()}'")
 
     demo_logger.info("____________________________________")
     demo_logger.info("Resetting the Core-feature...")

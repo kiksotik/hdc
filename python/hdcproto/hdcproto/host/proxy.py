@@ -5,13 +5,14 @@ from __future__ import annotations
 
 import collections
 import logging
+import semver
 import time
 import typing
 from datetime import datetime
 
 import hdcproto.host.router
 import hdcproto.transport.serialport
-from hdcproto.common import (HdcError, MessageType, FeatureID, CmdID, ReplyErrorCode, EvtID, PropID, HdcDataType,
+from hdcproto.common import (HdcError, MessageTypeID, FeatureID, CmdID, ReplyErrorCode, EvtID, PropID, HdcDataType,
                              is_valid_uint8)
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.proxy"
@@ -46,7 +47,7 @@ class CommandProxyBase:
         self.default_timeout = default_timeout
         self.known_errors = dict()
 
-        self.msg_prefix = bytes([int(MessageType.CMD_FEATURE),
+        self.msg_prefix = bytes([int(MessageTypeID.COMMAND),
                                  self.feature_proxy.feature_id,
                                  self.command_id])
 
@@ -1063,6 +1064,33 @@ class DeviceProxyBase:
         # The following may be needed for introspection when using bare DeviceProxyBase objects.
         # Subclasses will typically override it with a more specific core-feature proxy.
         self.core = CoreFeatureProxyBase(self)
+
+    def get_hdc_version_string(self, timeout: float = 0.2) -> str:
+        """Returns the raw string, without attempting to validate nor parsing it."""
+        request_message = bytes([MessageTypeID.HDC_VERSION])
+        reply_message = self.router.send_request_and_get_reply(request_message, timeout)
+        reply_payload = reply_message[1:]
+        reply_string = reply_payload.decode(encoding="utf-8", errors="strict")
+        return reply_string
+
+    def get_hdc_version(self, timeout: float = 0.2) -> semver.VersionInfo:
+        """Validates device's reply, parses version and returns it as a semver.VersionInfo object."""
+        reply_string = self.get_hdc_version_string(timeout=timeout)
+        expected_prefix = "HDC "
+        if reply_string.startswith(expected_prefix):
+            version_string = reply_string[len(expected_prefix):]
+            if semver.VersionInfo.isvalid(version_string):
+                return semver.VersionInfo.parse(version_string)
+
+        raise HdcError(f"Don't know how to handle HDC-spec '{reply_string}'")
+
+    def get_echo(self, echo_payload: bytes, timeout: float = 0.2) -> bytes:
+        request_message = bytearray()
+        request_message.append(MessageTypeID.ECHO)
+        request_message.extend(echo_payload)
+        reply_message = self.router.send_request_and_get_reply(request_message, timeout)
+        reply_payload = reply_message[1:]  # Skip MessageTypeID prefix
+        return reply_payload
 
 
 class HdcReplyError(HdcError):

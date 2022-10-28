@@ -406,6 +406,21 @@ class LogEventProxy(EventProxyBase):
             self.log_level = event_message[3]
             self.log_message = event_message[4:].decode(encoding="utf-8", errors="strict")
 
+    def set_log_threshold(self, log_level: int) -> None:
+        """
+        This will set the same log-level on both: the HDC-LogEvent and the Python logger in this proxy.
+        """
+        if log_level not in [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]:
+            raise ValueError(f"A log_level of {log_level} is invalid")
+
+        self.logger.setLevel(log_level)
+        self.feature_proxy.prop_log_event_threshold.set(log_level)
+
+    def get_log_threshold(self) -> int:
+        # Note how the LogEventProxy is configured to an infinite default_freshness, thus
+        # its value will always be taken from the cache.
+        return self.feature_proxy.prop_log_event_threshold.get()
+
 
 class StateTransitionEventProxy(EventProxyBase):
     logger: logging.Logger

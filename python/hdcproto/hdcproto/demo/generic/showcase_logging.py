@@ -37,6 +37,11 @@ def showcase_logging():
     logging.getLogger("hdcproto.transport.packetizer").setLevel(logging.WARNING)
     logging.getLogger("hdcproto.transport.serialport").setLevel(logging.WARNING)
     logging.getLogger("hdcproto.host.router").setLevel(logging.WARNING)
+
+    ##################################################################################
+    # To demonstrate the granularity of loggers in hdcproto, we'll suppress logs
+    # from any other proxies, by simply not setting any level on their common parent.
+    # Further below we'll only enable the LogEventProxy logger.
     logging.getLogger("hdcproto.host.proxy").setLevel(logging.NOTSET)
 
     #################################################
@@ -44,38 +49,33 @@ def showcase_logging():
     device_proxy = DeviceProxyBase(connection_url="COM10")
     device_proxy.router.connect()
 
-    #########################################################
-    # Note how granular the logging configuration can be.
-    # Here we only enable the LogEvent proxy which is how
-    # log messages emitted by the device's firmware are
-    # translated into regular python log records.
-    device_proxy.core._evt_log.logger.setLevel(logging.DEBUG)
-
     demo_logger.info("__________________________________________________________________________________________")
     demo_logger.info("This demonstration will intentionally send some corrupt request to the HDC-device, for it")
     demo_logger.info("to complain via LogEvents about different degrees of severity. ")
     demo_logger.info("__________________________________________________________________________________________")
     demo_logger.info(f"Setting LogLevelThreshold of Core-Feature to DEBUG (To receive some heart-beat LogEvents)")
     demo_logger.info("Note: The Demo_Minimal firmware emits a DEBUG LogEvent once a second; a heartbeat for demo.")
-    device_proxy.core.prop_log_event_threshold.set(logging.DEBUG)
+    device_proxy.core._evt_log.set_log_threshold(logging.DEBUG)
     provoke_some_log_events(device_proxy.router.transport)
 
     demo_logger.info("__________________________________________________________________________________________")
     demo_logger.info(f"Setting LogLevelThreshold of Core-Feature to WARNING")
-    device_proxy.core.prop_log_event_threshold.set(logging.WARNING)
+    device_proxy.core._evt_log.set_log_threshold(logging.WARNING)
     provoke_some_log_events(device_proxy.router.transport)
 
     demo_logger.info("________________________________________________________________________________________")
     demo_logger.info(f"Setting LogLevelThreshold of Core-Feature to ERROR")
-    device_proxy.core.prop_log_event_threshold.set(logging.ERROR)
+    device_proxy.core._evt_log.set_log_threshold(logging.ERROR)
     provoke_some_log_events(device_proxy.router.transport)
 
     demo_logger.info("________________________________________________________________________________________")
     demo_logger.info(f"Re-setting LogLevelThreshold of Core-Feature to INFO "
                      f"and checking whether device does proper trimming of LogLevelThreshold values")
-    device_proxy.core.prop_log_event_threshold.set(logging.INFO)
+    device_proxy.core._evt_log.set_log_threshold(logging.INFO)
 
     assert (device_proxy.core.prop_log_event_threshold.set(logging.DEBUG - 1) == logging.DEBUG)
+    assert (device_proxy.core.prop_log_event_threshold.set(logging.DEBUG + 4) == logging.DEBUG)
+    assert (device_proxy.core.prop_log_event_threshold.set(logging.DEBUG + 5) == logging.INFO)
     assert (device_proxy.core.prop_log_event_threshold.set(logging.CRITICAL + 1) == logging.CRITICAL)
 
     # Example of how numeric LogLevelThreshold values can be obtained as standard python names

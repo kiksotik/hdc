@@ -15,6 +15,7 @@ class MinimalCore(CoreFeatureProxyBase):
         super().__init__(device_proxy=device_proxy)
 
         # Commands
+        # ToDo: A reset command handler is responsible to evict any cached values/states on the proxies!
         self.cmd_reset = VoidWithoutArgsCommandProxy(self, command_id=0xC1, default_timeout=1.23)
 
         # Events

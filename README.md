@@ -123,6 +123,10 @@ for your project:
     similar [its rationale](https://github.com/min-protocol/min/wiki) is to that of the HDC protocol.
   - It is much lighter on resources than HDC, and is targeted at 8bit microcontrollers.
 
+- [Telemetry](https://github.com/Overdrivr/Telemetry)
+  - Also stumbled over this in [stackoverflow](https://stackoverflow.com/a/35309769/20337562)
+  - As its name implies, it focuses on getting multiple streams of data transferred in either direction.
+
 - [Modbus](https://modbus.org/faq.php)
   - Widespread industry standard for networking of distributed automation devices.
 

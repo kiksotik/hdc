@@ -11,6 +11,9 @@ Specification and implementation of the **Host Device Communication** protocol, 
 communication between the firmware of a device with severely limited computing resources and the software 
 on the computer to which it's connected via a serial communication link, like UART / USB-CDC / Virtual COM Port.
 
+This [manifesto](https://github.com/kiksotik/hdc/blob/main/doc/opinion/Architecting%20a%20bridge_2022-10-30.pdf) 
+provides a more elaborate explanation of the motivation and architectural rational of HDC.
+
 > WARNING:  The [HDC-spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-spec.pdf) is still work in progress!
 
 ## Features

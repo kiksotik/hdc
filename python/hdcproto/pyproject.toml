@@ -14,7 +14,7 @@ authors = [
   { name = "Axel T. J. Rohde", email = "kiksotik@gmail.com" },
 ]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 2 - Pre-Alpha",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.7",

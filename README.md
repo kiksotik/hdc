@@ -12,7 +12,7 @@ communication between the firmware of a device with severely limited computing r
 on the computer to which it's connected via a serial communication link, like UART / USB-CDC / Virtual COM Port.
 
 This [manifesto](https://github.com/kiksotik/hdc/blob/main/doc/opinion/Architecting%20a%20bridge_2022-10-30.pdf) 
-provides a more elaborate explanation of the motivation and architectural rational of HDC.
+explains motivation and architectural rationale.
 
 > WARNING:  The [HDC-spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-spec.pdf) is still work in progress!
 

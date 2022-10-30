@@ -7,7 +7,7 @@ class Packetizer:
     """
     Packetizer of the HDC protocol.
     It transforms an incoming stream of bytes into individual messages and vice-versa.
-    For details, please refer to the HDC-spec: https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-Spec.pdf
+    For details, please refer to the HDC-spec: https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-spec.pdf
     """
 
     TERMINATOR = 0x1E  # "Record Separator" as defined by the ASCII standard

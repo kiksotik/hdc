@@ -12,7 +12,7 @@ The HDC protocol aims to become an [open-standard](https://en.wikipedia.org/wiki
 the HDC-spec is intended to be the [single source of truth](https://en.wikipedia.org/wiki/Single_source_of_truth) 
 of its specification.
 
-This folder contains the most recently published [snapshot of HDC-spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-Spec.pdf), which 
+This folder contains the most recently published [snapshot of HDC-spec](https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-spec.pdf), which 
 is generated from the [living document](https://docs.google.com/document/d/1Htyat0OVi6-MFcNb1sEzKRlgkEb7jygx74PWdzXvG7w/edit?usp=sharing) that 
 is authored collaboratively on Google docs.
 
@@ -32,7 +32,7 @@ or use the [issue tracker](https://github.com/kiksotik/hdc/issues) on github.
 <span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/Text" property="dct:title" rel="dct:type">
   HDC Protocol Specification
 </span> 
-by <a xmlns:cc="http://creativecommons.org/ns#" href="https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-Spec.pdf" property="cc:attributionName" rel="cc:attributionURL">
+by <a xmlns:cc="http://creativecommons.org/ns#" href="https://github.com/kiksotik/hdc/blob/main/doc/spec/HDC-spec.pdf" property="cc:attributionName" rel="cc:attributionURL">
   Axel T. J. Rohde
 </a> 
 is licensed under a 

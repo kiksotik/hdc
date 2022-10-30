@@ -373,9 +373,9 @@ void HDC_Compose_EmptyPacket() {
 
 /*
  * Packetize an HDC-message that's made available as a single, contiguous block of data.
- * You might be better of using HDC_Compose_Packets_From_Pieces(), instead, because
+ * You might be better off using HDC_Compose_Packets_From_Pieces(), instead, because
  * it combines message and package composition in a single call.
- * As required by HDC-Spec:
+ * As required by HDC-spec:
  *  - Messages larger than 255 bytes will be split into multiple packets.
  *  - Messages that are an exact multiple of 255 will be terminated with an empty package.
  */
@@ -412,7 +412,7 @@ void HDC_Compose_Packets(const uint8_t* pMsg, const uint16_t MsgSize) {
  * Besides specifying the four header bytes individually, the message payload can
  * be provided as two chunks (prefix&suffix), which is convenient in many use-cases.
  * The ReplyErrorCode argument will only be used, whenever the MsgType is a Command.
- * As required by HDC-Spec:
+ * As required by HDC-spec:
  *  - Messages larger than 255 bytes will be split into multiple packets.
  *  - Messages that are an exact multiple of 255 will be terminated with an empty package.
  */

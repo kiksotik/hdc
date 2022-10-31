@@ -178,7 +178,7 @@ void HDC_GetTxBufferWithCapacityForAtLeast(uint16_t capacity, uint8_t **pBuffer,
 
   // Start transmitting via DMA the buffer containing the replies that have been composed so far
   hHDC.isDmaTxComplete = false;
-  if (HAL_UART_Transmit_DMA(hHDC.huart, hHDC.BufferTx[hHDC.currentDmaBufferTx], HDC_BUFFER_SIZE_TX) != HAL_OK)
+  if (HAL_UART_Transmit_DMA(hHDC.huart, hHDC.BufferTx[hHDC.currentDmaBufferTx], hHDC.NumBytesInBufferTx[hHDC.currentDmaBufferTx]) != HAL_OK)
     Error_Handler();
 
   // Use the other buffer for composing further reply messages

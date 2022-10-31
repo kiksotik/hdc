@@ -11,14 +11,33 @@
 #include <stdint.h>
 #include <string.h>
 
+/////////////////////////////////////////////////
+// Import and validate user-defined configuration
 #include "hdc_device_conf.h"
 
-// Sanity checks
+#if (HDC_MAX_REQ_MESSAGE_SIZE > 254)
+#error "Current implementation of hdc_device driver can only cope with request-messages of up to 254 bytes!"
+#endif
+
+#if (HDC_MAX_REQ_MESSAGE_SIZE < 5)
+#error "Configuring HDC_MAX_REQ_MESSAGE_SIZE to less than 5 bytes surely is wrong! (e.g. request of a UINT8 property-setter requires 5 byte)"
+#endif
+
+#if (HDC_BUFFER_SIZE_TX < 258)
+#warning "Won't be able to compose reply-messages larger than (HDC_BUFFER_SIZE_TX-3) bytes, because composition of multi-packet messages requires at least HDC_BUFFER_SIZE_TX=258 bytes!"
+#endif
+
+#if (HDC_BUFFER_SIZE_TX < 8)
+#error "Configuring HDC_BUFFER_SIZE_TX to less than 8 bytes surely is wrong! (e.g. reply of a UINT8 property-getter requires 5 byte + 3 byte of the packet)"
+#endif
+
+
+/////////////////////////////////////////////////////////////
+// Import HAL driver for the targeted microcontroller
 #if !defined  (USE_HAL_DRIVER)
 #error "The hdc_device driver currently relies on the HAL drivers to use UART via DMA."
 #endif
 
-// Import HAL driver for the targeted microcontroller
 // ToDo: Add support for as many microcontroller types as possible
 #if defined(STM32F303xE)  // As on NUCLEO-F303RE
 #include "stm32f3xx_hal.h"
@@ -30,6 +49,8 @@
        "Also please send a pull request if it turns out the driver works on other MCU's as well!"
 #endif
 
+
+////////////////////////////////////////////////////////////////////////
 // Buffer sizes for reception and transmission of data via UART & DMA.
 // Computed based on private configuration of hdc_device driver provided by the hdc_device_conf.h header file.
 #define HDC_PACKAGE_OVERHEAD 3      // PayloadSize ; Checksum ; Terminator

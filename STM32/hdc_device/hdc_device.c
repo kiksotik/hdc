@@ -431,7 +431,7 @@ void HDC_Compose_Packets_From_Pieces(
   const uint16_t MsgSize = MsgHeaderSize + MsgPayloadPrefixSize + MsgPayloadSuffixSize;
   uint8_t PacketPayloadSize;
   uint16_t nMsg = 0;
-  do {
+  do {  // Loop for multi-packet message composition
     PacketPayloadSize = MsgSize - nMsg < 255 ? MsgSize - nMsg : 255;
     uint8_t *pBuffer = 0;
     uint16_t *pNumBytesInBuffer = 0;

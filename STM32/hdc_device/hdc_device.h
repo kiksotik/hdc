@@ -53,9 +53,9 @@
 ////////////////////////////////////////////////////////////////////////
 // Buffer sizes for reception and transmission of data via UART & DMA.
 // Computed based on private configuration of hdc_device driver provided by the hdc_device_conf.h header file.
-#define HDC_PACKAGE_OVERHEAD 3      // PayloadSize ; Checksum ; Terminator
-#define HDC_MAX_REQ_PACKAGE_SIZE (HDC_MAX_REQ_MESSAGE_SIZE + HDC_PACKAGE_OVERHEAD)
-#define HDC_BUFFER_SIZE_RX HDC_MAX_REQ_PACKAGE_SIZE
+#define HDC_PACKET_OVERHEAD 3      // PayloadSize ; Checksum ; Terminator
+#define HDC_MAX_REQ_PACKET_SIZE (HDC_MAX_REQ_MESSAGE_SIZE + HDC_PACKET_OVERHEAD)
+#define HDC_BUFFER_SIZE_RX HDC_MAX_REQ_PACKET_SIZE
 
 // Forward declaration of HDC structs and their typedefs,
 // which we need in the following function-pointer typedefs
@@ -86,7 +86,7 @@ typedef void (*HDC_PropertyValueSetter_t)(
 
 ///////////////////////////////
 // Magic numbers defined by the HDC specification
-#define HDC_PACKAGE_TERMINATOR 0x1E
+#define HDC_PACKET_TERMINATOR 0x1E
 
 
 //////////////////////////////

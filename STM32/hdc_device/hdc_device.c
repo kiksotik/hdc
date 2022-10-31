@@ -104,8 +104,8 @@ uint8_t* HDC_ProcessRxBuffer() {
 
   hHDC.PendingEvent_ReadingFrameError = 0;
 
-  // Search for package directly in the RX buffer
-  while (chunk_size >= HDC_PACKAGE_OVERHEAD) {
+  // Search for packet directly in the RX buffer
+  while (chunk_size >= HDC_PACKET_OVERHEAD) {
     uint8_t payload_size = packet_candidate[0];
 
     if (payload_size > HDC_MAX_REQ_MESSAGE_SIZE) {
@@ -116,11 +116,11 @@ uint8_t* HDC_ProcessRxBuffer() {
       continue; // Try to de-queue another message from the remainder of the chunk
     }
 
-    if (payload_size + HDC_PACKAGE_OVERHEAD > chunk_size)
-      return NULL; // Seems the chunk is not yet a full package. Give further bytes a chance to arrive!
+    if (payload_size + HDC_PACKET_OVERHEAD > chunk_size)
+      return NULL; // Seems the chunk is not yet a full packet. Give further bytes a chance to arrive!
 
     uint16_t terminatorIndex = payload_size + 2;
-    if (packet_candidate[terminatorIndex] == HDC_PACKAGE_TERMINATOR) {
+    if (packet_candidate[terminatorIndex] == HDC_PACKET_TERMINATOR) {
       uint8_t checksum = 0;
       for (uint16_t i=1; i < terminatorIndex; i++)
         checksum += packet_candidate[i];
@@ -135,7 +135,7 @@ uint8_t* HDC_ProcessRxBuffer() {
 
         // Sanity check whether there's any crap beyond this packet
         // and report it as being a reading-frame-error
-        hHDC.PendingEvent_ReadingFrameError += chunk_size - (payload_size + HDC_PACKAGE_OVERHEAD);
+        hHDC.PendingEvent_ReadingFrameError += chunk_size - (payload_size + HDC_PACKET_OVERHEAD);
 
         return packet_candidate;
       } else {
@@ -364,20 +364,20 @@ void HDC_Compose_EmptyPacket() {
 
   uint8_t *pBuffer = 0;
   uint16_t *pNumBytesInBuffer = 0;
-  HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
+  HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKET_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
 
   pBuffer[(*pNumBytesInBuffer)++] = PacketPayloadSize;
   pBuffer[(*pNumBytesInBuffer)++] = 0x00;  // Checksum of zero payload is also zero.
-  pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKAGE_TERMINATOR;
+  pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKET_TERMINATOR;
 }
 
 /*
  * Packetize an HDC-message that's made available as a single, contiguous block of data.
  * You might be better off using HDC_Compose_Packets_From_Pieces(), instead, because
- * it combines message and package composition in a single call.
+ * it combines message and packet composition in a single call.
  * As required by HDC-spec:
  *  - Messages larger than 255 bytes will be split into multiple packets.
- *  - Messages that are an exact multiple of 255 will be terminated with an empty package.
+ *  - Messages that are an exact multiple of 255 will be terminated with an empty packet.
  */
 void HDC_Compose_Packets(const uint8_t* pMsg, const uint16_t MsgSize) {
   uint16_t nMsg = 0;
@@ -386,7 +386,7 @@ void HDC_Compose_Packets(const uint8_t* pMsg, const uint16_t MsgSize) {
     PacketPayloadSize = MsgSize - nMsg < 255 ? MsgSize - nMsg : 255;
     uint8_t *pBuffer = 0;
     uint16_t *pNumBytesInBuffer = 0;
-    HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
+    HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKET_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
     uint8_t checksum = 0;
     pBuffer[(*pNumBytesInBuffer)++] = PacketPayloadSize;
     for (uint8_t nPkt=0; nPkt<PacketPayloadSize; nPkt++){
@@ -394,13 +394,13 @@ void HDC_Compose_Packets(const uint8_t* pMsg, const uint16_t MsgSize) {
       pBuffer[(*pNumBytesInBuffer)++] = pMsg[nMsg++];
     }
     pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)0xFF - checksum + 1;
-    pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKAGE_TERMINATOR;
+    pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKET_TERMINATOR;
   } while (nMsg < MsgSize);
 
   if (PacketPayloadSize==255) {
     // Last packet had a payload of exactly 255 bytes.
     // We must therefore send an empty packet, to signal
-    // that the multi-package message is complete.
+    // that the multi-packet message is complete.
     HDC_Compose_EmptyPacket(hHDC);
   }
 
@@ -414,7 +414,7 @@ void HDC_Compose_Packets(const uint8_t* pMsg, const uint16_t MsgSize) {
  * The ReplyErrorCode argument will only be used, whenever the MsgType is a Command.
  * As required by HDC-spec:
  *  - Messages larger than 255 bytes will be split into multiple packets.
- *  - Messages that are an exact multiple of 255 will be terminated with an empty package.
+ *  - Messages that are an exact multiple of 255 will be terminated with an empty packet.
  */
 void HDC_Compose_Packets_From_Pieces(
     const uint8_t MsgType,
@@ -435,7 +435,7 @@ void HDC_Compose_Packets_From_Pieces(
     PacketPayloadSize = MsgSize - nMsg < 255 ? MsgSize - nMsg : 255;
     uint8_t *pBuffer = 0;
     uint16_t *pNumBytesInBuffer = 0;
-    HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKAGE_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
+    HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKET_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
     uint8_t checksum = 0;
     pBuffer[(*pNumBytesInBuffer)++] = PacketPayloadSize;
     uint8_t nPkt=0;
@@ -484,13 +484,13 @@ void HDC_Compose_Packets_From_Pieces(
     }
 
     pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)0xFF - checksum + 1;
-    pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKAGE_TERMINATOR;
+    pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKET_TERMINATOR;
   } while (nMsg < MsgSize);
 
   if (PacketPayloadSize==255) {
     // Last packet had a payload of exactly 255 bytes.
     // We must therefore send an empty packet, to signal
-    // that the multi-package message is complete.
+    // that the multi-packet message is complete.
     HDC_Compose_EmptyPacket();
   }
 }

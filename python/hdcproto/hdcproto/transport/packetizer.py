@@ -11,23 +11,23 @@ class Packetizer:
     """
 
     TERMINATOR = 0x1E  # "Record Separator" as defined by the ASCII standard
-    MAX_PAYLOAD_SIZE = 0xFF  # Maximum payload that can be sent in a single package
+    MAX_PAYLOAD_SIZE = 0xFF  # Maximum payload that can be sent in a single packet
     EMPTY_PACKET = bytearray([0, 0, TERMINATOR])  # payload_size=0 ; checksum=0 ; terminator
 
     incoming_raw_data_bytes: bytearray
-    incoming_multi_package_message: bytearray
+    incoming_multi_packet_message: bytearray
     reading_frame_error_count: int
     _received_messages: list[bytes]
 
     def __init__(self):
         self._received_messages = list()
         self.incoming_raw_data_bytes = bytearray()
-        self.incoming_multi_package_message = bytearray()
+        self.incoming_multi_packet_message = bytearray()
         self.reading_frame_error_count = 0
 
     def clear(self):
         del self.incoming_raw_data_bytes[:]
-        del self.incoming_multi_package_message[:]
+        del self.incoming_multi_packet_message[:]
 
     def data_received(self, data):
         """
@@ -58,11 +58,11 @@ class Packetizer:
                     if checksum == 0x00:
                         payload = self.incoming_raw_data_bytes[1:payload_length + 1]
                         del self.incoming_raw_data_bytes[0:terminator_index + 1]
-                        if self.incoming_multi_package_message or payload_length == self.MAX_PAYLOAD_SIZE:
-                            self.incoming_multi_package_message.extend(payload)
+                        if self.incoming_multi_packet_message or payload_length == self.MAX_PAYLOAD_SIZE:
+                            self.incoming_multi_packet_message.extend(payload)
                             if payload_length < self.MAX_PAYLOAD_SIZE:
-                                self._received_messages.append(bytes(self.incoming_multi_package_message))
-                                del self.incoming_multi_package_message[:]
+                                self._received_messages.append(bytes(self.incoming_multi_packet_message))
+                                del self.incoming_multi_packet_message[:]
                                 logger.info("Unpacked one multi-packet message"
                                             "There's now %d messages in the queue.", len(self._received_messages))
                         else:
@@ -83,10 +83,10 @@ class Packetizer:
             del self.incoming_raw_data_bytes[0:1]  # Skip first byte and try again.
             logger.error("Failed to unpack received bytes. Assuming a reading-frame error. "
                          "(RFE-counter: %d)", self.reading_frame_error_count)
-            # Abort any ongoing multi-package message that we might have been receiving
-            if self.incoming_multi_package_message:
-                logger.warning("Aborting multi-package message reception, due to reading-frame-error.")
-                del self.incoming_multi_package_message[:]
+            # Abort any ongoing multi-packet message that we might have been receiving
+            if self.incoming_multi_packet_message:
+                logger.warning("Aborting multi-packet message reception, due to reading-frame-error.")
+                del self.incoming_multi_packet_message[:]
             # ToDo: Signal reading-frame error!
         else:
             if data_burst_is_over:
@@ -127,7 +127,7 @@ class Packetizer:
 
         if last_payload_size == Packetizer.MAX_PAYLOAD_SIZE:
             # Send empty packet to signal either:
-            #    - ...the end of a multi-package message whose payload size is an exact multiple of 255 bytes.
+            #    - ...the end of a multi-packet message whose payload size is an exact multiple of 255 bytes.
             #    - ...or it might have been an empty message to begin with.
             packets.append(Packetizer.EMPTY_PACKET)
 

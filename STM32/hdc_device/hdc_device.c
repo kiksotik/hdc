@@ -43,6 +43,9 @@ struct HDC_struct {
 
   // Configuration
   UART_HandleTypeDef* huart;
+  HDC_Feature_Descriptor_t** Features;
+  uint8_t NumFeatures;
+  HDC_MessageHandler_t CustomMsgRouter;
 
   // A single buffer for receiving request from the HDC-host.
   // We do not expect more than a single request until we reply to it.
@@ -56,8 +59,7 @@ struct HDC_struct {
   uint16_t NumBytesInBufferTx[2];
 
   //
-  HDC_Feature_Descriptor_t** Features;
-  uint8_t NumFeatures;
+
 
   // State
   bool isInitialized;
@@ -1247,7 +1249,10 @@ const HDC_Property_Descriptor_t *HDC_MandatoryPropertiesOfCoreFeature[NUM_MANDAT
 /////////////////////////////////////////////////
 // Request Handlers for mandatory Messages
 
-void HDC_MsgReply_HdcVersion(
+/*
+ * Reply to a received HdcVersion-message
+ */
+bool HDC_MsgReply_HdcVersion(
     const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
@@ -1259,10 +1264,14 @@ void HDC_MsgReply_HdcVersion(
 
   pReplyMessage[0] = HDC_MessageTypeID_HdcVersion;  // Inject MessageTypID, for this to be a valid reply message.
   HDC_Compose_Packets((uint8_t*)pReplyMessage, ReplySize);
+
+  return true;
 }
 
-
-void HDC_MsgReply_Echo(
+/*
+ * Reply to a received echo-message.
+ */
+bool HDC_MsgReply_Echo(
     const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
@@ -1271,10 +1280,17 @@ void HDC_MsgReply_Echo(
 
   // Reply message must be exactly equal to the full request message.
   HDC_Compose_Packets(pRequestMessage, Size);
+
+  return true;
 }
 
 
-void HDC_MsgReply_Command(
+/*
+ * Routing of received command-message to a command-handler which will reply to it.
+ *
+ * Returns true whenever the message could be forwarded successfully to a command handler
+ */
+bool HDC_MsgReply_Command(
     const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
@@ -1287,30 +1303,39 @@ void HDC_MsgReply_Command(
 
   const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
 
-  if (feature == NULL)
-    return HDC_CmdReply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
+  if (feature == NULL){
+    HDC_CmdReply_Error(HDC_ReplyErrorCode_UNKNOWN_FEATURE, pRequestMessage);
+    return false;
+  }
 
   const HDC_Command_Descriptor_t* command = HDC_GetCommand(feature, CommandID);
 
-  if (command == NULL)
-    return HDC_CmdReply_Error(HDC_ReplyErrorCode_UNKNOWN_COMMAND, pRequestMessage);
+  if (command == NULL) {
+    HDC_CmdReply_Error(HDC_ReplyErrorCode_UNKNOWN_COMMAND, pRequestMessage);
+    return false;
+  }
 
   command->CommandHandler(feature, pRequestMessage, Size);
+
+  return true;
 }
 
 /*
  * Routing of received messages (aka requests)
+ *
+ * Returns true whenever the message could be routed successfully
  */
-void HDC_ProcessRxMessage(const uint8_t *pRequestMessage, const uint8_t Size) {
+bool HDC_ProcessRxMessage(const uint8_t *pRequestMessage, const uint8_t Size) {
 
   if (Size==0)
     // Ignore empty messages.
     // They are legal, but currently without purpose.
-    return;
+    return true;
 
-  const uint8_t MessageType = pRequestMessage[0];
+  const uint8_t MessageTypeID = pRequestMessage[0];
 
-  switch (MessageType) {
+
+  switch (MessageTypeID) {
     case HDC_MessageTypeID_HdcVersion:
       return HDC_MsgReply_HdcVersion(pRequestMessage, Size);
 
@@ -1319,10 +1344,16 @@ void HDC_ProcessRxMessage(const uint8_t *pRequestMessage, const uint8_t Size) {
 
     case HDC_MessageTypeID_Command:
       return HDC_MsgReply_Command(pRequestMessage, Size);
-
-    default:
-      return HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_ERROR, "Unknown message type");
   }
+
+  if ((hHDC.CustomMsgRouter != NULL)
+      && (MessageTypeID < 0xF0)  // ToDo: Proper method to check whether ID is reserved by HDC
+      && hHDC.CustomMsgRouter(pRequestMessage, Size))
+    return true;  // Meaning that the custom message router could route it successfully
+
+
+  HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_ERROR, "Unknown message type");
+  return false;
 
 }
 
@@ -1485,12 +1516,16 @@ uint32_t HDC_Work() {
   return 0; // Update an every possible occasion
 }
 
-
-void HDC_Init(UART_HandleTypeDef *huart, HDC_Feature_Descriptor_t **HDC_Features, uint8_t NumFeatures) {
+void HDC_Init_WithCustomMsgRouting(
+    UART_HandleTypeDef *huart,
+    HDC_Feature_Descriptor_t **HDC_Features,
+    uint8_t NumFeatures,
+    HDC_MessageHandler_t CustomMsgRouter) {
 
   hHDC.huart = huart;
   hHDC.Features = HDC_Features;
   hHDC.NumFeatures = NumFeatures;
+  hHDC.CustomMsgRouter = CustomMsgRouter;
 
   hHDC.NumBytesInBufferRx = 0;
   hHDC.NumBytesInBufferTx[0] = 0;
@@ -1510,6 +1545,19 @@ void HDC_Init(UART_HandleTypeDef *huart, HDC_Feature_Descriptor_t **HDC_Features
   __HAL_UART_ENABLE_IT(hHDC.huart, UART_IT_IDLE);
 
   hHDC.isInitialized = true;
+
 }
 
 
+void HDC_Init(
+    UART_HandleTypeDef *huart,
+    HDC_Feature_Descriptor_t **HDC_Features,
+    uint8_t NumFeatures) {
+
+ HDC_Init_WithCustomMsgRouting(
+     huart,
+     HDC_Features,
+     NumFeatures,
+     NULL);
+
+}

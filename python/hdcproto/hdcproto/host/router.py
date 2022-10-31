@@ -22,6 +22,9 @@ class MessageRouter:
         - routing of messages received from the device
         - sending of messages to the device
     Not to be confused with the Device-Proxy classes!
+
+    Can be sub-classed to override its handle_custom_message() method.
+    e.g. for tunneling of other protocols through the HDC connection.
     """
     features: dict[int, RouterFeature]
     transport: TransportBase
@@ -61,15 +64,17 @@ class MessageRouter:
         if len(message) == 0:
             return  # Ignore empty messages, for now!
 
-        msg_type_id = message[0]
+        message_type_id = message[0]
 
-        if msg_type_id in [MessageTypeID.HDC_VERSION, MessageTypeID.ECHO, MessageTypeID.COMMAND]:
+        if message_type_id in [MessageTypeID.HDC_VERSION, MessageTypeID.ECHO, MessageTypeID.COMMAND]:
             self.handle_requested_reply(message)
-        elif msg_type_id == MessageTypeID.EVENT:
+        elif message_type_id == MessageTypeID.EVENT:
             self.handle_event(message)
+        elif MessageTypeID.is_custom(message_type_id=message_type_id):
+            self.handle_custom_message(message)
         else:
             # ToDo: Should we fail silently, instead, to be forward-compatible with future versions of HDC-spec?
-            raise HdcError(f"Don't know how to handle MessageTypeID=0x{msg_type_id:02X}")
+            raise HdcError(f"Don't know how to handle MessageTypeID=0x{message_type_id:02X}")
 
     def handle_requested_reply(self, message: bytes):
         """
@@ -101,6 +106,18 @@ class MessageRouter:
                 return
 
         self.features[feature_id].handle_event(message)
+
+    # noinspection PyMethodMayBeStatic
+    def handle_custom_message(self, message: bytes):
+        """
+        This method is meant to be overriden by derived classes
+        that know the specifics of any custom message in a given application.
+
+        If the message was explicitly requested via this MessageRouter, then it should
+        be processed via the handle_requested_reply() method.
+        """
+        msg_type_id = message[0]
+        logger.warning(f"Don't know how to handle MessageTypeID={msg_type_id} (nor any other custom ID)")
 
     def send_request_and_get_reply(self, request_message: bytes, timeout: float) -> bytes:
 

@@ -20,6 +20,12 @@ class MessageTypeID(enum.IntEnum):
     COMMAND = 0xF2
     EVENT = 0xF3
 
+    @staticmethod
+    def is_custom(message_type_id: int):
+        if not is_valid_uint8(message_type_id):
+            raise ValueError(f"message_type_id value of {message_type_id} is beyond valid range from 0x00 to 0xFF")
+        return message_type_id < 0xF0
+
 
 @enum.unique
 class FeatureID(enum.IntEnum):

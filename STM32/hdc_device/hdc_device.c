@@ -36,7 +36,6 @@ const HDC_Command_Descriptor_t *HDC_MandatoryCommands[];
 const HDC_Event_Descriptor_t *HDC_MandatoryEvents[];
 const HDC_Property_Descriptor_t *HDC_MandatoryProperties[];
 const HDC_Property_Descriptor_t *HDC_MandatoryPropertiesOfCoreFeature[];
-void HDC_ProcessRxPacket(const uint8_t *packet);
 
 /////////////////////////////////
 // Handle of the HDC singleton
@@ -66,156 +65,7 @@ struct HDC_struct {
   volatile bool isDmaTxComplete;
   uint8_t currentDmaBufferTx;
 
-  // Issues to be reported via LogEvent messages on the next possible occasion
-  uint16_t PendingEvent_ReadingFrameError;
-
 } hHDC = { 0 };
-
-void HDC_Init(UART_HandleTypeDef *huart, HDC_Feature_Descriptor_t **HDC_Features, uint8_t NumFeatures) {
-
-  hHDC.huart = huart;
-  hHDC.Features = HDC_Features;
-  hHDC.NumFeatures = NumFeatures;
-
-  hHDC.NumBytesInBufferRx = 0;
-  hHDC.NumBytesInBufferTx[0] = 0;
-  hHDC.NumBytesInBufferTx[1] = 0;
-
-  hHDC.currentDmaBufferTx = 0;
-
-  hHDC.isDmaRxComplete = false;
-  hHDC.isDmaTxComplete = true;
-
-  hHDC.PendingEvent_ReadingFrameError = 0;
-
-  // Start reception of the first chunk
-  if (HAL_UART_Receive_DMA(hHDC.huart, hHDC.BufferRx, HDC_BUFFER_SIZE_RX) != HAL_OK)
-    Error_Handler();
-  // We need to explicitly enable the IDLE interrupt!
-  // http://www.bepat.de/2020/12/02/stm32f103c8-uart-with-dma-buffer-and-idle-detection/
-  __HAL_UART_ENABLE_IT(hHDC.huart, UART_IT_IDLE);
-
-  hHDC.isInitialized = true;
-}
-
-uint8_t* HDC_ProcessRxBuffer() {
-  uint8_t *packet_candidate = hHDC.BufferRx;
-  uint16_t chunk_size = hHDC.NumBytesInBufferRx;
-
-  hHDC.PendingEvent_ReadingFrameError = 0;
-
-  // Search for packet directly in the RX buffer
-  while (chunk_size >= HDC_PACKET_OVERHEAD) {
-    uint8_t payload_size = packet_candidate[0];
-
-    if (payload_size > HDC_MAX_REQ_MESSAGE_SIZE) {
-      // Might be a reading-frame error. Skip first byte and try again.
-      packet_candidate += 1;
-      chunk_size -= 1;
-      hHDC.PendingEvent_ReadingFrameError += 1;
-      continue; // Try to de-queue another message from the remainder of the chunk
-    }
-
-    if (payload_size + HDC_PACKET_OVERHEAD > chunk_size)
-      return NULL; // Seems the chunk is not yet a full packet. Give further bytes a chance to arrive!
-
-    uint16_t terminatorIndex = payload_size + 2;
-    if (packet_candidate[terminatorIndex] == HDC_PACKET_TERMINATOR) {
-      uint8_t checksum = 0;
-      for (uint16_t i=1; i < terminatorIndex; i++)
-        checksum += packet_candidate[i];
-      if (checksum == 0) {
-
-        // We found a full packet!
-
-        // Do NOT try to de-queue any further packet from
-        // the remainder of the chunk, because HDC-host
-        // should not be sending any further request
-        // before the previous one has not been processed.
-
-        // Sanity check whether there's any crap beyond this packet
-        // and report it as being a reading-frame-error
-        hHDC.PendingEvent_ReadingFrameError += chunk_size - (payload_size + HDC_PACKET_OVERHEAD);
-
-        return packet_candidate;
-      } else {
-        // Most likely a reading-frame error. Skip first byte and try again.
-        packet_candidate += 1;
-        chunk_size -= 1;
-        hHDC.PendingEvent_ReadingFrameError += 1;
-        continue;
-      }
-    } else {
-      // Most likely a reading-frame error. Skip first byte and try again.
-      packet_candidate += 1;
-      chunk_size -= 1;
-      hHDC.PendingEvent_ReadingFrameError += 1;
-      continue;
-    }
-  }
-
-  // Chunk is too small to be any packet Give further bytes a chance to arrive!
-  return NULL;
-}
-
-uint32_t HDC_Work() {
-
-  // Did we receive a chunk?
-  if (hHDC.isDmaRxComplete) {
-
-    // Attempt to get a single, full packet out of the chunk of data received
-    uint8_t *packet = HDC_ProcessRxBuffer(hHDC);
-
-    if (packet != NULL)
-      HDC_ProcessRxPacket(packet);
-
-    if (packet != NULL
-        || hHDC.PendingEvent_ReadingFrameError > 0
-        || hHDC.NumBytesInBufferRx == HDC_BUFFER_SIZE_RX)
-    {
-      // Usually the DMA transfer does not reach the RxCplt interrupt, which is
-      // why we have to abort it before starting the next one.
-      if ( HAL_UART_GetState(hHDC.huart) & HAL_UART_STATE_BUSY_RX)
-        HAL_UART_AbortReceive(hHDC.huart);
-
-      // Start receiving next request.
-      // Note how on processing the preceding request we already composed
-      // its reply, but we haven't actually sent it to the HDC-host yet, which
-      // is why at this point we don't need to worry for the HDC-host to be sending its next request.
-      hHDC.NumBytesInBufferRx = 0;
-      if (HAL_UART_Receive_DMA(hHDC.huart, hHDC.BufferRx, HDC_BUFFER_SIZE_RX) != HAL_OK)
-        Error_Handler();
-    }
-
-    if (hHDC.PendingEvent_ReadingFrameError > 0) {
-      HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_WARNING, "Reading-frame-errors detected while parsing request message on device.");
-      hHDC.PendingEvent_ReadingFrameError = 0;
-    }
-
-    hHDC.isDmaRxComplete = false;
-  }
-
-  // Is there anything waiting to be sent? (And did we complete the previous transmission?)
-  uint8_t indexOfBufferCurrentlyBeingComposed = hHDC.currentDmaBufferTx == 0 ? 1 : 0;  // The buffer not being sent is the one being composed.
-  if (hHDC.isDmaTxComplete && hHDC.NumBytesInBufferTx[indexOfBufferCurrentlyBeingComposed] > 0) {
-
-    // Clear the buffer that was already sent via DMA
-    hHDC.NumBytesInBufferTx[hHDC.currentDmaBufferTx] = 0;
-
-    // Exchange Tx buffers
-    if (hHDC.currentDmaBufferTx == 0)
-      hHDC.currentDmaBufferTx = 1;
-    else
-      hHDC.currentDmaBufferTx = 0;
-
-    // Start transmitting via DMA the buffer containing the replies that have been composed
-    hHDC.isDmaTxComplete = false;
-    if (HAL_UART_Transmit_DMA(hHDC.huart, hHDC.BufferTx[hHDC.currentDmaBufferTx], hHDC.NumBytesInBufferTx[hHDC.currentDmaBufferTx]) != HAL_OK)
-      Error_Handler();
-  }
-
-  return 0; // Update an every possible occasion
-}
 
 // Interrupt handler that must be called from HAL_UART_RxCpltCallback
 void HDC_RxCpltCallback(UART_HandleTypeDef *huart) {
@@ -336,24 +186,6 @@ void HDC_GetTxBufferWithCapacityForAtLeast(uint16_t capacity, uint8_t **pBuffer,
   *pNumBytesInBuffer = &hHDC.NumBytesInBufferTx[indexOfBufferBeingComposed];
 }
 
-void HDC_Flush(void) {
-  // By requesting the maximum capacity, we ensure that any messages
-  // in the current composition buffer are being sent now.
-  uint8_t *pBuffer = 0;
-  uint16_t *pNumBytesInBuffer = 0;
-  HDC_GetTxBufferWithCapacityForAtLeast(HDC_BUFFER_SIZE_TX, &pBuffer, &pNumBytesInBuffer);
-
-  // Wait for current transmission to complete
-  uint32_t timeout = HAL_GetTick() + 100;
-  while (!hHDC.isDmaTxComplete) {
-    if (HAL_GetTick() > timeout) {
-      // This might be a handy spot to set a break-point during debug sessions.
-      // Note how calling the Error_Handler() might cause infinite recursion.
-      return;
-    }
-  }
-}
-
 
 /////////////////////////////////////
 // HDC-packets are composed directly
@@ -401,7 +233,7 @@ void HDC_Compose_Packets(const uint8_t* pMsg, const uint16_t MsgSize) {
     // Last packet had a payload of exactly 255 bytes.
     // We must therefore send an empty packet, to signal
     // that the multi-packet message is complete.
-    HDC_Compose_EmptyPacket(hHDC);
+    HDC_Compose_EmptyPacket();
   }
 
 }
@@ -620,37 +452,6 @@ void HDC_CmdReply_StringValue(const char* value, const uint8_t* pRequestMessage)
   HDC_CmdReply_BlobValue((uint8_t*)value, strlen(value), pRequestMessage);
 }
 
-
-/////////////////////////////////////////////////
-// Request Handlers for mandatory Messages
-
-void HDC_MsgReply_HdcVersion(
-    const uint8_t* pRequestMessage,
-    const uint8_t Size)
-{
-  // Validate request
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_HdcVersion);
-
-  // Build reply
-  // This is not a Command, but just a plain Message: Do not include any reply-error code!
-  char pReplyMessage[] = "_HDC 1.0.0-alpha.9";  // Leading underscore is just a placeholder for the MessageTypeID.
-  pReplyMessage[0] = HDC_MessageTypeID_HdcVersion;
-
-  HDC_Compose_Packets((uint8_t*)pReplyMessage, strlen(pReplyMessage+1)+1);  // strlen will choke on MessageTypeID prefix, therefore skipping it!
-}
-
-
-void HDC_MsgReply_Echo(
-    const uint8_t* pRequestMessage,
-    const uint8_t Size)
-{
-  // Validate request
-  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Echo);
-
-  // Reply message must be exactly equal to the full request message.
-  // This is not a Command, but just a plain Message: Do not include any reply-error code!
-  HDC_Compose_Packets(pRequestMessage, Size);
-}
 
 /////////////////////////////////////////////////
 // Request Handlers for mandatory Commands
@@ -1239,6 +1040,7 @@ void HDC_Property_AvailableCommands_get(const HDC_Feature_Descriptor_t *hHDC_Fea
   HDC_CmdReply_BlobValue(availableCommands, n, pRequestMessage);
 }
 
+
 void HDC_Property_AvailableEvents_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   uint8_t availableEvents[256] = {0}; // There can't be more than 256 per feature
   uint8_t n=0;
@@ -1249,6 +1051,7 @@ void HDC_Property_AvailableEvents_get(const HDC_Feature_Descriptor_t *hHDC_Featu
 
   HDC_CmdReply_BlobValue(availableEvents, n, pRequestMessage);
 }
+
 
 void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_Feature, const HDC_Property_Descriptor_t *hHDC_Property, const uint8_t* pRequestMessage, const uint8_t RequestMessageSize) {
   uint8_t availableProperties[256] = {0}; // There can't be more than 256 per feature
@@ -1265,6 +1068,7 @@ void HDC_Property_AvailableProperties_get(const HDC_Feature_Descriptor_t *hHDC_F
   HDC_CmdReply_BlobValue(availableProperties, n, pRequestMessage);
 }
 
+
 void HDC_Property_FeatureState_get(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
     const HDC_Property_Descriptor_t *hHDC_Property,
@@ -1273,6 +1077,23 @@ void HDC_Property_FeatureState_get(
 {
   HDC_CmdReply_UInt8Value(hHDC_Feature->FeatureState, pRequestMessage);
 }
+
+
+void HDC_Property_AvailableFeatures_get(
+    const HDC_Feature_Descriptor_t *hHDC_Feature,
+    const HDC_Property_Descriptor_t *hHDC_Property,
+    const uint8_t* pRequestMessage,
+    const uint8_t RequestMessageSize)
+{
+
+  // ToDo: Is it worth it to rewrite the following into a more RAM-efficient direct message composition in the TX buffer?
+
+  uint8_t availableFeatures[256] = {0}; // There can't be more than 256 features.
+  for (uint8_t i=0; i< hHDC.NumFeatures;i++)
+    availableFeatures[i] = hHDC.Features[i]->FeatureID;
+  return HDC_CmdReply_BlobValue(availableFeatures, hHDC.NumFeatures, pRequestMessage);
+}
+
 
 void HDC_Property_LogEventThreshold_get(
     const HDC_Feature_Descriptor_t *hHDC_Feature,
@@ -1300,21 +1121,6 @@ void HDC_Property_LogEventThreshold_set(
 
   hHDC_Feature->LogEventThreshold = newValue;
   HDC_CmdReply_UInt8Value(hHDC_Feature->LogEventThreshold, pRequestMessage);
-}
-
-void HDC_Property_AvailableFeatures_get(
-    const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const HDC_Property_Descriptor_t *hHDC_Property,
-    const uint8_t* pRequestMessage,
-    const uint8_t RequestMessageSize)
-{
-
-  // ToDo: Is it worth it to rewrite the following into a more RAM-efficient direct message composition in the TX buffer?
-
-  uint8_t availableFeatures[256] = {0}; // There can't be more than 256 features.
-  for (uint8_t i=0; i< hHDC.NumFeatures;i++)
-    availableFeatures[i] = hHDC.Features[i]->FeatureID;
-  return HDC_CmdReply_BlobValue(availableFeatures, hHDC.NumFeatures, pRequestMessage);
 }
 
 
@@ -1438,29 +1244,43 @@ const HDC_Property_Descriptor_t *HDC_MandatoryPropertiesOfCoreFeature[NUM_MANDAT
 };
 
 
-////////////////////////////////////////////
-// Request broker
+/////////////////////////////////////////////////
+// Request Handlers for mandatory Messages
 
-void HDC_ProcessRxPacket(const uint8_t *packet) {
-  // Packet has already been validated to be well formed by caller.
-  const uint8_t MessageSize = packet[0];
+void HDC_MsgReply_HdcVersion(
+    const uint8_t* pRequestMessage,
+    const uint8_t Size)
+{
+  // Sanity check whether caller did its job correctly
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_HdcVersion);
 
-  if (MessageSize==0)  // Ignore empty messages. They are legal, but currently without purpose.
-    return;
+  char pReplyMessage[] = "_HDC 1.0.0-alpha.9";  // Leading underscore is just a placeholder for the MessageTypeID.
+  uint8_t ReplySize = strlen(pReplyMessage);
 
-  const uint8_t *pRequestMessage = packet+1;
-  const uint8_t MessageType = pRequestMessage[0];
+  pReplyMessage[0] = HDC_MessageTypeID_HdcVersion;  // Inject MessageTypID, for this to be a valid reply message.
+  HDC_Compose_Packets((uint8_t*)pReplyMessage, ReplySize);
+}
 
-  if (MessageType == HDC_MessageTypeID_HdcVersion)
-    return HDC_MsgReply_HdcVersion(pRequestMessage, MessageSize);
 
-  if (MessageType == HDC_MessageTypeID_Echo)
-    return HDC_MsgReply_Echo(pRequestMessage, MessageSize);
+void HDC_MsgReply_Echo(
+    const uint8_t* pRequestMessage,
+    const uint8_t Size)
+{
+  // Sanity check whether caller did its job correctly
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Echo);
 
-  if (MessageType != HDC_MessageTypeID_Command)
-    // Note how we can't reply with a ReplyErrorCode, because we don't
-    // even know if this is a proper Command request.
-    return HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_ERROR, "Unknown message type");
+  // Reply message must be exactly equal to the full request message.
+  HDC_Compose_Packets(pRequestMessage, Size);
+}
+
+
+void HDC_MsgReply_Command(
+    const uint8_t* pRequestMessage,
+    const uint8_t Size)
+{
+  // Sanity check whether caller did its job correctly
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
+  assert_param(Size >= 3);
 
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t CommandID = pRequestMessage[2];
@@ -1475,6 +1295,221 @@ void HDC_ProcessRxPacket(const uint8_t *packet) {
   if (command == NULL)
     return HDC_CmdReply_Error(HDC_ReplyErrorCode_UNKNOWN_COMMAND, pRequestMessage);
 
-
-  command->CommandHandler(feature, pRequestMessage, MessageSize);
+  command->CommandHandler(feature, pRequestMessage, Size);
 }
+
+/*
+ * Routing of received messages (aka requests)
+ */
+void HDC_ProcessRxMessage(const uint8_t *pRequestMessage, const uint8_t Size) {
+
+  if (Size==0)
+    // Ignore empty messages.
+    // They are legal, but currently without purpose.
+    return;
+
+  const uint8_t MessageType = pRequestMessage[0];
+
+  switch (MessageType) {
+    case HDC_MessageTypeID_HdcVersion:
+      return HDC_MsgReply_HdcVersion(pRequestMessage, Size);
+
+    case HDC_MessageTypeID_Echo:
+      return HDC_MsgReply_Echo(pRequestMessage, Size);
+
+    case HDC_MessageTypeID_Command:
+      return HDC_MsgReply_Command(pRequestMessage, Size);
+
+    default:
+      return HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_ERROR, "Unknown message type");
+  }
+
+}
+
+
+/*
+ * Unpacketizing of received packet.
+ * Only single-packet requests are currently supported! (In other words: Messages sent by the host can be at most 254 bytes long.)
+ */
+void HDC_ProcessRxPacket(const uint8_t *packet) {
+  const uint8_t RequestMessageSize = packet[0];     // Payload-size of a packet is also size of the message.
+  const uint8_t *pRequestMessage = packet+1; // Message starts at the second byte of the packet.
+
+  HDC_ProcessRxMessage(pRequestMessage, RequestMessageSize);
+}
+
+
+const uint8_t* HDC_ParsePacket(const uint8_t *Buffer, const uint16_t BufferSize, uint16_t *pReadingFrameErrorCounter) {
+
+  const uint8_t *packet_candidate = Buffer; // const means the content of the buffer is const, not the pointer to it
+  uint16_t chunk_size = BufferSize;
+
+  // Search for packet directly in the RX buffer
+  while (chunk_size >= HDC_PACKET_OVERHEAD) {
+    uint8_t payload_size = packet_candidate[0];
+
+    if (payload_size > HDC_MAX_REQ_MESSAGE_SIZE) {
+      // Might be a reading-frame error. Skip first byte and try again.
+      packet_candidate += 1;
+      chunk_size -= 1;
+      *pReadingFrameErrorCounter += 1;
+      continue; // Try to de-queue another message from the remainder of the chunk
+    }
+
+    if (payload_size + HDC_PACKET_OVERHEAD > chunk_size)
+      return NULL; // Seems the chunk is not yet a full packet. Give further bytes a chance to arrive!
+
+    uint16_t terminatorIndex = payload_size + 2;
+    if (packet_candidate[terminatorIndex] == HDC_PACKET_TERMINATOR) {
+      uint8_t checksum = 0;
+      for (uint16_t i=1; i < terminatorIndex; i++)
+        checksum += packet_candidate[i];
+      if (checksum == 0) {
+
+        // We found a full packet!
+
+        // Do NOT try to de-queue any further packet from the remainder of the chunk!
+        //   - Current implementation of this hdc_device driver disallows multi-packet requests.
+        //   - HDC-spec disallows hosts to send another request before the previous has been replied to.
+        //
+        // Therefore, sanity check whether there's any unexpected bytes beyond this packet
+        // and report any as being a reading-frame-error
+        *pReadingFrameErrorCounter += chunk_size - (payload_size + HDC_PACKET_OVERHEAD);
+
+        return packet_candidate;
+
+      } else {
+        // Most likely a reading-frame error. Skip first byte and try again.
+        packet_candidate += 1;
+        chunk_size -= 1;
+        *pReadingFrameErrorCounter += 1;
+        continue;
+      }
+    } else {
+      // Most likely a reading-frame error. Skip first byte and try again.
+      packet_candidate += 1;
+      chunk_size -= 1;
+      *pReadingFrameErrorCounter += 1;
+      continue;
+    }
+  }
+
+  // Chunk is too small to be any packet Give further bytes a chance to arrive!
+  return NULL;
+}
+
+
+void HDC_ProcessRxBuffer() {
+
+  uint16_t ReadingFrameErrorCounter = 0;
+
+  // Attempt to get a single, full packet out of the chunk of data received
+  const uint8_t *packet = HDC_ParsePacket(hHDC.BufferRx, hHDC.NumBytesInBufferRx, &ReadingFrameErrorCounter);
+
+  if (packet != NULL)
+    HDC_ProcessRxPacket(packet);
+
+  if (packet != NULL
+      || ReadingFrameErrorCounter > 0
+      || hHDC.NumBytesInBufferRx == HDC_BUFFER_SIZE_RX)
+  {
+    // Usually the DMA transfer does not reach the RxCplt interrupt, which is
+    // why we have to abort it before starting the next one.
+    if ( HAL_UART_GetState(hHDC.huart) & HAL_UART_STATE_BUSY_RX)
+      HAL_UART_AbortReceive(hHDC.huart);
+
+    // Start receiving next request.
+    // Note how on processing the preceding request we already composed
+    // its reply, but we haven't actually sent it to the HDC-host yet, which
+    // is why at this point we don't need to worry for the HDC-host to be sending its next request.
+    hHDC.NumBytesInBufferRx = 0;
+    if (HAL_UART_Receive_DMA(hHDC.huart, hHDC.BufferRx, HDC_BUFFER_SIZE_RX) != HAL_OK)
+      Error_Handler();
+  }
+
+  if (ReadingFrameErrorCounter > 0) {
+    HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_WARNING, "Reading-frame-errors detected while parsing request message on device.");
+  }
+
+}
+
+
+/////////////////////////////////
+// API of the hdc_device driver
+
+void HDC_Flush(void) {
+  // By requesting the maximum capacity, we ensure that any messages
+  // in the current composition buffer are being sent now.
+  uint8_t *pBuffer = 0;
+  uint16_t *pNumBytesInBuffer = 0;
+  HDC_GetTxBufferWithCapacityForAtLeast(HDC_BUFFER_SIZE_TX, &pBuffer, &pNumBytesInBuffer);
+
+  // Wait for current transmission to complete
+  uint32_t timeout = HAL_GetTick() + 100;
+  while (!hHDC.isDmaTxComplete) {
+    if (HAL_GetTick() > timeout) {
+      // This might be a handy spot to set a break-point during debug sessions.
+      // Note how calling the Error_Handler() might cause infinite recursion.
+      return;
+    }
+  }
+}
+
+uint32_t HDC_Work() {
+
+  // Did we receive a chunk?
+  if (hHDC.isDmaRxComplete) {
+    HDC_ProcessRxBuffer();
+    hHDC.isDmaRxComplete = false;
+  }
+
+  // Is there anything waiting to be sent? (And did we complete the previous transmission?)
+  uint8_t indexOfBufferCurrentlyBeingComposed = hHDC.currentDmaBufferTx == 0 ? 1 : 0;  // The buffer not being sent is the one being composed.
+  if (hHDC.isDmaTxComplete && hHDC.NumBytesInBufferTx[indexOfBufferCurrentlyBeingComposed] > 0) {
+
+    // Clear the buffer that was already sent via DMA
+    hHDC.NumBytesInBufferTx[hHDC.currentDmaBufferTx] = 0;
+
+    // Exchange Tx buffers
+    if (hHDC.currentDmaBufferTx == 0)
+      hHDC.currentDmaBufferTx = 1;
+    else
+      hHDC.currentDmaBufferTx = 0;
+
+    // Start transmitting via DMA the buffer containing the replies that have been composed
+    hHDC.isDmaTxComplete = false;
+    if (HAL_UART_Transmit_DMA(hHDC.huart, hHDC.BufferTx[hHDC.currentDmaBufferTx], hHDC.NumBytesInBufferTx[hHDC.currentDmaBufferTx]) != HAL_OK)
+      Error_Handler();
+  }
+
+  return 0; // Update an every possible occasion
+}
+
+
+void HDC_Init(UART_HandleTypeDef *huart, HDC_Feature_Descriptor_t **HDC_Features, uint8_t NumFeatures) {
+
+  hHDC.huart = huart;
+  hHDC.Features = HDC_Features;
+  hHDC.NumFeatures = NumFeatures;
+
+  hHDC.NumBytesInBufferRx = 0;
+  hHDC.NumBytesInBufferTx[0] = 0;
+  hHDC.NumBytesInBufferTx[1] = 0;
+
+  hHDC.currentDmaBufferTx = 0;
+
+  hHDC.isDmaRxComplete = false;
+  hHDC.isDmaTxComplete = true;
+
+
+  // Start reception of the first chunk
+  if (HAL_UART_Receive_DMA(hHDC.huart, hHDC.BufferRx, HDC_BUFFER_SIZE_RX) != HAL_OK)
+    Error_Handler();
+  // We need to explicitly enable the IDLE interrupt!
+  // http://www.bepat.de/2020/12/02/stm32f103c8-uart-with-dma-buffer-and-idle-detection/
+  __HAL_UART_ENABLE_IT(hHDC.huart, UART_IT_IDLE);
+
+  hHDC.isInitialized = true;
+}
+
+

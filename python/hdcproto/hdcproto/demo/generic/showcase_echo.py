@@ -24,10 +24,10 @@ def showcase_echo():
     hdc_root_logger.addHandler(log_handler)
 
     # You can tweak the following log-levels to tune verbosity of HDC internals:
-    logging.getLogger("hdcproto.transport.packetizer").setLevel(logging.DEBUG)
-    logging.getLogger("hdcproto.transport.serialport").setLevel(logging.DEBUG)
-    logging.getLogger("hdcproto.host.router").setLevel(logging.DEBUG)
-    logging.getLogger("hdcproto.host.proxy").setLevel(logging.DEBUG)
+    logging.getLogger("hdcproto.transport.packetizer").setLevel(logging.WARNING)
+    logging.getLogger("hdcproto.transport.serialport").setLevel(logging.WARNING)
+    logging.getLogger("hdcproto.host.router").setLevel(logging.WARNING)
+    logging.getLogger("hdcproto.host.proxy").setLevel(logging.WARNING)
 
     #################################################
     # Connect to HDC-device at a specific serial port
@@ -43,8 +43,8 @@ def showcase_echo():
 
     demo_logger.info(f"Device reports to be compliant with: '{device_proxy.get_hdc_version_string()}'")
     demo_logger.info("______________________________________________________________________")
-    demo_logger.info(f"Showcasing ECHO command. Sending {num_requests} requests "
-                     f"with a payload of {payload_size} bytes each:")
+    demo_logger.info(f"Showcasing ECHO command:")
+    demo_logger.info(f"Sending {num_requests} requests with a payload of {payload_size} bytes each ...")
     timestamp_start = time.time_ns()
     sent_data = bytes(range(payload_size))
     for i in range(num_requests):
@@ -52,7 +52,8 @@ def showcase_echo():
         assert replied_data == sent_data
     timestamp_stop = time.time_ns()
     duration_total_ms = (timestamp_stop - timestamp_start) / 1000000.0
-    demo_logger.info(f"Completed in {duration_total_ms:.1f}ms --> {duration_total_ms / num_requests:.1f} ms/request")
+    demo_logger.info(f"... completed in {duration_total_ms:.1f}ms "
+                     f"--> {duration_total_ms / num_requests:.1f} ms/request")
 
     device_proxy.router.close()
 

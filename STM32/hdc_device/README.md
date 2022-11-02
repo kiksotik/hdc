@@ -24,6 +24,12 @@ This is how you should set up your project:
     
   * Enable DMA feature for that USART  
     In configuration pane at ``Connectivity / USARTx / DMA`` add DMA settings for both ``USARTx_RX`` and ``USARTx_TX``  
+
+  * Configure DMA mode of RX channel to *Circular*  
+    In configuration pane at ``Connectivity / USARTx / DMA`` select the RX channel and chose Mode=Circular.  
+    (Otherwise reception will be stopped in HAL_UARTEx_ReceiveToIdle_DMA() on every IDLE interrupt, which is OK 
+    whenever a full packet has been received, but occasionally IDLE happens before the full request was received 
+    and the ``hdc_device`` driver would wait eternally for the remainder to arrive.)
      
   * Enable global interrupt for that USART  
     In configuration pane at ``Connectivity / USARTx / NVIC`` enable the checkbox ``USART global interrupt``.  

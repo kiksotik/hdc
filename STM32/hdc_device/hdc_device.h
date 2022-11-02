@@ -263,12 +263,9 @@ typedef struct HDC_Feature_struct {
 ///////////////////////////////////////
 // Interrupt handlers and redirection
 
-void HDC_RxCpltCallback(UART_HandleTypeDef *huart);  // Must be called from HAL_UART_RxCpltCallback
+void HDC_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size);  // Must be called from HAL_UARTEx_RxEventCallback
 void HDC_TxCpltCallback(UART_HandleTypeDef *huart);  // Must be called from HAL_UART_TxCpltCallback
 
-// Must be called from the USARTx_IRQHandler(), to redirect UART-IDLE events into
-// the HDC_RxCpltCallback() handler, for it to notice that a request is complete.
-void HDC_IrqRedirection_UartIdle(void);
 
 /////////////////////////////////////////////////////////////////////
 // API

@@ -69,18 +69,20 @@ struct HDC_struct {
 
 } hHDC = { 0 };
 
-// Interrupt handler that must be called from HAL_UART_RxCpltCallback
-void HDC_RxCpltCallback(UART_HandleTypeDef *huart) {
+// Interrupt handler that must be called from HAL_UARTEx_RxEventCallback()
+// Typically triggered by the UART-IDLE event, thus allowing us to process data as soon as the burst is over!
+void HDC_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
   if (huart != hHDC.huart)
     return;
 
-  // Typically not a complete buffer, because this is most times reached via redirection
-  // of the UART-IDLE event by HDC_IrqRedirection_UartIdle(), unless host sent the
-  // maximum permissible request size. Unruly hosts might also send too large requests.
-  hHDC.NumBytesInBufferRx = HDC_BUFFER_SIZE_RX - (uint16_t)hHDC.huart->hdmarx->Instance->CNDTR;
-  if (hHDC.NumBytesInBufferRx > 0)
-    hHDC.isDmaRxComplete = true;
+  // Note how unruly hosts sending too large requests will be scrambling their own
+  // packets, because of the DMA-circular mode. The parser will interpret those as
+  // reading-frame-errors and restart reception, so that any subsequent packets will
+  // be received correctly.
 
+  // Note how the DMA-circular mode will cause Size=0 whenever packet is as big as the RX buffer is.
+  hHDC.NumBytesInBufferRx = (Size==0) ? HDC_BUFFER_SIZE_RX : Size;
+  hHDC.isDmaRxComplete = true;
 }
 
 // Interrupt handler that must be called from HAL_UART_TxCpltCallback
@@ -89,16 +91,6 @@ void HDC_TxCpltCallback(UART_HandleTypeDef *huart) {
     return;
 
   hHDC.isDmaTxComplete = true;
-}
-
-// Must be called from the USARTx_IRQHandler(), to redirect UART-IDLE events into
-// the HDC_RxCpltCallback() handler, whenever reception of a burst of data completes.
-// See http://www.bepat.de/2020/12/02/stm32f103c8-uart-with-dma-buffer-and-idle-detection/
-void HDC_IrqRedirection_UartIdle(void) {
-  if(__HAL_UART_GET_FLAG(hHDC.huart, UART_FLAG_IDLE)) {
-    __HAL_UART_CLEAR_IDLEFLAG (hHDC.huart);
-    HDC_RxCpltCallback(hHDC.huart);
-  }
 }
 
 
@@ -1444,30 +1436,37 @@ const uint8_t* HDC_ParsePacket(const uint8_t *Buffer, const uint16_t BufferSize,
 
 
 void HDC_ProcessRxBuffer() {
-
   uint16_t ReadingFrameErrorCounter = 0;
 
   // Attempt to get a single, full packet out of the chunk of data received
+
   const uint8_t *packet = HDC_ParsePacket(hHDC.BufferRx, hHDC.NumBytesInBufferRx, &ReadingFrameErrorCounter);
 
-  if (packet != NULL)
-    HDC_ProcessRxPacket(packet);
+  bool restart_reception = false;
+  restart_reception |= (packet != NULL);  // Because we received a proper packet.
+  restart_reception |= ReadingFrameErrorCounter > 0;  // Because we received crap of some sort.
 
-  if (packet != NULL
-      || ReadingFrameErrorCounter > 0
-      || hHDC.NumBytesInBufferRx == HDC_BUFFER_SIZE_RX)
+  if (restart_reception)
   {
-    // Usually the DMA transfer does not reach the RxCplt interrupt, which is
-    // why we have to abort it before starting the next one.
-    if ( HAL_UART_GetState(hHDC.huart) & HAL_UART_STATE_BUSY_RX)
-      HAL_UART_AbortReceive(hHDC.huart);
+    // Restart RX for next packet to arrive at the beginning of
+    // the RX-buffer, because that's where the packet-parser expects it.
+
+    // It's safe to do so here, because HDC-spec disallows hosts from sending any
+    // further request before receiving the reply to the previous one,
+    // and we haven't yet processed the request, thus no reply has been composed nor sent yet.
+
+    // Stop any ongoing reception
+    HAL_UART_AbortReceive(hHDC.huart);
 
     // Start receiving next request.
     hHDC.isDmaRxComplete = false;
-    if (HAL_UART_Receive_DMA(hHDC.huart, hHDC.BufferRx, HDC_BUFFER_SIZE_RX) != HAL_OK)
+    if (HAL_UARTEx_ReceiveToIdle_DMA(hHDC.huart, hHDC.BufferRx, HDC_BUFFER_SIZE_RX) != HAL_OK)
       Error_Handler();
 
   }
+
+  if (packet != NULL)
+    HDC_ProcessRxPacket(packet);
 
   if (ReadingFrameErrorCounter > 0) {
     HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_WARNING, "Reading-frame-errors detected while parsing request message on device.");
@@ -1504,8 +1503,6 @@ uint32_t HDC_Work() {
   // If a request was received, its reply (and any events) have at this point been composed already.
   // If the TX buffer is not large enough some packets of said reply might have been transmitted already.
   // Regardless, now it's the moment we'll ensure to transmit whatever remains to be transmitted.
-  // The RX buffer won't be flooded in the meantime, because HDC-spec disallows hosts from sending
-  // any request before receiving the reply to the previous one.
 
   if (hHDC.isDmaTxComplete) {  // Whenever transmission of one TX buffer completed ...
     HDC_StartTransmittingAnyPendingPackets();  // ... we start transmission of the other TX buffer, but only if it contains any packets.
@@ -1536,11 +1533,8 @@ void HDC_Init_WithCustomMsgRouting(
 
 
   // Start reception of the first chunk
-  if (HAL_UART_Receive_DMA(hHDC.huart, hHDC.BufferRx, HDC_BUFFER_SIZE_RX) != HAL_OK)
+  if (HAL_UARTEx_ReceiveToIdle_DMA(hHDC.huart, hHDC.BufferRx, HDC_BUFFER_SIZE_RX) != HAL_OK)
     Error_Handler();
-  // We need to explicitly enable the IDLE interrupt!
-  // http://www.bepat.de/2020/12/02/stm32f103c8-uart-with-dma-buffer-and-idle-detection/
-  __HAL_UART_ENABLE_IT(hHDC.huart, UART_IT_IDLE);
 
   hHDC.isInitialized = true;
 

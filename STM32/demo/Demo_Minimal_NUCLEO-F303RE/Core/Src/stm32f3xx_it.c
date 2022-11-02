@@ -239,14 +239,18 @@ void USART2_IRQHandler(void)
   /* USER CODE END USART2_IRQn 0 */
   HAL_UART_IRQHandler(&huart2);
   /* USER CODE BEGIN USART2_IRQn 1 */
-  HDC_IrqRedirection_UartIdle();  // Redirects the IDLE event into the HDC_RxCpltCallback() handler.
+
   /* USER CODE END USART2_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-  HDC_RxCpltCallback(huart);
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
+  HDC_RxEventCallback(huart, Size);
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+  Error_Handler();
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {

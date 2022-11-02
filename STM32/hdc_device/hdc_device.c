@@ -74,13 +74,13 @@ void HDC_RxCpltCallback(UART_HandleTypeDef *huart) {
   if (huart != hHDC.huart)
     return;
 
-  // Note how this Callback is mainly being called due to IDLE events that we are redirecting here.
-  // We actually never expect to receive a "complete" buffer, because buffer is larger than the largest packet we expect to ever be sent.
-  // We instead attempt to parse a packet on every UART IDLE event.
+  // Typically not a complete buffer, because this is most times reached via redirection
+  // of the UART-IDLE event by HDC_IrqRedirection_UartIdle(), unless host sent the
+  // maximum permissible request size. Unruly hosts might also send too large requests.
   hHDC.NumBytesInBufferRx = HDC_BUFFER_SIZE_RX - (uint16_t)hHDC.huart->hdmarx->Instance->CNDTR;
-  if (hHDC.NumBytesInBufferRx > 0)  // To skip the pointless IDLE event that happens on starting each reception.
+  if (hHDC.NumBytesInBufferRx > 0)
     hHDC.isDmaRxComplete = true;
-  __HAL_UART_CLEAR_IDLEFLAG(hHDC.huart);  // Make sure IDLE flag is cleared again. We lazy bastards do not care whether it was set to begin with. :o)
+
 }
 
 // Interrupt handler that must be called from HAL_UART_TxCpltCallback
@@ -92,11 +92,13 @@ void HDC_TxCpltCallback(UART_HandleTypeDef *huart) {
 }
 
 // Must be called from the USARTx_IRQHandler(), to redirect UART-IDLE events into
-// the HDC_RxCpltCallback() handler, for it to notice that a request is complete.
+// the HDC_RxCpltCallback() handler, whenever reception of a burst of data completes.
 // See http://www.bepat.de/2020/12/02/stm32f103c8-uart-with-dma-buffer-and-idle-detection/
 void HDC_IrqRedirection_UartIdle(void) {
-  if(__HAL_UART_GET_FLAG(hHDC.huart, UART_FLAG_IDLE))
+  if(__HAL_UART_GET_FLAG(hHDC.huart, UART_FLAG_IDLE)) {
+    __HAL_UART_CLEAR_IDLEFLAG (hHDC.huart);
     HDC_RxCpltCallback(hHDC.huart);
+  }
 }
 
 
@@ -187,6 +189,17 @@ void HDC_GetTxBufferWithCapacityForAtLeast(uint16_t capacity, uint8_t **pBuffer,
   *pBuffer = hHDC.BufferTx[indexOfBufferBeingComposed];
   *pNumBytesInBuffer = &hHDC.NumBytesInBufferTx[indexOfBufferBeingComposed];
 }
+
+void HDC_StartTransmittingAnyPendingPackets() {
+  // Note how requesting a composition buffer as big as the buffer's maximum capacity will:
+  //   - If the current composition buffer is empty: --> Do nothing! :-)
+  //   - If the current composition buffer is not empty, it won't have the requested capacity, thus switch buffers and start sending it
+
+  uint8_t *pBuffer = 0;
+  uint16_t *pNumBytesInBuffer = 0;
+  HDC_GetTxBufferWithCapacityForAtLeast(HDC_BUFFER_SIZE_TX, &pBuffer, &pNumBytesInBuffer);
+}
+
 
 
 /////////////////////////////////////
@@ -1450,12 +1463,10 @@ void HDC_ProcessRxBuffer() {
       HAL_UART_AbortReceive(hHDC.huart);
 
     // Start receiving next request.
-    // Note how on processing the preceding request we already composed
-    // its reply, but we haven't actually sent it to the HDC-host yet, which
-    // is why at this point we don't need to worry for the HDC-host to be sending its next request.
-    hHDC.NumBytesInBufferRx = 0;
+    hHDC.isDmaRxComplete = false;
     if (HAL_UART_Receive_DMA(hHDC.huart, hHDC.BufferRx, HDC_BUFFER_SIZE_RX) != HAL_OK)
       Error_Handler();
+
   }
 
   if (ReadingFrameErrorCounter > 0) {
@@ -1468,12 +1479,10 @@ void HDC_ProcessRxBuffer() {
 /////////////////////////////////
 // API of the hdc_device driver
 
-void HDC_Flush(void) {
-  // By requesting the maximum capacity, we ensure that any messages
-  // in the current composition buffer are being sent now.
-  uint8_t *pBuffer = 0;
-  uint16_t *pNumBytesInBuffer = 0;
-  HDC_GetTxBufferWithCapacityForAtLeast(HDC_BUFFER_SIZE_TX, &pBuffer, &pNumBytesInBuffer);
+
+void HDC_Flush() {
+
+  HDC_StartTransmittingAnyPendingPackets();
 
   // Wait for current transmission to complete
   uint32_t timeout = HAL_GetTick() + 100;
@@ -1488,29 +1497,18 @@ void HDC_Flush(void) {
 
 uint32_t HDC_Work() {
 
-  // Did we receive a chunk?
-  if (hHDC.isDmaRxComplete) {
-    HDC_ProcessRxBuffer();
-    hHDC.isDmaRxComplete = false;
+  if (hHDC.isDmaRxComplete) {  // Whenever an attempt to receive a burst of data completes...
+    HDC_ProcessRxBuffer();     // ... we check whether a valid packet can be found in the RX buffer.
   }
 
-  // Is there anything waiting to be sent? (And did we complete the previous transmission?)
-  uint8_t indexOfBufferCurrentlyBeingComposed = hHDC.currentDmaBufferTx == 0 ? 1 : 0;  // The buffer not being sent is the one being composed.
-  if (hHDC.isDmaTxComplete && hHDC.NumBytesInBufferTx[indexOfBufferCurrentlyBeingComposed] > 0) {
+  // If a request was received, its reply (and any events) have at this point been composed already.
+  // If the TX buffer is not large enough some packets of said reply might have been transmitted already.
+  // Regardless, now it's the moment we'll ensure to transmit whatever remains to be transmitted.
+  // The RX buffer won't be flooded in the meantime, because HDC-spec disallows hosts from sending
+  // any request before receiving the reply to the previous one.
 
-    // Clear the buffer that was already sent via DMA
-    hHDC.NumBytesInBufferTx[hHDC.currentDmaBufferTx] = 0;
-
-    // Exchange Tx buffers
-    if (hHDC.currentDmaBufferTx == 0)
-      hHDC.currentDmaBufferTx = 1;
-    else
-      hHDC.currentDmaBufferTx = 0;
-
-    // Start transmitting via DMA the buffer containing the replies that have been composed
-    hHDC.isDmaTxComplete = false;
-    if (HAL_UART_Transmit_DMA(hHDC.huart, hHDC.BufferTx[hHDC.currentDmaBufferTx], hHDC.NumBytesInBufferTx[hHDC.currentDmaBufferTx]) != HAL_OK)
-      Error_Handler();
+  if (hHDC.isDmaTxComplete) {  // Whenever transmission of one TX buffer completed ...
+    HDC_StartTransmittingAnyPendingPackets();  // ... we start transmission of the other TX buffer, but only if it contains any packets.
   }
 
   return 0; // Update an every possible occasion

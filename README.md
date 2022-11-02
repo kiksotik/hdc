@@ -105,8 +105,8 @@ explains motivation and architectural rationale.
 
 - Tunneling
   - HDC can [encapsulate](https://en.wikipedia.org/wiki/Encapsulation_(networking)) other communication protocols, thus
-    allowing to share the physical connection between host and device for other purposes, too. 
-    When used like this, HDC behaves as an [OSI Layer 3](https://en.wikipedia.org/wiki/Network_layer).
+    allowing to share the physical connection between host and device for other purposes, too.  
+    When used like this, HDC behaves as an [OSI Layer 2](https://en.wikipedia.org/wiki/Data_link_layer).
   - If the virtual connection being tunneled is also HDC, then a more efficient technique can be used, which simply 
     translates ``MessageTypeIDs`` in a similar manner as 
     [NAT](https://en.wikipedia.org/wiki/Network_address_translation) translates IP addresses of subnets.  

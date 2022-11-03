@@ -90,7 +90,7 @@ class Packetizer:
             # ToDo: Signal reading-frame error!
         else:
             if data_burst_is_over:
-                logger.debug("Read attempt timed-out without receiving any data.",)
+                logger.debug("Read attempt timed-out without receiving any data.")
 
     def get_received_messages(self) -> list[bytes]:
         """

@@ -6,10 +6,11 @@ from __future__ import annotations
 import collections
 import enum
 import logging
-import semver
 import time
 import typing
 from datetime import datetime
+
+import semver
 
 import hdcproto.host.router
 import hdcproto.transport.serialport

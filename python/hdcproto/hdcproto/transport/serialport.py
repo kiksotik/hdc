@@ -10,7 +10,6 @@ import serial
 from hdcproto.transport.base import TransportBase
 from hdcproto.transport.packetizer import Packetizer
 
-
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.transport.serialport"
 
 

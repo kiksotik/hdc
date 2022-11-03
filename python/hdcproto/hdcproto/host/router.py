@@ -10,7 +10,6 @@ import typing
 from hdcproto.common import MessageTypeID, HdcError, is_valid_uint8
 from hdcproto.transport.base import TransportBase
 
-
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.router"
 
 

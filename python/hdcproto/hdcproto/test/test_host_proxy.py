@@ -1,8 +1,8 @@
 import unittest
 
+from hdcproto.common import ReplyErrorCode
 from hdcproto.host.proxy import (DeviceProxyBase, FeatureProxyBase, VoidWithoutArgsCommandProxy,
                                  PropertyProxy_RW_INT32, EventProxyBase)
-from hdcproto.common import ReplyErrorCode
 
 
 class TestableDeviceProxy(DeviceProxyBase):

@@ -12,7 +12,6 @@ from hdcproto.host.proxy import (DeviceProxyBase, CoreFeatureProxyBase, VoidWith
 class MinimalCore:
 
     def __init__(self, device_proxy: DeviceProxyBase):
-
         # We could "inherit" from CoreFeatureProxyBase, but we choose "composition", instead, because
         # it allows us to separate more cleanly our custom proxies from those defined in DeviceProxyBase.
         # This is for example useful to keep the autocompletion list short and readable while coding.

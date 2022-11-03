@@ -121,17 +121,17 @@ typedef enum {
 } HDC_CommandID_t;
 
 typedef enum {
-  HDC_ReplyErrorCode_NO_ERROR = 0x00,
-  HDC_ReplyErrorCode_UNKNOWN_FEATURE = 0xF0,
-  HDC_ReplyErrorCode_UNKNOWN_COMMAND = 0xF1,
-  HDC_ReplyErrorCode_UNKNOWN_PROPERTY = 0xF2,
-  HDC_ReplyErrorCode_UNKNOWN_EVENT = 0xF3,
-  HDC_ReplyErrorCode_INCORRECT_COMMAND_ARGUMENTS = 0xF4,
-  HDC_ReplyErrorCode_COMMAND_NOT_ALLOWED_NOW = 0xF5,
-  HDC_ReplyErrorCode_COMMAND_FAILED = 0xF6,
-  HDC_ReplyErrorCode_INVALID_PROPERTY_VALUE = 0xF7,
-  HDC_ReplyErrorCode_PROPERTY_IS_READONLY = 0xF8,
-} HDC_ReplyErrorCode_t;
+  HDC_CommandErrorCode_NO_ERROR = 0x00,
+  HDC_CommandErrorCode_UNKNOWN_FEATURE = 0xF0,
+  HDC_CommandErrorCode_UNKNOWN_COMMAND = 0xF1,
+  HDC_CommandErrorCode_UNKNOWN_PROPERTY = 0xF2,
+  HDC_CommandErrorCode_UNKNOWN_EVENT = 0xF3,
+  HDC_CommandErrorCode_INCORRECT_COMMAND_ARGUMENTS = 0xF4,
+  HDC_CommandErrorCode_COMMAND_NOT_ALLOWED_NOW = 0xF5,
+  HDC_CommandErrorCode_COMMAND_FAILED = 0xF6,
+  HDC_CommandErrorCode_INVALID_PROPERTY_VALUE = 0xF7,
+  HDC_CommandErrorCode_PROPERTY_IS_READONLY = 0xF8,
+} HDC_CommandErrorCode_t;
 
 typedef enum {
   // The ID values of each DataType can be interpreted as follows:
@@ -289,19 +289,19 @@ void HDC_CmdReply_Void(
 void HDC_CmdReply_From_Pieces(
     const uint8_t FeatureID,
     const uint8_t CmdID,
-    const HDC_ReplyErrorCode_t ReplyErrorCode,
+    const HDC_CommandErrorCode_t CommandErrorCode,
     const uint8_t* pMsgPayloadPrefix,
     const size_t MsgPayloadPrefixSize,
     const uint8_t* pMsgPayloadSuffix,
     const size_t MsgPayloadSuffixSize);
 
 void HDC_CmdReply_Error_WithDescription(
-    const HDC_ReplyErrorCode_t ReplyErrorCode,
+    const HDC_CommandErrorCode_t CommandErrorCode,
     const char* ErrorDescription,
     const uint8_t* pMsgHeader);
 
 void HDC_CmdReply_Error(  // Without error-description string.
-    const HDC_ReplyErrorCode_t ReplyErrorCode,
+    const HDC_CommandErrorCode_t CommandErrorCode,
     const uint8_t* pMsgHeader);
 
 //////////////////////////////////////////

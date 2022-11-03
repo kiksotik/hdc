@@ -49,7 +49,7 @@ class CmdID(enum.IntEnum):
 
 
 @enum.unique
-class ReplyErrorCode(enum.IntEnum):
+class CommandErrorCode(enum.IntEnum):
     """Reserved IDs and names of error codes used in replies to Commands as defined by HDC-spec"""
     NO_ERROR = 0x00
     UNKNOWN_FEATURE = 0xF0
@@ -63,25 +63,25 @@ class ReplyErrorCode(enum.IntEnum):
     PROPERTY_IS_READ_ONLY = 0xF8
 
     def __str__(self):
-        if self == ReplyErrorCode.NO_ERROR:
+        if self == CommandErrorCode.NO_ERROR:
             return "No error"
-        elif self == ReplyErrorCode.UNKNOWN_FEATURE:
+        elif self == CommandErrorCode.UNKNOWN_FEATURE:
             return "Unknown feature"
-        elif self == ReplyErrorCode.UNKNOWN_COMMAND:
+        elif self == CommandErrorCode.UNKNOWN_COMMAND:
             return "Unknown command"
-        elif self == ReplyErrorCode.INCORRECT_COMMAND_ARGUMENTS:
+        elif self == CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS:
             return "Incorrect command arguments"
-        elif self == ReplyErrorCode.COMMAND_NOT_ALLOWED_NOW:
+        elif self == CommandErrorCode.COMMAND_NOT_ALLOWED_NOW:
             return "Command not allowed now"
-        elif self == ReplyErrorCode.COMMAND_FAILED:
+        elif self == CommandErrorCode.COMMAND_FAILED:
             return "Command failed"
-        elif self == ReplyErrorCode.UNKNOWN_PROPERTY:
+        elif self == CommandErrorCode.UNKNOWN_PROPERTY:
             return "Unknown property"
-        elif self == ReplyErrorCode.INVALID_PROPERTY_VALUE:
+        elif self == CommandErrorCode.INVALID_PROPERTY_VALUE:
             return "Invalid property value"
-        elif self == ReplyErrorCode.PROPERTY_IS_READ_ONLY:
+        elif self == CommandErrorCode.PROPERTY_IS_READ_ONLY:
             return "Property is read-only"
-        elif self == ReplyErrorCode.UNKNOWN_EVENT:
+        elif self == CommandErrorCode.UNKNOWN_EVENT:
             return "Unknown event"
 
 
@@ -285,7 +285,7 @@ class HdcDataType(enum.IntEnum):
     @staticmethod
     def parse_reply_msg(reply_message: bytes,
                         expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
-        raw_payload = reply_message[4:]  # Strip 4 leading bytes: MsgID + FeatureID + EvtID + ReplyErrorCode
+        raw_payload = reply_message[4:]  # Strip 4 leading bytes: MsgID + FeatureID + EvtID + CommandErrorCode
         return HdcDataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
 
     @staticmethod

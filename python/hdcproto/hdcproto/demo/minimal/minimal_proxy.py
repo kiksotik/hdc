@@ -64,7 +64,5 @@ class MinimalDevice(DeviceProxyBase):
     core: MinimalCore
 
     def __init__(self, connection_url: str):
-        super().__init__(connection_url=connection_url)
-
-        # Demo_Minimal only implements the mandatory Core feature
-        self.core = MinimalCore(self)  # Override base Core-Feature proxy with a more specific one.
+        super().__init__(connection_url=connection_url,
+                         core_feature_proxy_class=MinimalCore)  # Use a more specific core feature class

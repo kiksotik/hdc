@@ -1103,7 +1103,9 @@ class DeviceProxyBase:
     router: hdcproto.host.router.MessageRouter
     core: CoreFeatureProxyBase
 
-    def __init__(self, connection_url: str):
+    def __init__(self,
+                 connection_url: str,
+                 core_feature_proxy_class: typing.Type[CoreFeatureProxyBase] = CoreFeatureProxyBase):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy"
         self.logger = logger.getChild(self.__class__.__name__)
@@ -1116,7 +1118,7 @@ class DeviceProxyBase:
 
         # The following may be needed for introspection when using bare DeviceProxyBase objects.
         # Subclasses will typically override it with a more specific core-feature proxy.
-        self.core = CoreFeatureProxyBase(self)
+        self.core = core_feature_proxy_class(self)
 
     def get_hdc_version_string(self, timeout: float = 0.2) -> str:
         """Returns the raw string, without attempting to validate nor parsing it."""

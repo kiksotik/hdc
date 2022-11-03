@@ -373,8 +373,9 @@ class EventProxyBase:
 
     def _event_message_handler(self, event_message: bytes) -> None:
         """
-        The one and only event handler actually registered with the RouterFeature.
-        WARNING: This handler will be executed in the receiver-thread!
+        The one and only event handler actually registered at the MessageRouter.
+
+        Warning: This will be executed from within the SerialTransport.receiver_thread
         """
         event_payload = self.payload_parser(event_message)
         self.most_recently_received_event_payloads.append(event_payload)
@@ -387,7 +388,8 @@ class EventProxyBase:
         Event handlers should be a callable that takes the parsed event-payload object as an argument.
         Multiple handlers can be registered. They will be executed in the same order as registered.
 
-        WARNING: Event handlers will be executed in the receiver-thread. Ensure they are fast and thread-safe!
+        Warning: Event handlers will be executed from within the SerialTransport.receiver_thread.
+                 Ensure they are fast and thread-safe!
         """
         self.event_payload_handlers.append(event_payload_handler)
 
@@ -398,6 +400,7 @@ class EventProxyBase:
         """
 
         def __init__(self, event_message: bytes):
+            """Warning: This will be executed from within the SerialTransport.receiver_thread"""
             self.received_at = datetime.utcnow()
             self.raw_payload = event_message[3:]  # Strip 3 leading bytes: MsgID + FeatureID + EvtID
 
@@ -414,6 +417,7 @@ class LogEventProxy(EventProxyBase):
 
     class LogEventPayload:
         def __init__(self, event_message: bytes):
+            """Warning: This will be executed from within the SerialTransport.receiver_thread"""
             self.received_at = datetime.utcnow()
             self.log_level = event_message[3]
             self.log_message = event_message[4:].decode(encoding="utf-8", errors="strict")
@@ -445,6 +449,7 @@ class StateTransitionEventProxy(EventProxyBase):
 
     class StateTransitionEventPayload:
         def __init__(self, event_message: bytes):
+            """Warning: This will be executed from within the SerialTransport.receiver_thread"""
             self.received_at = datetime.utcnow()
             self.previous_state_id = event_message[3]
             self.current_state_id = event_message[4]

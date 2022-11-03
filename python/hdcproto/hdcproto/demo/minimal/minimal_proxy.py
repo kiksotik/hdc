@@ -44,6 +44,7 @@ class MinimalCore:
         """Used by the self.evt_button proxy to parse raw event messages into custom event payload objects."""
 
         def __init__(self, event_message: bytes):
+            """Warning: This will be executed from within the SerialTransport.receiver_thread"""
             # Timestamp that might be handy when processing this event in a delayed manner
             self.received_at = datetime.utcnow()
 

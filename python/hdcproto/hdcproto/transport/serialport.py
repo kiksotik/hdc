@@ -19,7 +19,7 @@ class SerialTransport(TransportBase):
     Internally it uses the HDC-packetizer to allow transmission of HDC-messages, because serial-communication
     is only able to transmit raw streams of bytes.
 
-    WARNING: Message handler callbacks will be called directly from a dedicated data-receiver-thread!
+    Warning: Message handler callbacks will be called directly from a dedicated data-receiver-thread!
     """
     serial_url: str
     serial_port: serial.Serial | None

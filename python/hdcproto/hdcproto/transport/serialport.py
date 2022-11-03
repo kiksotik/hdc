@@ -48,7 +48,7 @@ class SerialTransport(TransportBase):
             raise RuntimeError("Must assign message_received_handler and connection_lost_handler before connecting")
         logger.info(f"Connecting to {self.serial_url}")
         self.serial_port = serial.serial_for_url(self.serial_url, timeout=self.TIMEOUT_READ, baudrate=115200)
-        self.receiver_thread = threading.Thread(target=self.receiver_thread_loop,
+        self.receiver_thread = threading.Thread(target=self._receiver_thread_loop,
                                                 kwargs={'transport': self},
                                                 daemon=True)
         self.keep_thread_alive = True
@@ -82,7 +82,6 @@ class SerialTransport(TransportBase):
             self.serial_port.close()
             self.serial_port = None
 
-    # - -  context manager
     def __enter__(self) -> SerialTransport:
         """Enter context handler. May raise RuntimeError in case the connection could not be created."""
         self.connect()
@@ -96,8 +95,7 @@ class SerialTransport(TransportBase):
     def __str__(self):
         return f"{self.__class__.__name__}('{self.serial_url}')"
 
-    # - -  Receiver-Thread
-    def receiver_thread_loop(self, transport: SerialTransport) -> None:
+    def _receiver_thread_loop(self, transport: SerialTransport) -> None:
         """
         This will be executed in a dedicated Thread, to ensure that any received messages are being handled as
         soon as they are being received.

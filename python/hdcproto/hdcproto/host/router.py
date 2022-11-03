@@ -86,6 +86,8 @@ class MessageRouter:
     def send_request_and_get_reply(self, request_message: bytes, timeout: float) -> bytes:
         """
         Will send a request message and block until either a reply is received or the timeout elapses.
+
+        Caller is responsible to validate the received reply.
         """
         # ToDo: Proper handling of time-outs, reading-frame-errors reported by device, post-time-out replies, ...
 

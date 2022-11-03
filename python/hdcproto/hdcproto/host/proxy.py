@@ -78,14 +78,13 @@ class CommandProxyBase:
             else:
                 raise ValueError(f"Failed to register ReplyErrorCode 0x{code:02X}:'{error_name}', because that it's "
                                  f"already defined by HDC-spec to mean '{code_as_defined_by_hdc_spec}'")
+            if not isinstance(error_name, str):
+                raise ValueError("Custom error codes must be assigned a human readable name")
 
         code = int(code)
 
         if not is_valid_uint8(code):
             raise ValueError(f"Reply error code of {code} is beyond valid range from 0x00 to 0xFF")
-
-        if error_name is None:
-            error_name = f"Error 0x{code:02X}"  # Fallback for lazy callers
 
         if code in self.known_errors:
             raise ValueError(f'Already registered ErrorCode {code} as "{self.known_errors[code]}"')
@@ -99,7 +98,6 @@ class CommandProxyBase:
         reply_message = self.router.send_request_and_get_reply(request_message, timeout)
 
         if not reply_message.startswith(self.msg_prefix):
-            # ToDo: Might be a delayed reply to a previous request that timed-out. Maybe we should just ignore it?
             raise HdcError("Reply does not match the expected prefix")
 
         if len(reply_message) < 4:
@@ -107,11 +105,15 @@ class CommandProxyBase:
                            f"but received {len(reply_message)}")
 
         error_code = reply_message[3]
-        if error_code != ReplyErrorCode.NO_ERROR:
-            error_name = self.known_errors.get(error_code, f"Unknown error code 0x{error_code:02X}")
-            raise HdcReplyError(error_name, reply_message)
+        if error_code == ReplyErrorCode.NO_ERROR:
+            return reply_message
 
-        return reply_message
+        try:
+            error_name = self.known_errors[error_code]
+        except KeyError:
+            error_name = f"ErrorCode=0x{error_code:02X}"  # Fallback to numeric value
+            logger.warning(f"Command {self.__class__.__name__} failed with unknown ErrorCode=0x{error_code:02X}. ")
+        raise HdcCommandError(error_name, reply_message)
 
     def _call_cmd(self,
                   cmd_args: list[tuple[HdcDataType, bool | int | float | str | bytes]] | None,
@@ -1120,7 +1122,10 @@ class DeviceProxyBase:
         """Returns the raw string, without attempting to validate nor parsing it."""
         request_message = bytes([MessageTypeID.HDC_VERSION])
         reply_message = self.router.send_request_and_get_reply(request_message, timeout)
-        reply_payload = reply_message[1:]
+        message_type_id_of_reply = reply_message[0]
+        if message_type_id_of_reply != MessageTypeID.HDC_VERSION:
+            raise HdcError("Reply does not match the expected prefix")
+        reply_payload = reply_message[1:]  # Skip MessageTypeID prefix
         reply_string = reply_payload.decode(encoding="utf-8", errors="strict")
         return reply_string
 
@@ -1140,11 +1145,15 @@ class DeviceProxyBase:
         request_message.append(MessageTypeID.ECHO)
         request_message.extend(echo_payload)
         reply_message = self.router.send_request_and_get_reply(request_message, timeout)
+        message_type_id_of_reply = reply_message[0]
+        if message_type_id_of_reply != MessageTypeID.ECHO:
+            raise HdcError("Reply does not match the expected prefix")
         reply_payload = reply_message[1:]  # Skip MessageTypeID prefix
         return reply_payload
 
 
-class HdcReplyError(HdcError):
+class HdcCommandError(HdcError):
+    """Exception class raised whenever a device replies with an error-code to a request for executing a command."""
     reply_message: bytes
 
     def __init__(self, error_name: str, reply_message: bytes):

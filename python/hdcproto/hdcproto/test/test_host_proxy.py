@@ -28,25 +28,40 @@ class TestReplyErrorCodeRegistration(unittest.TestCase):
 
     def test_custom_replyerrorcode_which_is_available(self):
         replyerrorcode_not_predefined_by_hdc = 0xDD
+        error_name = "My custom error name"
         try:
-            self.some_command_proxy.register_error(replyerrorcode_not_predefined_by_hdc)
+            self.some_command_proxy.register_error(replyerrorcode_not_predefined_by_hdc, error_name=error_name)
         except ValueError:
             self.fail("Failed to register custom ReplyErrorCode!")
+        self.assertEqual(self.some_command_proxy.known_errors[replyerrorcode_not_predefined_by_hdc], error_name)
+
+    def test_custom_replyerrorcode_which_is_available_but_name_is_missing(self):
+        replyerrorcode_not_predefined_by_hdc = 0xDD
+        with self.assertRaises(ValueError):
+            self.some_command_proxy.register_error(replyerrorcode_not_predefined_by_hdc, error_name=None)
+
+    def test_custom_replyerrorcode_which_is_available_but_name_is_empty(self):
+        replyerrorcode_not_predefined_by_hdc = 0xDD
+        with self.assertRaises(ValueError):
+            self.some_command_proxy.register_error(replyerrorcode_not_predefined_by_hdc, error_name="")
 
     def test_custom_replyerrorcode_which_is_not_available(self):
         replyerrorcode_predefined_by_hdc = int(ReplyErrorCode.UNKNOWN_FEATURE)
+        error_name = "My custom error name"
         with self.assertRaises(ValueError):
-            self.some_command_proxy.register_error(replyerrorcode_predefined_by_hdc)
+            self.some_command_proxy.register_error(replyerrorcode_predefined_by_hdc, error_name=error_name)
 
     def test_custom_replyerrorcode_which_is_below_valid_range(self):
         replyerrorcode_negative = -1
+        error_name = "My custom error name"
         with self.assertRaises(ValueError):
-            self.some_command_proxy.register_error(replyerrorcode_negative)
+            self.some_command_proxy.register_error(replyerrorcode_negative, error_name=error_name)
 
     def test_custom_replyerrorcode_which_is_beyond_valid_range(self):
         replyerrorcode_too_big = 256
+        error_name = "My custom error name"
         with self.assertRaises(ValueError):
-            self.some_command_proxy.register_error(replyerrorcode_too_big)
+            self.some_command_proxy.register_error(replyerrorcode_too_big, error_name=error_name)
 
 
 class TestIdValidation(unittest.TestCase):

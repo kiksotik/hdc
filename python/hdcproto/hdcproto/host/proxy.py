@@ -78,7 +78,7 @@ class CommandProxyBase:
             else:
                 raise ValueError(f"Failed to register ReplyErrorCode 0x{code:02X}:'{error_name}', because that it's "
                                  f"already defined by HDC-spec to mean '{code_as_defined_by_hdc_spec}'")
-            if not isinstance(error_name, str):
+            if not isinstance(error_name, str) or len(error_name) < 1:
                 raise ValueError("Custom error codes must be assigned a human readable name")
 
         code = int(code)

@@ -16,25 +16,20 @@ logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.router"
 
 class MessageRouter:
     """
-    Plugs things together:
-        - receiving and sending of raw bytes over a specific transport,
-        - packing and unpacking of messages to/from a stream of raw bytes
-        - routing of messages received from the device
-        - sending of messages to the device
-    Not to be confused with the Device-Proxy classes!
+    Interfaces the proxy-classes with the message transport:
+        - Sending of request-messages to the device and block until reception
+          of the corresponding reply, while considering a timeout.
 
-    Can be sub-classed to override its handle_custom_message() method.
-    e.g. for tunneling of other protocols through the HDC connection.
+        - Routing of event-messages received from the device
     """
-    features: dict[int, RouterFeature]
     transport: TransportBase
     request_reply_lock: threading.Lock
     received_reply_event: threading.Event
     last_reply_message: bytes
     strict_event_handling: bool
+    event_message_handlers: dict[typing.Tuple[int, int], typing.Callable[[bytes], None]]
 
     def __init__(self, transport: TransportBase):
-        self.features = dict()
         self.transport = transport
         transport.message_received_handler = self.handle_message
         transport.connection_lost_handler = self.handle_lost_connection
@@ -42,6 +37,7 @@ class MessageRouter:
         self.received_reply_event = threading.Event()
         self.last_reply_message = bytes()
         self.strict_event_handling = False
+        self.event_message_handlers = dict()
 
     def connect(self):
         logger.info(f"Connecting via {self.transport}")
@@ -51,6 +47,20 @@ class MessageRouter:
         logger.info(f"Closing connection via {self.transport}")
         self.transport.close()
 
+    def register_event_message_handler(self,
+                                       feature_id: int,
+                                       event_id: int,
+                                       event_handler: typing.Callable[[bytes], None]) -> None:
+        if not is_valid_uint8(feature_id):
+            raise ValueError(f"feature_id value of {feature_id} is beyond valid range from 0x00 to 0xFF")
+        if not is_valid_uint8(event_id):
+            raise ValueError(f"feature_id value of {event_id} is beyond valid range from 0x00 to 0xFF")
+        key = (feature_id, event_id)
+        if key in self.event_message_handlers:
+            logger.warning(f"Replacing the event-message handler for "
+                           f"FeatureID=0x{feature_id:02X} / EventID=0x{event_id:02X}")
+        self.event_message_handlers[key] = event_handler
+
     def handle_lost_connection(self):
         logger.error(f"Lost connection via {self.transport}")
         raise NotImplementedError()
@@ -58,8 +68,6 @@ class MessageRouter:
     def handle_message(self, message: bytes):
         """
         Executed within the ReceiverThread!
-        Do not use this for message processing!
-        This is just about receiving and signalling it to the main thread, where the actual processing will happen!
         """
         if len(message) == 0:
             return  # Ignore empty messages, for now!
@@ -69,7 +77,7 @@ class MessageRouter:
         if message_type_id in [MessageTypeID.HDC_VERSION, MessageTypeID.ECHO, MessageTypeID.COMMAND]:
             self.handle_requested_reply(message)
         elif message_type_id == MessageTypeID.EVENT:
-            self.handle_event(message)
+            self.handle_event_message(message)
         elif MessageTypeID.is_custom(message_type_id=message_type_id):
             self.handle_custom_message(message)
         else:
@@ -95,17 +103,20 @@ class MessageRouter:
         self.last_reply_message = message
         self.received_reply_event.set()
 
-    def handle_event(self, message: bytes) -> None:
+    def handle_event_message(self, message: bytes) -> None:
         feature_id = message[1]
-        if feature_id not in self.features:
-            event_id = message[2]
-            if self.strict_event_handling:
-                raise HdcError(f"EventID=0x{event_id:02X} raised by unknown FeatureID=0x{feature_id:02X}")
-            else:
-                logger.debug(f"Ignoring EventID=0x{event_id:02X} raised by unknown FeatureID=0x{feature_id:02X}")
-                return
+        event_id = message[2]
+        key = (feature_id, event_id)
+        if key in self.event_message_handlers:
+            return self.event_message_handlers[key](message)
 
-        self.features[feature_id].handle_event(message)
+        if self.strict_event_handling:
+            raise HdcError(f"No event-message handler registered for "
+                           f"FeatureID=0x{feature_id:02X} / EventID=0x{event_id:02X}")
+        else:
+            logger.debug(f"Ignoring event-message, because no handler has been registered for "
+                         f"FeatureID=0x{feature_id:02X} / EventID=0x{event_id:02X}")
+            return
 
     # noinspection PyMethodMayBeStatic
     def handle_custom_message(self, message: bytes):
@@ -139,46 +150,3 @@ class MessageRouter:
 
         finally:
             self.request_reply_lock.release()
-
-
-class RouterFeature:
-    """
-    This class is about everything the MessageRouter needs to know about a feature of a device.
-    Not to be confused with the Feature-Proxy classes, which are meant as the actual API.
-    """
-    feature_id: int
-    router: MessageRouter
-    event_handlers: dict[int, typing.Callable[[bytes], None]]  # Handlers implemented on the proxy class
-
-    def __init__(self, router: MessageRouter, feature_id: int):
-        if not is_valid_uint8(feature_id):
-            raise ValueError(f"feature_id value of {feature_id} is beyond valid range from 0x00 to 0xFF")
-        self.event_handlers = dict()
-        self.feature_id = feature_id
-        self.router = router
-        if feature_id in router.features:
-            logger.warning(f"Re-registering a feature with ID {feature_id}")
-        router.features[feature_id] = self
-
-    def register_event_handler(self, event_id: int, event_handler: typing.Callable[[bytes], None]) -> None:
-        if event_id in self.event_handlers:
-            raise HdcError(f"Feature {self.feature_id} already has EventID {event_id}")
-        self.event_handlers[event_id] = event_handler
-
-    def handle_event(self, message: bytes):
-        """
-        Executed within the ReceiverThread!
-        Do not use this for message processing!
-        This is just about receiving and signalling it to the main thread, where the actual processing will happen!
-        """
-        event_id = message[2]
-        if event_id not in self.event_handlers:
-            if self.router.strict_event_handling:
-                raise HdcError(f"Unknown EventID=0x{event_id:02X} raised by FeatureID=0x{self.feature_id:02X}")
-            else:
-                logger.debug(f"Ignoring EventID=0x{event_id:02X} "
-                             f"raised by FeatureID=0x{self.feature_id:02X}")
-                return
-
-        event_handler = self.event_handlers[event_id]
-        event_handler(message)

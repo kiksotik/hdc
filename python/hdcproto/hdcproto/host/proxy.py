@@ -60,6 +60,10 @@ class CommandProxyBase:
         self.register_error(ReplyErrorCode.COMMAND_NOT_ALLOWED_NOW)
         self.register_error(ReplyErrorCode.COMMAND_FAILED)
 
+    @property
+    def router(self) -> hdcproto.host.router.MessageRouter:
+        return self.feature_proxy.device_proxy.router
+
     def register_error(self, code: int | ReplyErrorCode, error_name: str | None = None) -> None:
         if isinstance(code, ReplyErrorCode):
             code = int(code)
@@ -91,9 +95,7 @@ class CommandProxyBase:
         if not request_message.startswith(self.msg_prefix):
             raise ValueError("Request does not match the expected prefix")
 
-        p = self.feature_proxy.router_feature.router  # Just an alias for readability
-
-        reply_message = p.send_request_and_get_reply(request_message, timeout)
+        reply_message = self.router.send_request_and_get_reply(request_message, timeout)
 
         if not reply_message.startswith(self.msg_prefix):
             # ToDo: Might be a delayed reply to a previous request that timed-out. Maybe we should just ignore it?
@@ -359,7 +361,14 @@ class EventProxyBase:
 
         self.event_payload_handlers = list()
 
-        self.feature_proxy.router_feature.register_event_handler(self.event_id, self._event_message_handler)
+        self.router.register_event_message_handler(
+            self.feature_proxy.feature_id,
+            self.event_id,
+            self._event_message_handler)
+
+    @property
+    def router(self) -> hdcproto.host.router.MessageRouter:
+        return self.feature_proxy.device_proxy.router
 
     def _event_message_handler(self, event_message: bytes) -> None:
         """
@@ -925,7 +934,8 @@ class PropertyProxy_LogEventThreshold(PropertyProxy_RW_UINT8):
 
 
 class FeatureProxyBase:
-    router_feature: hdcproto.host.router.RouterFeature
+    feature_id: int
+    device_proxy: DeviceProxyBase
     state_names_by_id: dict[int, str]
 
     def __init__(self,
@@ -942,8 +952,10 @@ class FeatureProxyBase:
         if not is_valid_uint8(feature_id):
             raise ValueError(f"feature_id value of 0x{feature_id:02X} is beyond valid range from 0x00 to 0xFF")
 
-        self.router_feature = hdcproto.host.router.RouterFeature(router=device_proxy.router,
-                                                                 feature_id=feature_id)
+        self.feature_id = feature_id
+        self.device_proxy = device_proxy
+        self.event_handlers = dict()
+
         self.state_names_by_id = dict()
 
         if state_names_by_id:
@@ -988,8 +1000,8 @@ class FeatureProxyBase:
         self.prop_log_event_threshold = PropertyProxy_LogEventThreshold(self)
 
     @property
-    def feature_id(self) -> int:
-        return self.router_feature.feature_id
+    def router(self) -> hdcproto.host.router.MessageRouter:
+        return self.device_proxy.router
 
     def register_state(self, state_id: int, state_name: str):
         if not is_valid_uint8(state_id):
@@ -1018,7 +1030,7 @@ class FeatureProxyBase:
             self.logger.warning(f"Can't resolve name of FeatureStateID 0x{state_id:02X}, because "
                                 f"no states were registered with this proxy.")
 
-        if not state_id in self.state_names_by_id:
+        if state_id not in self.state_names_by_id:
             self.logger.warning(f"Can't resolve name of FeatureStateID 0x{state_id:02X}, because "
                                 f"no name was registered for this ID.")
             return f"0x{state_id:02X}"  # Use hexadecimal representation as a fallback

@@ -1343,12 +1343,17 @@ bool HDC_ProcessRxMessage(const uint8_t *pRequestMessage, const uint8_t Size) {
 
   switch (MessageTypeID) {
     case HDC_MessageTypeID_HdcVersion:
+      // Silently tolerate any unexpected message-payload, as mandated by HDC-spec
       return HDC_MsgReply_HdcVersion(pRequestMessage, Size);
 
     case HDC_MessageTypeID_Echo:
       return HDC_MsgReply_Echo(pRequestMessage, Size);
 
     case HDC_MessageTypeID_Command:
+      if (Size < 3) {
+        HDC_EvtMsg_Log(NULL, HDC_EventLogLevel_ERROR, "Malformed command request");
+        return false;
+      }
       return HDC_MsgReply_Command(pRequestMessage, Size);
   }
 

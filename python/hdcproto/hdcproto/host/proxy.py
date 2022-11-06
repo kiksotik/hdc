@@ -15,7 +15,7 @@ import semver
 import hdcproto.host.router
 import hdcproto.transport.serialport
 from hdcproto.common import (HdcError, MessageTypeID, FeatureID, CmdID, CommandErrorCode, EvtID, PropID, HdcDataType,
-                             is_valid_uint8)
+                             is_valid_uint8, HdcCommandError)
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.proxy"
 
@@ -38,11 +38,11 @@ class CommandProxyBase:
         # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy.MyFeatureProxy.MyCommandProxy"
         self.logger = feature_proxy.logger.getChild(self.__class__.__name__)
 
-        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"as proxy for CommandID=0x{command_id:02X} on FeatureID=0x{feature_proxy.feature_id:02X}")
-
         if not is_valid_uint8(command_id):
             raise ValueError(f"command_id value of {command_id} is beyond valid range from 0x00 to 0xFF")
+
+        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
+                          f"as proxy for CommandID=0x{command_id:02X} on FeatureID=0x{feature_proxy.feature_id:02X}")
 
         self.feature_proxy = feature_proxy
         self.command_id = command_id
@@ -109,12 +109,7 @@ class CommandProxyBase:
         if error_code == CommandErrorCode.NO_ERROR:
             return reply_message
 
-        try:
-            error_name = self.known_command_error_codes[error_code]
-        except KeyError:
-            error_name = f"ErrorCode=0x{error_code:02X}"  # Fallback to numeric value
-            logger.warning(f"Command {self.__class__.__name__} failed with unknown ErrorCode=0x{error_code:02X}. ")
-        raise HdcCommandError(error_name, reply_message)
+        raise HdcCommandError.from_reply(reply_message, self.known_command_error_codes, self.logger)
 
     def _call_cmd(self,
                   cmd_args: list[tuple[HdcDataType, bool | int | float | str | bytes]] | None,
@@ -138,8 +133,8 @@ class CommandProxyBase:
         self.logger.debug(f"Finished executing CommandID=0x{self.command_id:02X}")
 
         try:
-            return_values = HdcDataType.parse_reply_msg(reply_message=reply_message,
-                                                        expected_data_types=return_types)
+            return_values = HdcDataType.parse_command_reply_msg(reply_message=reply_message,
+                                                                expected_data_types=return_types)
         except ValueError as e:
             raise HdcError(f"Failed to parse reply to CommandID={self.command_id:02X}, because: {e}")
 
@@ -347,11 +342,11 @@ class EventProxyBase:
         # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy.MyFeatureProxy.MyEventProxy"
         self.logger = feature_proxy.logger.getChild(self.__class__.__name__)
 
-        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"as proxy for EventID=0x{event_id:02X} on FeatureID=0x{feature_proxy.feature_id:02X}")
-
         if not is_valid_uint8(event_id):
             raise ValueError(f"event_id value of 0x{event_id:02X} is beyond valid range from 0x00 to 0xFF")
+
+        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
+                          f"as proxy for EventID=0x{event_id:02X} on FeatureID=0x{feature_proxy.feature_id:02X}")
 
         self.event_id = event_id
         self.feature_proxy = feature_proxy
@@ -487,11 +482,11 @@ class PropertyProxyBase:
         # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy.MyFeatureProxy.MyPropertyProxy"
         self.logger = feature_proxy.logger.getChild(self.__class__.__name__)
 
-        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"as proxy for PropertyID=0x{property_id:02X} on FeatureID=0x{feature_proxy.feature_id:02X}")
-
         if not is_valid_uint8(property_id):
             raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
+
+        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
+                          f"as proxy for PropertyID=0x{property_id:02X} on FeatureID=0x{feature_proxy.feature_id:02X}")
 
         self.feature_proxy = feature_proxy
         self.property_id = property_id
@@ -955,11 +950,11 @@ class FeatureProxyBase:
         # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy.MyFeatureProxy"
         self.logger = device_proxy.logger.getChild(self.__class__.__name__)
 
-        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"as proxy for FeatureID=0x{feature_id:02X}")
-
         if not is_valid_uint8(feature_id):
             raise ValueError(f"feature_id value of 0x{feature_id:02X} is beyond valid range from 0x00 to 0xFF")
+
+        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
+                          f"as proxy for FeatureID=0x{feature_id:02X}")
 
         self.feature_id = feature_id
         self.device_proxy = device_proxy
@@ -983,8 +978,8 @@ class FeatureProxyBase:
         self.cmd_get_event_description = GetEventDescriptionCommandProxy(self)
 
         # Events
-        self.evt_log = LogEventProxy(self)
         self.evt_state_transition = StateTransitionEventProxy(self)
+        self.evt_log = LogEventProxy(self)
 
         # Properties (immutable)
         inf = float('inf')  # Infinity, meaning that the cached value will not expire (by default)
@@ -1153,20 +1148,3 @@ class DeviceProxyBase:
             raise HdcError("Reply does not match the expected prefix")
         reply_payload = reply_message[1:]  # Skip MessageTypeID prefix
         return reply_payload
-
-
-class HdcCommandError(HdcError):
-    """Exception class raised whenever a device replies with an error-code to a request for executing a command."""
-    reply_message: bytes
-
-    def __init__(self, error_name: str, reply_message: bytes):
-        self.reply_message = reply_message
-        super().__init__(error_name)
-
-    @property
-    def error_code(self) -> int:
-        return self.reply_message[3]
-
-    @property
-    def error_description(self) -> str:
-        return self.reply_message[4:].decode(encoding="utf-8", errors="strict")

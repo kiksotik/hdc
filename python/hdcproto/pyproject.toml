@@ -62,7 +62,6 @@ exclude_lines = [
 
 [tool.hatch.build]
 exclude = [
-  "hdcproto/device",
   "hdcproto/util",
   "hdcproto/host/proxy_introspected.py"
 ]

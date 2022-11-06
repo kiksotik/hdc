@@ -1,15 +1,66 @@
 from __future__ import annotations
 
 import enum
+import logging
 import struct
 import typing
 
+HDC_VERSION = "HDC 1.0.0-alpha.10"  # ToDo: How should we manage the HDC version?
+
 
 class HdcError(Exception):
+    error_message: str
+
+    def __init__(self, error_message: str):
+        self.error_message = error_message
+
+
+class HdcCommandError(HdcError):
+    """Exception class raised whenever a device replies with an error-code to a request for executing a command."""
+    cmd_reply_message: bytes | None
+    error_code: int
     error_name: str
 
-    def __init__(self, error_description: str):
-        self.error_name = error_description
+    def __init__(self, feature_id: int, command_id: int, error_code: int, error_name: str, error_message: str | None = None):
+        self.feature_id = feature_id
+        self.command_id = command_id
+        self.error_code = error_code
+        self.error_name = error_name
+        if error_message is None:
+            error_message = ""
+        self.error_message = error_message
+
+        self.cmd_reply_message = bytes([MessageTypeID.COMMAND,
+                                        self.feature_id,
+                                        self.command_id,
+                                        self.error_code,
+                                        HdcDataType.UTF8.value_to_bytes(self.error_message)])
+
+    @classmethod
+    def from_reply(cls, cmd_reply_message: bytes, known_errors: dict[int, str], proxy_logger: logging.Logger):
+        """Factory as used by proxies on the host side"""
+        feature_id = cmd_reply_message[1]
+        command_id = cmd_reply_message[2]
+        error_code = cmd_reply_message[3]
+        error_message = cmd_reply_message[3:].decode(encoding="utf-8", errors="strict")  # Might be empty
+        try:
+            error_name = known_errors[error_code]
+        except KeyError:
+            error_name = f"CommandErrorCode=0x{error_code:02X}"  # Fallback to numeric value
+            proxy_logger.warning(f"Unknown CommandErrorCode=0x{error_code:02X}.")
+
+        result = cls(
+            feature_id=feature_id,
+            command_id=command_id,
+            error_code=error_code,
+            error_name=error_name,
+            error_message=error_message)
+        assert cmd_reply_message == result.cmd_reply_message  # Sanity check
+
+        return result
+
+
+
 
 
 @enum.unique
@@ -83,6 +134,13 @@ class CommandErrorCode(enum.IntEnum):
             return "Property is read-only"
         elif self == CommandErrorCode.UNKNOWN_EVENT:
             return "Unknown event"
+
+    @staticmethod
+    def is_custom(command_error_code: int):
+        if not is_valid_uint8(command_error_code):
+            raise ValueError(f"command_error_code value of {command_error_code} is beyond "
+                             f"valid range from 0x00 to 0xFF")
+        return command_error_code < 0xF0 and command_error_code != 0
 
 
 @enum.unique
@@ -283,9 +341,9 @@ class HdcDataType(enum.IntEnum):
         return return_values
 
     @staticmethod
-    def parse_reply_msg(reply_message: bytes,
-                        expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
-        raw_payload = reply_message[4:]  # Strip 4 leading bytes: MsgID + FeatureID + EvtID + CommandErrorCode
+    def parse_command_reply_msg(reply_message: bytes,
+                                expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
+        raw_payload = reply_message[4:]  # Strip 4 leading bytes: MsgID + FeatureID + CmdID + CommandErrorCode
         return HdcDataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
 
     @staticmethod

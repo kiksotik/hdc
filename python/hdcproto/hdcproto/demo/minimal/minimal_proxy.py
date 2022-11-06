@@ -1,5 +1,9 @@
 """
-Proxy classes to communicate with i.e. a NUCLEO prototype board running any of the Demo_Minimal STM32 firmware examples.
+Host-side API (a.k.a. "proxy classes") to communicate with any device that implements the Demo_Minimal example.
+
+Device can be::
+    - A NUCLEO prototype board running any of the Demo_Minimal STM32 firmware examples.
+    - A Python process running the minimal_device.py example.
 """
 import enum
 from datetime import datetime
@@ -13,7 +17,7 @@ class MinimalCore:
 
     def __init__(self, device_proxy: DeviceProxyBase):
         # We could "inherit" from CoreFeatureProxyBase, but we choose "composition", instead, because
-        # it allows us to separate more cleanly our custom proxies from those defined in DeviceProxyBase.
+        # it allows us to separate more cleanly our custom proxies from those defined in CoreFeatureProxyBase.
         # This is for example useful to keep the autocompletion list short and readable while coding.
         self.hdc = CoreFeatureProxyBase(device_proxy=device_proxy)
 

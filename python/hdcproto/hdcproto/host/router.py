@@ -59,7 +59,7 @@ class MessageRouter:
         if not is_valid_uint8(feature_id):
             raise ValueError(f"feature_id value of {feature_id} is beyond valid range from 0x00 to 0xFF")
         if not is_valid_uint8(event_id):
-            raise ValueError(f"feature_id value of {event_id} is beyond valid range from 0x00 to 0xFF")
+            raise ValueError(f"event_id value of {event_id} is beyond valid range from 0x00 to 0xFF")
         key = (feature_id, event_id)
         if key in self.event_message_handlers:
             logger.warning(f"Replacing the event-message handler for "
@@ -71,7 +71,7 @@ class MessageRouter:
                                         event_handler: typing.Callable[[bytes], None]) -> None:
         """
         Mainly intended for the tunneling of other protocols through the HDC connection, by encapsulating data into
-        a custom message which the device will know how to de-encapsulate and route.
+        a custom message which the given handler will know how to de-encapsulate and re-route.
         Tunneling of other HDC connections can alternatively and more efficiently be done by MessageTypeID translation.
 
         Warning: Whenever a custom message type was explicitly requested via send_request_and_get_reply(), then
@@ -167,8 +167,7 @@ class MessageRouter:
                          f"FeatureID=0x{feature_id:02X} / EventID=0x{event_id:02X}")
             return
 
-    # noinspection PyMethodMayBeStatic
-    def _handle_custom_message(self, message: bytes):
+    def _handle_custom_message(self, message: bytes) -> None:
         """Warning: This will be executed from within the SerialTransport.receiver_thread"""
         message_type_id = message[0]
         if message_type_id in self.custom_message_handlers:

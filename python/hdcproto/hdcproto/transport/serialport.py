@@ -43,7 +43,7 @@ class SerialTransport(TransportBase):
         self.packetizer = Packetizer()
         self.port_access_lock = threading.Lock()
 
-    def connect(self):
+    def connect(self) -> None:
         if not self.message_received_handler or not self.connection_lost_handler:
             raise RuntimeError("Must assign message_received_handler and connection_lost_handler before connecting")
         logger.info(f"Connecting to {self.serial_url}")
@@ -54,17 +54,17 @@ class SerialTransport(TransportBase):
         self.keep_thread_alive = True
         self.receiver_thread.start()
 
-    def send_message(self, message: bytes):
+    def send_message(self, message: bytes) -> None:
         with self.port_access_lock:
             for packet in self.packetizer.pack_message(message):
                 self.serial_port.write(packet)  # ToDo: Maybe we should concatenate all packets and just call this once?
 
-    def flush(self):
+    def flush(self) -> None:
         with self.port_access_lock:
             while self.serial_port.out_waiting or self.serial_port.in_waiting:
                 time.sleep(0.001)
 
-    def close(self):
+    def close(self) -> None:
         """
         Stops the receiver-thread and close the serial port.
         Does so immediately without caring for any ongoing communication
@@ -92,7 +92,7 @@ class SerialTransport(TransportBase):
         self.flush()
         self.close()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.__class__.__name__}('{self.serial_url}')"
 
     def _receiver_thread_loop(self, transport: SerialTransport) -> None:

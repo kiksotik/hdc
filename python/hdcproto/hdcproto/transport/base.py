@@ -17,18 +17,18 @@ class TransportBase:
         self.message_received_handler = message_received_handler
         self.connection_lost_handler = connection_lost_handler
 
-    def connect(self):
+    def connect(self) -> None:
         raise NotImplementedError()
 
-    def send_message(self, message: bytes):
+    def send_message(self, message: bytes) -> None:
         """Transmits a chunk of raw bytes to the device"""
         raise NotImplementedError()
 
-    def flush(self):
+    def flush(self) -> None:
         raise NotImplementedError()
 
-    def close(self):
+    def close(self) -> None:
         raise NotImplementedError()
 
-    def __str__(self):
+    def __str__(self) -> str:
         raise NotImplementedError()

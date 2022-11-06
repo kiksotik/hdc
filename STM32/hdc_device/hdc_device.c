@@ -918,7 +918,7 @@ const HDC_Event_Descriptor_t HDC_Event_Log = {
   .EventID = HDC_EventID_Log,
   .EventName = "Log",
   .EventDescription =
-      "-> UINT8 LogLevel, UTF8 LogText\n"
+      "(UINT8 LogLevel, UTF8 LogMsg)\n"
       "Software logging. LogLevels are the same as defined in python's logging module."
 };
 
@@ -926,7 +926,7 @@ const HDC_Event_Descriptor_t HDC_Event_FeatureStateTransition = {
   .EventID = HDC_EventID_FeatureStateTransition,
   .EventName = "FeatureStateTransition",
   .EventDescription =
-      "-> UINT8 PreviousStateID , UINT8 CurrentStateID\n"
+      "(UINT8 PreviousStateID , UINT8 CurrentStateID)\n"
       "Notifies host about transitions of this feature's state-machine."
 };
 
@@ -1244,9 +1244,9 @@ const HDC_Property_Descriptor_t *HDC_MandatoryPropertiesOfCoreFeature[NUM_MANDAT
   &(HDC_Property_Descriptor_t ) {
     .PropertyID = HDC_PropertyID_MaxReqMsgSize,
     .PropertyName = "MaxReqMsgSize",
-    .PropertyDataType = HDC_DataTypeID_UINT16,
+    .PropertyDataType = HDC_DataTypeID_UINT32,
     .PropertyIsReadonly = true,
-    .pValue = &(uint16_t){HDC_MAX_REQ_MESSAGE_SIZE},  // Pointer to a literal integer value. https://stackoverflow.com/a/3443883
+    .pValue = &(uint32_t){HDC_MAX_REQ_MESSAGE_SIZE},  // Pointer to a literal integer value. https://stackoverflow.com/a/3443883
     .PropertyDescription = "Maximum number of bytes of a request message that this device can cope with."
   },
 };
@@ -1265,7 +1265,7 @@ bool HDC_MsgReply_HdcVersion(
   // Sanity check whether caller did its job correctly
   assert_param(pRequestMessage[0] == HDC_MessageTypeID_HdcVersion);
 
-  char pReplyMessage[] = "_HDC 1.0.0-alpha.9";  // Leading underscore is just a placeholder for the MessageTypeID.
+  char pReplyMessage[] = "_HDC 1.0.0-alpha.10";  // Leading underscore is just a placeholder for the MessageTypeID.
   uint8_t ReplySize = strlen(pReplyMessage);
 
   pReplyMessage[0] = HDC_MessageTypeID_HdcVersion;  // Inject MessageTypID, for this to be a valid reply message.
@@ -1522,6 +1522,10 @@ void HDC_Init_WithCustomMsgRouting(
     HDC_Feature_Descriptor_t **HDC_Features,
     uint8_t NumFeatures,
     HDC_MessageHandler_t CustomMsgRouter) {
+
+  // ToDo: Validation of descriptors:
+  //       - No duplicate IDs nor names for features, commands and properties
+  //       - No empty names for features, commands and properties
 
   hHDC.huart = huart;
   hHDC.Features = HDC_Features;

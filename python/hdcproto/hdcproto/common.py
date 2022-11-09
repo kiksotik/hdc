@@ -15,6 +15,10 @@ class HdcError(Exception):
         self.error_message = error_message
 
 
+class HdcDataTypeError(HdcError):
+    pass
+
+
 class HdcCommandError(HdcError):
     """Exception class raised whenever a device replies with an error-code to a request for executing a command."""
     cmd_reply_message: bytes | None
@@ -58,9 +62,6 @@ class HdcCommandError(HdcError):
         assert cmd_reply_message == result.cmd_reply_message  # Sanity check
 
         return result
-
-
-
 
 
 @enum.unique
@@ -227,24 +228,24 @@ class HdcDataType(enum.IntEnum):
         if isinstance(value, str):
             if self == HdcDataType.UTF8:
                 return value.encode(encoding="utf-8", errors="strict")
-            raise HdcError(f"Improper target data type {self.name} for a str value")
+            raise HdcDataTypeError(f"Improper target data type {self.name} for a str value")
 
         if isinstance(value, bytes):
             if self == HdcDataType.BLOB:
                 return value
-            raise HdcError(f"Improper target data type {self.name} for a bytes value")
+            raise HdcDataTypeError(f"Improper target data type {self.name} for a bytes value")
 
         fmt = self.struct_format()
 
         if fmt is None:
-            raise HdcError(f"Don't know how to convert into {self.name}")
+            raise HdcDataTypeError(f"Don't know how to convert into {self.name}")
 
         if isinstance(value, bool):
             if self == HdcDataType.BOOL:
                 return struct.pack(fmt, value)
             else:
-                raise HdcError(f"Vale of type {value.__class__} is unsuitable "
-                               f"for a property of type {self.name}")
+                raise HdcDataTypeError(f"Vale of type {value.__class__} is unsuitable "
+                                       f"for a property of type {self.name}")
 
         if isinstance(value, int):
             if self in (HdcDataType.UINT8,
@@ -255,19 +256,19 @@ class HdcDataType(enum.IntEnum):
                         HdcDataType.INT32):
                 return struct.pack(fmt, value)
             else:
-                raise HdcError(f"Vale of type {value.__class__} is unsuitable "
-                               f"for a property of type {self.name}")
+                raise HdcDataTypeError(f"Vale of type {value.__class__} is unsuitable "
+                                       f"for a property of type {self.name}")
 
         if isinstance(value, float):
             if self in (HdcDataType.FLOAT,
                         HdcDataType.DOUBLE):
                 return struct.pack(fmt, value)
             else:
-                raise HdcError(f"Vale of type {value.__class__} is unsuitable "
-                               f"for a property of type {self.name}")
+                raise HdcDataTypeError(f"Vale of type {value.__class__} is unsuitable "
+                                       f"for a property of type {self.name}")
 
-        raise HdcError(f"Don't know how to convert value of type {value.__class__} "
-                       f"into property of type {self.name}")
+        raise HdcDataTypeError(f"Don't know how to convert value of type {value.__class__} "
+                               f"into property of type {self.name}")
 
     def bytes_to_value(self, value_as_bytes: bytes) -> int | float | str | bytes:
 
@@ -280,13 +281,13 @@ class HdcDataType(enum.IntEnum):
         fmt = self.struct_format()
 
         if fmt is None:
-            raise HdcError(f"Don't know how to convert bytes of property type {self.name} "
-                           f"into a python type")
+            raise HdcDataTypeError(f"Don't know how to convert bytes of property type {self.name} "
+                                   f"into a python type")
 
         # Sanity check data size
         expected_size = self.size()
         if len(value_as_bytes) != expected_size:
-            raise HdcError(
+            raise HdcDataTypeError(
                 f"Mismatch of data size. "
                 f"Expected {expected_size} bytes, "
                 f"but attempted to convert {len(value_as_bytes)}")
@@ -303,7 +304,7 @@ class HdcDataType(enum.IntEnum):
 
         if not expected_data_types:
             if len(raw_payload) > 0:
-                raise ValueError("Payload was expected to be empty, but it isn't.")
+                raise HdcDataTypeError("Payload was expected to be empty, but it isn't.")
             return None
 
         return_as_list = True  # unless...
@@ -312,7 +313,7 @@ class HdcDataType(enum.IntEnum):
             expected_data_types = [expected_data_types, ]  # Just for it to work in the for-loops below
 
         if any(not isinstance(t, HdcDataType) for t in expected_data_types):
-            raise TypeError("Only knows how to parse for HdcDataType. (Build-in python types are not supported)")
+            raise HdcDataTypeError("Only knows how to parse for HdcDataType. (Build-in python types are not supported)")
 
         return_values = list()
         for idx, return_data_type in enumerate(expected_data_types):
@@ -321,18 +322,18 @@ class HdcDataType(enum.IntEnum):
                 # A size of None means it is variable length, which
                 # is only allowed as last of the expected values!
                 if idx != len(expected_data_types) - 1:
-                    raise ValueError("Variable size values (UTF8, BLOB) are only allowed as last item")
+                    raise HdcDataTypeError("Variable size values (UTF8, BLOB) are only allowed as last item")
                 else:
                     size = len(raw_payload)  # Assume that the remainder of the payload is the actual value size
             if size > len(raw_payload):
-                raise ValueError("Payload is shorter than expected.")
+                raise HdcDataTypeError("Payload is shorter than expected.")
             return_value_as_bytes = raw_payload[:size]
             return_value = return_data_type.bytes_to_value(return_value_as_bytes)
             return_values.append(return_value)
             raw_payload = raw_payload[size:]
 
         if len(raw_payload) > 0:
-            raise ValueError("Payload is longer than expected.")
+            raise HdcDataTypeError("Payload is longer than expected.")
 
         if not return_as_list:
             assert len(expected_data_types) == 1

@@ -8,6 +8,8 @@ import typing
 
 from hdcproto.common import MessageTypeID, is_valid_uint8, CommandErrorCode, HDC_VERSION
 from hdcproto.transport.base import TransportBase
+from hdcproto.transport.serialport import SerialTransport
+from hdcproto.transport.tcpserver import SocketServerTransport
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.router"
 
@@ -20,30 +22,54 @@ class MessageRouter:
 
         - Routing of event-messages received from the device
     """
-    transport: TransportBase
+    connection_url: str | None
+    transport: TransportBase | None
     pending_request_message: bytes | None
     command_request_handlers: dict[typing.Tuple[int, int], typing.Callable[[bytes], None]]
     custom_message_handlers: dict[int, typing.Callable[[bytes], None]]
 
-    def __init__(self, transport: TransportBase):
-        self.transport = transport
-        transport.message_received_handler = self._handle_message
-        transport.connection_lost_handler = self._handle_lost_connection
+    def __init__(self, connection_url: str):
+        self.connection_url = connection_url
+        self.transport = None
         self.pending_request_message = None
         self.command_request_handlers = dict()
         self.custom_message_handlers = dict()
 
-    def connect(self):
+    @property
+    def is_connected(self) -> bool:
+        return self.transport is not None
+
+    def connect(self, connection_url: str | None = None):
+        if connection_url is None and self.connection_url is None:
+            raise ValueError("No connection_url provided neither via constructor nor in this call.")
+
+        if self.is_connected:
+            raise RuntimeError("Already connected")
+
+        if connection_url is not None:
+            self.connection_url = connection_url
+        transport_class = TransportBase.resolve_transport_class(connection_url=self.connection_url, is_server=True)
+        self.transport = transport_class(connection_url=self.connection_url,
+                                         message_received_handler=self._handle_message,
+                                         connection_lost_handler=self._handle_lost_connection)
         logger.info(f"Connecting via {self.transport}")
         self.transport.connect()
+        logger.debug("Connected")
 
     def close(self):
+        if not self.is_connected:
+            return
+
         logger.info(f"Closing connection via {self.transport}")
         self.transport.close()
+        self.transport = None
 
-    def _handle_lost_connection(self):
-        logger.error(f"Lost connection via {self.transport}")
-        raise NotImplementedError()
+    def _handle_lost_connection(self, exception: Exception | None):
+        if exception:
+            logger.exception(f"Lost connection via {self.transport}")
+        else:
+            logger.info("Lost connection, in an orderly manner.")
+
 
     def register_command_request_handler(self,
                                          feature_id: int,
@@ -86,12 +112,19 @@ class MessageRouter:
 
     def send_event_message(self, event_message: bytes) -> None:
         assert event_message[0] == MessageTypeID.EVENT
+
+        if self.transport is None:
+            raise RuntimeError("Not connected")
+
         self.transport.send_message(event_message)
 
     def send_reply_for_pending_request(self, reply_message: bytes) -> None:
         """
         Will send a reply message and release the lock on reception of further requests.
         """
+        if self.transport is None:
+            raise RuntimeError("Not connected")
+
         if self.pending_request_message is None:
             # Raise an exception, because Device implementation is to blame for this
             raise RuntimeError("Mustn't send a reply if no request is pending to be replied to")

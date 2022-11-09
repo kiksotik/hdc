@@ -9,6 +9,7 @@ import typing
 
 from hdcproto.common import MessageTypeID, HdcError, is_valid_uint8
 from hdcproto.transport.base import TransportBase
+from hdcproto.transport.serialport import SerialTransport
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.router"
 
@@ -21,7 +22,8 @@ class MessageRouter:
 
         - Routing of event-messages received from the device
     """
-    transport: TransportBase
+    connection_url: str | None
+    transport: TransportBase | None
     request_reply_lock: threading.Lock
     received_reply_event: threading.Event
     last_reply_message: bytes
@@ -29,10 +31,9 @@ class MessageRouter:
     event_message_handlers: dict[typing.Tuple[int, int], typing.Callable[[bytes], None]]
     custom_message_handlers: dict[int, typing.Callable[[bytes], None]]
 
-    def __init__(self, transport: TransportBase):
-        self.transport = transport
-        transport.message_received_handler = self._handle_message
-        transport.connection_lost_handler = self._handle_lost_connection
+    def __init__(self, connection_url: str | None):
+        self.connection_url = connection_url
+        self.transport = None
         self.request_reply_lock = threading.Lock()
         self.received_reply_event = threading.Event()
         self.last_reply_message = bytes()
@@ -40,17 +41,41 @@ class MessageRouter:
         self.event_message_handlers = dict()
         self.custom_message_handlers = dict()
 
-    def connect(self):
+    @property
+    def is_connected(self) -> bool:
+        return self.transport is not None
+
+    def connect(self, connection_url: str | None = None):
+        if connection_url is None and self.connection_url is None:
+            raise ValueError("No connection_url provided neither via constructor nor in this call.")
+
+        if self.is_connected:
+            raise RuntimeError("Already connected")
+
+        if connection_url is not None:
+            self.connection_url = connection_url
+        transport_class = TransportBase.resolve_transport_class(connection_url=self.connection_url, is_server=False)
+        self.transport = transport_class(connection_url=self.connection_url,
+                                         message_received_handler=self._handle_message,
+                                         connection_lost_handler=self._handle_lost_connection)
         logger.info(f"Connecting via {self.transport}")
         self.transport.connect()
+        logger.debug("Connected")
 
     def close(self):
+        if not self.is_connected:
+            return
+
         logger.info(f"Closing connection via {self.transport}")
         self.transport.close()
+        self.transport = None
 
-    def _handle_lost_connection(self):
-        logger.error(f"Lost connection via {self.transport}")
-        raise NotImplementedError()
+    def _handle_lost_connection(self, exception: Exception):
+        if exception:
+            logger.exception(f"Lost connection via {self.transport}")
+            raise exception  # ToDo: Should we re-raise it?
+        else:
+            logger.info(f"Lost connection via {self.transport} in an orderly manner.")
 
     def register_event_message_handler(self,
                                        feature_id: int,
@@ -97,6 +122,9 @@ class MessageRouter:
         try:
             if self.received_reply_event.is_set():
                 raise HdcError("Did not expect the received_reply_event to be signaled before sending a request")
+
+            if self.transport is None:
+                raise RuntimeError("Not connected")
 
             self.transport.send_message(request_message)
 

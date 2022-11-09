@@ -19,68 +19,93 @@ class SerialTransport(TransportBase):
     Internally it uses the HDC-packetizer to allow transmission of HDC-messages, because serial-communication
     is only able to transmit raw streams of bytes.
 
+    Can also be used by a host to connect via TCP socket to a device, because pyserial is capable of that:
+       https://pyserial.readthedocs.io/en/latest/url_handlers.html
+    But it won't work for a device to connect via TCP socket, because pyserial is not able to behave as a TCP server!
+
     Warning: Message handler callbacks will be called directly from a dedicated data-receiver-thread!
     """
-    serial_url: str
-    serial_port: serial.Serial | None
-    receiver_thread: threading.Thread | None
-    keep_thread_alive: bool
-    packetizer: Packetizer
-    port_access_lock = threading.Lock
+    _serial_port: serial.Serial | None
+    _receiver_thread: threading.Thread | None
+    _keep_thread_alive: bool
+    _packetizer: Packetizer
+    _writing_lock = threading.RLock
 
     TIMEOUT_READ = 0.5  # Period of time after which we can be sure that an incoming data burst is completed
 
     def __init__(self,
-                 serial_url: str,
-                 message_received_handler: typing.Callable[[bytes], None] | None = None,
-                 connection_lost_handler: typing.Callable[[Exception], None] | None = None):
-        super().__init__(message_received_handler=message_received_handler,
+                 connection_url: str,
+                 message_received_handler: typing.Callable[[bytes], None],
+                 connection_lost_handler: typing.Callable[[Exception | None], None]):
+        super().__init__(connection_url=connection_url,
+                         message_received_handler=message_received_handler,
                          connection_lost_handler=connection_lost_handler)
-        self.serial_url = serial_url
-        self.serial_port = None  # Will be initialized on connection
-        self.receiver_thread = None  # Will be initialized on connection
-        self.keep_thread_alive = True
-        self.packetizer = Packetizer()
-        self.port_access_lock = threading.Lock()
+        self._serial_port = None  # Will be initialized on connection
+        self._receiver_thread = None  # Will be initialized on connection
+        self._keep_thread_alive = True
+        self._packetizer = Packetizer()
+        self._writing_lock = threading.RLock()
 
     def connect(self) -> None:
-        if not self.message_received_handler or not self.connection_lost_handler:
-            raise RuntimeError("Must assign message_received_handler and connection_lost_handler before connecting")
-        logger.info(f"Connecting to {self.serial_url}")
-        self.serial_port = serial.serial_for_url(self.serial_url, timeout=self.TIMEOUT_READ, baudrate=115200)
-        self.receiver_thread = threading.Thread(target=self._receiver_thread_loop,
-                                                kwargs={'transport': self},
-                                                daemon=True)
-        self.keep_thread_alive = True
-        self.receiver_thread.start()
+        if self.is_connected:
+            raise RuntimeError("Already connected")
+
+        logger.info(f"Connecting to {self.connection_url}")
+        self._serial_port = serial.serial_for_url(self.connection_url, timeout=self.TIMEOUT_READ, baudrate=115200)
+        self._receiver_thread = threading.Thread(target=self._receiver_thread_loop,
+                                                 kwargs={'transport': self},
+                                                 daemon=True)
+        self._keep_thread_alive = True
+        self._receiver_thread.start()
+
+    @property
+    def is_connected(self) -> bool:
+        return self._receiver_thread is not None
+
+    def write(self, data: bytes) -> int:
+        if not self.is_connected:
+            raise RuntimeError("Not connected")
+
+        with self._writing_lock:
+            return self._serial_port.write(data)
 
     def send_message(self, message: bytes) -> None:
-        with self.port_access_lock:
-            for packet in self.packetizer.pack_message(message):
-                self.serial_port.write(packet)  # ToDo: Maybe we should concatenate all packets and just call this once?
+        with self._writing_lock:
+            for packet in self._packetizer.pack_message(message):
+                self.write(packet)  # ToDo: Maybe we should concatenate all packets and just call this once?
 
     def flush(self) -> None:
-        with self.port_access_lock:
-            while self.serial_port.out_waiting or self.serial_port.in_waiting:
+        if not self.is_connected:
+            raise RuntimeError("Not connected")
+
+        if not hasattr(self._serial_port, "out_waiting"):
+            # Ugly workaround for bug in pyserial when connection url starts with "socket://"
+            # https://github.com/pyserial/pyserial/pull/639/commits/74c452070f4586dcd43bb597de6ba0812e12009f
+            self._serial_port.out_waiting = False
+
+        with self._writing_lock:
+            while self._serial_port.out_waiting or self._serial_port.in_waiting:
                 time.sleep(0.001)
 
     def close(self) -> None:
         """
         Stops the receiver-thread and close the serial port.
-        Does so immediately without caring for any ongoing communication
         """
+        if not self.is_connected:
+            raise RuntimeError("Not connected")
+
         # use the lock to let other threads finish writing
-        with self.port_access_lock:
+        with self._writing_lock:
             # first stop receiver-thread, so that closing can be done on idle port
-            self.keep_thread_alive = False
-            if hasattr(self.serial_port, 'cancel_read'):
-                self.serial_port.cancel_read()
-            self.receiver_thread.join(2 * SerialTransport.TIMEOUT_READ)
-            self.receiver_thread = None
+            self._keep_thread_alive = False
+            if hasattr(self._serial_port, 'cancel_read'):
+                self._serial_port.cancel_read()
+            self._receiver_thread.join(2 * SerialTransport.TIMEOUT_READ)
+            self._receiver_thread = None
 
             # now it's safe to close the port
-            self.serial_port.close()
-            self.serial_port = None
+            self._serial_port.close()
+            self._serial_port = None
 
     def __enter__(self) -> SerialTransport:
         """Enter context handler. May raise RuntimeError in case the connection could not be created."""
@@ -93,7 +118,7 @@ class SerialTransport(TransportBase):
         self.close()
 
     def __str__(self) -> str:
-        return f"{self.__class__.__name__}('{self.serial_url}')"
+        return f"{self.__class__.__name__}('{self.connection_url}')"
 
     def _receiver_thread_loop(self, transport: SerialTransport) -> None:
         """
@@ -102,25 +127,22 @@ class SerialTransport(TransportBase):
         """
         logger.info(f"Started receiver-thread with native id: {threading.get_native_id()}")
 
-        if transport.serial_port is None and transport.connection_lost_handler:
+        if transport._serial_port is None:
             transport.connection_lost_handler(Exception("Failed to start receiver-thread, because port is not open"))
             return
 
         packetizer = Packetizer()
 
-        while transport.keep_thread_alive and self.serial_port.is_open:
+        while transport._keep_thread_alive and self._serial_port.is_open:
             try:
                 # Read all bytes received or wait for one byte (blocking, timing out after TIMEOUT_READ)
                 # Empty data means we reached the timeout without any new bytes
-                data = transport.serial_port.read(transport.serial_port.in_waiting or 1)
+                data = transport._serial_port.read(transport._serial_port.in_waiting or 1)
             except serial.SerialException as e:
                 logger.exception("Serial connection has failed.")
                 # probably some I/O problem such as disconnected USB serial adapters -> exit
-                if transport.connection_lost_handler:
-                    logger.info("About to call the connection_lost_handler.")
-                    transport.connection_lost_handler(e)
-                else:
-                    logger.info("Not calling any connection_lost_handler.")
+                logger.info("About to call the connection_lost_handler.")
+                transport.connection_lost_handler(e)
                 return
             else:
 
@@ -134,11 +156,8 @@ class SerialTransport(TransportBase):
                         transport.message_received_handler(message)
                 except Exception as e:
                     # ToDo: Should we log and ignore or disconnect with an exception?
-                    if transport.connection_lost_handler:
-                        logger.info("About to call the connection_lost_handler.")
-                        transport.connection_lost_handler(e)
-                    else:
-                        logger.info("Not calling any connection_lost_handler.")
+                    logger.info("About to call the connection_lost_handler.")
+                    transport.connection_lost_handler(e)
                     return
 
 
@@ -152,7 +171,7 @@ def showcase_serial_transport():
     def handle_lost_connection(exception):
         print(f'Lost connection, because: {exception}')
 
-    with SerialTransport(serial_url="loop://",
+    with SerialTransport(connection_url="loop://",
                          message_received_handler=handle_message,
                          connection_lost_handler=handle_lost_connection) as transport:
         transport.send_message(bytes())  # Empty packet.

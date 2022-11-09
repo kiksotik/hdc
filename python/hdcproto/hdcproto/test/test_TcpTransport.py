@@ -1,41 +1,71 @@
 from __future__ import annotations
 
+import logging
+import time
 import typing
 import unittest
 
 from hdcproto.transport.serialport import SerialTransport
+from hdcproto.transport.tcpserver import SocketServerTransport
+
+CONNECTION_URL = "socket://localhost:55555"
 
 
-class TestableSerialTransport(SerialTransport):
-    """
-    We use the special 'loop://' feature implemented by pyserial to
-    simultaneously test the sending and the receiving of messages via pyserial.
-    """
+logger = logging.getLogger(__name__)
+
+
+class EchoingTcpServerTransport(SocketServerTransport):
+    def __init__(self):
+        super().__init__(connection_url=CONNECTION_URL,
+                         message_received_handler=self.handle_message,
+                         connection_lost_handler=self.handle_connection_loss)
+
+    def handle_message(self, message: bytes):
+        self.send_message(message)  # Echo received message back to the client who sent it.
+        logger.info(f"Server received one message and echoed it back to the client.")
+
+    def handle_connection_loss(self, e: Exception):
+        logger.info(f"Server lost connection to client.")
+        if e:
+            raise e  # Re-raise exception
+
+
+class TcpClientTransport(SerialTransport):
     received_messages: list[bytes]
-    connection_loss_exception: Exception | None
 
     def __init__(self):
-        super().__init__(connection_url='loop://',
+        super().__init__(connection_url=CONNECTION_URL,
                          message_received_handler=self.handle_message,
                          connection_lost_handler=self.handle_connection_loss)
         self.received_messages = list()
-        self.connection_loss_exception = None
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def handle_message(self, message: bytes):
         self.received_messages.append(message)
+        logger.info(f"Client received one message. There's now {len(self.received_messages)} in the buffer.")
 
     def handle_connection_loss(self, e: Exception):
-        self.connection_loss_exception = e
+        logger.info(f"Client lost connection to server.")
+        if e:
+            raise e  # Re-raise exception
 
 
 class TestMessageRoundTrip(unittest.TestCase):
+    def setUp(self):
+        logging.basicConfig(level=logging.INFO)
+        logger.setLevel(logging.INFO)
 
     def assertEqualAfterRoundTrip(self, messages: typing.List[bytes]):
-        with TestableSerialTransport() as transport:
-            for message in messages:
-                transport.send_message(message)
+        with EchoingTcpServerTransport() as server:
+            with TcpClientTransport() as client:
+                for message in messages:
+                    client.send_message(message)
+                client.flush()  # Wait for transmission to complete
+                server.flush()  # Wait for reception and echoing back to complete
+                time.sleep(0.01)
+                client.flush()  # Wait for reception to complete
 
-        self.assertSequenceEqual(messages, transport.received_messages)
+                self.assertSequenceEqual(messages, client.received_messages)
 
     def test_one_empty_message(self):
         self.assertEqualAfterRoundTrip([b''])
@@ -78,4 +108,5 @@ class TestMessageRoundTrip(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     unittest.main()

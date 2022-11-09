@@ -2,7 +2,7 @@ from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, CommandErrorCode
 from hdcproto.device.descriptor import (DeviceDescriptorBase, CoreFeatureDescriptorBase,
-                                        CommandDescriptorBase, EventDescriptorBase, PropertyDescriptorBase,
+                                        TypedCommandDescriptor, EventDescriptorBase, PropertyDescriptorBase,
                                         FeatureDescriptorBase)
 
 
@@ -39,7 +39,7 @@ class MinimalCoreDescriptor:
         self.led_blinking_rate = 5
 
         # Commands
-        self.cmd_reset = CommandDescriptorBase(
+        self.cmd_reset = TypedCommandDescriptor(
             feature_descriptor=self.hdc,
             command_id=0xC1,
             command_name="Reset",
@@ -138,4 +138,4 @@ def launch_device(connection_url: str):
 
 
 if __name__ == '__main__':
-    launch_device(connection_url="socket://localhost:5555")
+    launch_device(connection_url="socket://localhost:55555")

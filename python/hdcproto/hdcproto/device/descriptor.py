@@ -5,38 +5,13 @@ import logging
 import typing
 import uuid
 
+import hdcproto.device
 import hdcproto.device.router
 import hdcproto.transport.serialport
 from hdcproto.common import (is_valid_uint8, CommandErrorCode, HdcDataType, HdcCommandError,
-                             MessageTypeID, FeatureID, CmdID, EvtID, PropID)
+                             MessageTypeID, FeatureID, CmdID, EvtID, PropID, HdcDataTypeError)
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.descriptor"
-
-
-class DeviceDescriptorBase:
-    router: hdcproto.device.router.MessageRouter
-    feature_descriptors: dict[int, FeatureDescriptorBase]
-    max_req_msg_size: int
-
-    def __init__(self,
-                 connection_url: str,
-                 max_req_msg_size: int = 2048):
-        # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
-        # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor"
-        self.logger = logger.getChild(self.__class__.__name__)
-
-        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"as descriptor for device connected at '{connection_url}'")
-
-        if max_req_msg_size < 5:
-            raise ValueError("Configuring HDC_MAX_REQ_MESSAGE_SIZE to less than 5 bytes surely is wrong! "
-                             "(e.g. request of a UINT8 property-setter requires 5 byte)")
-        self.max_req_msg_size = max_req_msg_size  # ToDo: Pass this limit to the SerialTransport & Packetizer. Issue #19
-
-        serial_transport = hdcproto.transport.serialport.SerialTransport(serial_url=connection_url)
-        self.router = hdcproto.device.router.MessageRouter(transport=serial_transport)
-
-        self.feature_descriptors = dict()
 
 
 class FeatureDescriptorBase:
@@ -106,6 +81,7 @@ class FeatureDescriptorBase:
             feature_tags = ""
         self.feature_tags = feature_tags
 
+        # ToDo: Also use descriptors for FeatureState IDs, instead of a docstring!
         if feature_states_description is None:
             feature_states_description = ""
         self.feature_states_description = feature_states_description
@@ -260,7 +236,7 @@ class FeatureDescriptorBase:
     def router(self) -> hdcproto.device.router.MessageRouter:
         return self.device_descriptor.router
 
-    def feature_state_transition(self, new_feature_state_id: int):
+    def feature_state_transition(self, new_feature_state_id: int):  # ToDo: Improve naming!
         previous_state_id = self.feature_state_id
         self.feature_state_id = new_feature_state_id
         self.evt_state_transition.emit(previous_state_id=previous_state_id,
@@ -302,14 +278,19 @@ class CoreFeatureDescriptorBase(FeatureDescriptorBase):
 
 
 class CommandDescriptorBase:
+    """
+    Derive from this *only* if custom handling of
+    arguments and return values is required, i.e.:
+      - Variable data-types in arguments and/or reply, like SetPropertyValue()
+      - Variable number of arguments and/or reply items
+
+    Otherwise, you might be better off using the TypedCommandDescriptor class.
+    """
     feature_descriptor: FeatureDescriptorBase
     command_id: int
     command_name: str
     command_description: str
     command_request_handler: typing.Callable[[bytes], None]
-    command_implementation: typing.Callable[[typing.Any], typing.Any]
-    command_arguments: list[tuple[HdcDataType, str]] | None
-    command_returns: list[tuple[HdcDataType, str]] | None
     command_raises: dict[int, str]
     msg_prefix: bytes
 
@@ -318,9 +299,7 @@ class CommandDescriptorBase:
                  command_id: int,
                  command_name: str,
                  command_description: str | None,
-                 command_implementation: typing.Callable[[typing.Any], typing.Any],
-                 command_arguments: list[tuple[HdcDataType, str]] | None,
-                 command_returns: list[tuple[HdcDataType, str]] | None,
+                 command_request_handler: typing.Callable[[bytes], None],
                  command_raises: list[enum.IntEnum] | None):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
@@ -348,25 +327,13 @@ class CommandDescriptorBase:
         feature_descriptor.router.register_command_request_handler(
             feature_id=feature_descriptor.feature_id,
             command_id=command_id,
-            command_request_handler=self.command_request_handler)
+            command_request_handler=command_request_handler)
 
         self.command_id = command_id
 
         if not command_name:
             raise ValueError("Command name must be a non-empty string")
         self.command_name = command_name
-
-        if command_arguments is None:
-            command_arguments = list()
-        if any(arg_type.size is None for arg_type, arg_name in command_arguments[:-1]):
-            raise ValueError("Only last argument may be of a variable-size data-type")
-        self.command_arguments = command_arguments
-
-        if command_returns is None:
-            command_returns = list()
-        if any(return_type.size is None for return_type, return_name in command_returns[:-1]):
-            raise ValueError("Only last return-value may be of a variable-size data-type")
-        self.command_returns = command_returns
 
         if command_raises is None:
             command_raises = list()
@@ -377,65 +344,11 @@ class CommandDescriptorBase:
                                  f"CommandErrorCode 0x{error_enum:02X}")
             self.command_raises[int(error_enum)] = str(error_enum)
 
-        # Validate signature of implementation to be compatible with HDC args and returns
-        self.command_implementation = command_implementation
-
-        description_already_contains_command_signature = command_description.startswith('(')
-        if not description_already_contains_command_signature:
-            cmd_signature = "("
-            cmd_signature += ', '.join(f"{str(arg_type)} {arg_name}" for arg_type, arg_name in self.command_arguments)
-            cmd_signature += ") -> "
-            if not self.command_returns:
-                cmd_signature += "VOID"
-            elif len(self.command_returns) == 1:
-                return_type, return_name = self.command_returns[0]
-                cmd_signature += f"{str(return_type)} {return_name}"
-            else:
-                cmd_signature += "("
-                cmd_signature += ', '.join(f"{str(ret_type)} {ret_name}" for ret_type, ret_name in self.command_returns)
-                cmd_signature += ")"
-            if command_description:
-                self.command_description = cmd_signature + '\n' + command_description
-            else:
-                self.command_description = command_description
+        self.command_description = command_description
 
         self.msg_prefix = bytes([int(MessageTypeID.COMMAND),
                                  self.feature_descriptor.feature_id,
                                  self.command_id])
-
-    @property
-    def router(self) -> hdcproto.device.router.MessageRouter:
-        return self.feature_descriptor.device_descriptor.router
-
-    def command_request_handler(self, request_message: bytes) -> None:
-        reply = bytearray(self.msg_prefix)
-        parsed_arguments = HdcDataType.parse_payload(
-            raw_payload=request_message[3:],  # MsgID + FeatureID + CmdID
-            expected_data_types=[arg_type for arg_type, arg_name in self.command_arguments]
-        )
-        try:
-            return_values = self.command_implementation(*parsed_arguments)
-        except HdcCommandError:
-            raise
-        except ValueError as e:
-            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS, error_message=str(e))
-        except Exception as e:
-            raise self.build_cmd_error(error_code=CommandErrorCode.COMMAND_FAILED, error_message=str(e))
-        else:
-            reply.append(CommandErrorCode.NO_ERROR)
-
-        if return_values is None:
-            return_values = list()
-
-        if len(return_values) != len(self.command_returns):
-            raise RuntimeError("Command implementation did not return the expected number of return values")
-
-        for i, (ret_type, ret_name) in enumerate(self.command_returns):
-            ret_type: HdcDataType
-            ret_value = return_values[i]
-            reply.extend(ret_type.value_to_bytes(ret_value))
-        reply = bytes(reply)
-        self.router.send_reply_for_pending_request(reply)
 
     def build_cmd_error(self,
                         error_code: enum.IntEnum,
@@ -460,8 +373,106 @@ class CommandDescriptorBase:
             error_message=error_message
         )
 
+    @property
+    def router(self) -> hdcproto.device.router.MessageRouter:
+        return self.feature_descriptor.device_descriptor.router
 
-class GetPropertyNameCommandDescriptor(CommandDescriptorBase):
+
+class TypedCommandDescriptor(CommandDescriptorBase):
+    """
+    Descriptor which also takes care to parse arguments and reply in a type-safe manner.
+    Will also inject documentation of command-signature into the docstring of this command.
+    """
+    command_implementation: typing.Callable[[typing.Any], typing.Any]
+    command_arguments: list[tuple[HdcDataType, str]] | None
+    command_returns: list[tuple[HdcDataType, str]] | None
+
+    def __init__(self,
+                 feature_descriptor: FeatureDescriptorBase,
+                 command_id: int,
+                 command_name: str,
+                 command_description: str | None,
+                 command_implementation: typing.Callable[[typing.Any], typing.Any],
+                 command_arguments: list[tuple[HdcDataType, str]] | None,
+                 command_returns: list[tuple[HdcDataType, str]] | None,
+                 command_raises: list[enum.IntEnum] | None):
+
+        super().__init__(feature_descriptor=feature_descriptor,
+                         command_id=command_id,
+                         command_name=command_name,
+                         command_description=command_description,
+                         command_request_handler=self._command_request_handler,
+                         command_raises=command_raises)
+
+        if command_arguments is None:
+            command_arguments = list()
+        if any(arg_type.size is None for arg_type, arg_name in command_arguments[:-1]):
+            raise ValueError("Only last argument may be of a variable-size data-type")
+        self.command_arguments = command_arguments
+
+        if command_returns is None:
+            command_returns = list()
+        if any(return_type.size is None for return_type, return_name in command_returns[:-1]):
+            raise ValueError("Only last return-value may be of a variable-size data-type")
+        self.command_returns = command_returns
+
+        # Validate signature of implementation to be compatible with HDC args and returns
+        self.command_implementation = command_implementation
+
+        description_already_contains_command_signature = command_description.startswith('(')
+        if not description_already_contains_command_signature:
+            cmd_signature = "("
+            cmd_signature += ', '.join(f"{arg_type.name} {arg_name}" for arg_type, arg_name in self.command_arguments)
+            cmd_signature += ") -> "
+            if not self.command_returns:
+                cmd_signature += "VOID"
+            elif len(self.command_returns) == 1:
+                return_type, return_name = self.command_returns[0]
+                cmd_signature += f"{return_type.name} {return_name}"
+            else:
+                cmd_signature += "("
+                cmd_signature += ', '.join(f"{ret_type.name} {ret_name}" for ret_type, ret_name in self.command_returns)
+                cmd_signature += ")"
+            if command_description:
+                self.command_description = cmd_signature + '\n' + command_description
+            else:
+                self.command_description = cmd_signature
+
+    def _command_request_handler(self, request_message: bytes) -> None:
+        reply = bytearray(self.msg_prefix)
+        parsed_arguments = HdcDataType.parse_payload(
+            raw_payload=request_message[3:],  # MsgID + FeatureID + CmdID
+            expected_data_types=[arg_type for arg_type, arg_name in self.command_arguments]
+        )
+        try:
+            return_values = self.command_implementation(*parsed_arguments)
+        except HdcCommandError:
+            raise
+        except ValueError as e:
+            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS, error_message=str(e))
+        except Exception as e:
+            raise self.build_cmd_error(error_code=CommandErrorCode.COMMAND_FAILED, error_message=str(e))
+        else:
+            reply.append(CommandErrorCode.NO_ERROR)
+
+        if return_values is None:
+            return_values = tuple()
+
+        if not isinstance(return_values, tuple) and not isinstance(return_values, list):
+            return_values = tuple([return_values])
+
+        if len(return_values) != len(self.command_returns):
+            raise RuntimeError("Command implementation did not return the expected number of return values")
+
+        for i, (ret_type, ret_name) in enumerate(self.command_returns):
+            ret_type: HdcDataType
+            ret_value = return_values[i]
+            reply.extend(ret_type.value_to_bytes(ret_value))
+        reply = bytes(reply)
+        self.router.send_reply_for_pending_request(reply)
+
+
+class GetPropertyNameCommandDescriptor(TypedCommandDescriptor):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
                          command_id=CmdID.GET_PROP_NAME,
@@ -470,7 +481,9 @@ class GetPropertyNameCommandDescriptor(CommandDescriptorBase):
                          command_description="",
                          command_arguments=[(HdcDataType.UINT8, 'PropertyID')],
                          command_returns=[(HdcDataType.UTF8, 'Name')],
-                         command_raises=[CommandErrorCode.UNKNOWN_PROPERTY])
+                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
+                                         CommandErrorCode.UNKNOWN_PROPERTY,
+                                         CommandErrorCode.COMMAND_FAILED])
 
     def _cmd_impl(self, property_id: int) -> str:
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
@@ -480,7 +493,7 @@ class GetPropertyNameCommandDescriptor(CommandDescriptorBase):
         return prop_descr.property_name
 
 
-class GetPropertyTypeCommandDescriptor(CommandDescriptorBase):
+class GetPropertyTypeCommandDescriptor(TypedCommandDescriptor):
 
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
@@ -490,7 +503,9 @@ class GetPropertyTypeCommandDescriptor(CommandDescriptorBase):
                          command_description="",
                          command_arguments=[(HdcDataType.UINT8, 'PropertyID')],
                          command_returns=[(HdcDataType.UINT8, 'DataTypeID')],
-                         command_raises=[CommandErrorCode.UNKNOWN_PROPERTY])
+                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
+                                         CommandErrorCode.UNKNOWN_PROPERTY,
+                                         CommandErrorCode.COMMAND_FAILED])
 
     def _cmd_impl(self, property_id: int) -> int:
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
@@ -500,7 +515,7 @@ class GetPropertyTypeCommandDescriptor(CommandDescriptorBase):
         return prop_descr.property_type
 
 
-class GetPropertyReadonlyCommandDescriptor(CommandDescriptorBase):
+class GetPropertyReadonlyCommandDescriptor(TypedCommandDescriptor):
 
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
@@ -510,7 +525,9 @@ class GetPropertyReadonlyCommandDescriptor(CommandDescriptorBase):
                          command_description="",
                          command_arguments=[(HdcDataType.UINT8, 'PropertyID')],
                          command_returns=[(HdcDataType.BOOL, 'IsReadonly')],
-                         command_raises=[CommandErrorCode.UNKNOWN_PROPERTY])
+                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
+                                         CommandErrorCode.UNKNOWN_PROPERTY,
+                                         CommandErrorCode.COMMAND_FAILED])
 
     def _cmd_impl(self, property_id: int) -> bool:
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
@@ -525,26 +542,36 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
         super().__init__(feature_descriptor,
                          command_id=CmdID.GET_PROP_VALUE,
                          command_name="GetPropertyValue",
-                         command_implementation=self._cmd_impl,
                          # Signature uses 'var' to express that data-type depends on requested property
                          command_description="(UINT8 PropertyID) -> var Value",
-                         command_arguments=[(HdcDataType.UINT8, 'PropertyID')],
-                         # Cmd-implementation will take care of serializing return value into bytes
-                         command_returns=[(HdcDataType.BLOB, 'Value')], 
-                         command_raises=[CommandErrorCode.UNKNOWN_PROPERTY])
+                         command_request_handler=self._command_request_handler,
+                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
+                                         CommandErrorCode.UNKNOWN_PROPERTY,
+                                         CommandErrorCode.COMMAND_FAILED])
 
-    def _cmd_impl(self, property_id: int) -> bytes:
+    def _command_request_handler(self, request_message: bytes) -> None:
+        """
+        Custom request handler, because GetPropertyValue-command returns
+        variable data-types, depending on the requested PropertyID.
+        """
+        if len(request_message) != 4:  # MsgID + FeatID + CmdID + PropID
+            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS)
+        property_id = request_message[3]
+
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
         if prop_descr is None:
             raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
-        
-        # This command returns a value of whatever the data-type of the requested property
-        # Since CommandDescriptorBase can't handle this, this implementation takes 
-        # care of serializing whatever data-type into bytes
+
         prop_type = prop_descr.property_type
         prop_value = prop_descr.property_getter()
         value_as_bytes = prop_type.value_to_bytes(prop_value)
-        return value_as_bytes
+
+        reply = bytearray(self.msg_prefix)
+        reply.append(CommandErrorCode.NO_ERROR)
+        reply.extend(value_as_bytes)
+
+        reply = bytes(reply)
+        self.router.send_reply_for_pending_request(reply)
 
 
 class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
@@ -552,35 +579,49 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
         super().__init__(feature_descriptor,
                          command_id=CmdID.SET_PROP_VALUE,
                          command_name="SetPropertyValue",
-                         command_implementation=self._cmd_impl,
+                         command_request_handler=self._command_request_handler,
                          # Signature uses 'var' to express that data-type depends on requested property
                          command_description="(UINT8 PropertyID, var NewValue) -> var ActualNewValue",
-                         # CmdImpl will take care of de-serializing NewValue argument
-                         command_arguments=[(HdcDataType.UINT8, 'PropertyID'),
-                                            (HdcDataType.BLOB, 'NewValue')],
-                         # Cmd-implementation will take care of serializing return value into bytes
-                         command_returns=[(HdcDataType.BLOB, 'ActualNewValue')], 
-                         command_raises=[CommandErrorCode.UNKNOWN_PROPERTY])
+                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
+                                         CommandErrorCode.UNKNOWN_PROPERTY,
+                                         CommandErrorCode.PROPERTY_IS_READ_ONLY,
+                                         CommandErrorCode.INVALID_PROPERTY_VALUE])
 
-    def _cmd_impl(self, property_id, new_value_as_bytes: bytes) -> bytes:
+    def _command_request_handler(self, request_message: bytes) -> None:
+        """
+        Custom request handler, because GetPropertyValue-command returns
+        variable data-types, depending on the requested PropertyID.
+        """
+        if len(request_message) < 4:  # MsgID + FeatID + CmdID + PropID + var NewValue
+            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS)
+        property_id = request_message[3]
+
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
         if prop_descr is None:
             raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
 
-        # This command returns a value of whatever the data-type of the requested property
-        # Since CommandDescriptorBase can't handle this, this implementation takes 
-        # care of serializing whatever data-type into bytes
         prop_type = prop_descr.property_type
+        if len(request_message) != 4 + prop_type.size():  # MsgID + FeatID + CmdID + PropID + var NewValue
+            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS)
+
+        new_value_as_bytes = request_message[4:]
         try:
-            new_value = prop_type.bytes_to_value(new_value_as_bytes)  # ToDo: Raises actually HdcError!
+            new_value = prop_type.bytes_to_value(new_value_as_bytes)
             actual_new_value = prop_descr.property_setter(new_value)
-            actual_new_value_as_bytes = prop_type.bytes_from_value(actual_new_value)  # ToDo: Raises actually HdcError!
-        except ValueError as e:
+        except (HdcDataTypeError, ValueError) as e:
             raise self.build_cmd_error(CommandErrorCode.INVALID_PROPERTY_VALUE, error_message=str(e))
-        return actual_new_value_as_bytes
+
+        actual_new_value_as_bytes = prop_type.value_to_bytes(actual_new_value)
+
+        reply = bytearray(self.msg_prefix)
+        reply.append(CommandErrorCode.NO_ERROR)
+        reply.extend(actual_new_value_as_bytes)
+
+        reply = bytes(reply)
+        self.router.send_reply_for_pending_request(reply)
 
 
-class GetPropertyDescriptionCommandDescriptor(CommandDescriptorBase):
+class GetPropertyDescriptionCommandDescriptor(TypedCommandDescriptor):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
                          command_id=CmdID.GET_PROP_DESCR,
@@ -589,7 +630,9 @@ class GetPropertyDescriptionCommandDescriptor(CommandDescriptorBase):
                          command_description="",
                          command_arguments=[(HdcDataType.UINT8, 'PropertyID')],
                          command_returns=[(HdcDataType.UTF8, 'Description')],
-                         command_raises=[CommandErrorCode.UNKNOWN_PROPERTY])
+                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
+                                         CommandErrorCode.UNKNOWN_PROPERTY,
+                                         CommandErrorCode.COMMAND_FAILED])
 
     def _cmd_impl(self, property_id: int) -> str:
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
@@ -599,7 +642,7 @@ class GetPropertyDescriptionCommandDescriptor(CommandDescriptorBase):
         return prop_descr.property_description
 
 
-class GetCommandNameCommandDescriptor(CommandDescriptorBase):
+class GetCommandNameCommandDescriptor(TypedCommandDescriptor):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
                          command_id=CmdID.GET_CMD_NAME,
@@ -608,7 +651,9 @@ class GetCommandNameCommandDescriptor(CommandDescriptorBase):
                          command_description="",
                          command_arguments=[(HdcDataType.UINT8, 'CommandID')],
                          command_returns=[(HdcDataType.UTF8, 'Name')],
-                         command_raises=[CommandErrorCode.UNKNOWN_COMMAND])
+                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
+                                         CommandErrorCode.UNKNOWN_COMMAND,
+                                         CommandErrorCode.COMMAND_FAILED])
 
     def _cmd_impl(self, command_id: int) -> str:
         cmd_descr = self.feature_descriptor.command_descriptors.get(command_id, None)
@@ -618,7 +663,7 @@ class GetCommandNameCommandDescriptor(CommandDescriptorBase):
         return cmd_descr.command_name
 
 
-class GetCommandDescriptionCommandDescriptor(CommandDescriptorBase):
+class GetCommandDescriptionCommandDescriptor(TypedCommandDescriptor):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
                          command_id=CmdID.GET_CMD_DESCR,
@@ -627,7 +672,9 @@ class GetCommandDescriptionCommandDescriptor(CommandDescriptorBase):
                          command_description="",
                          command_arguments=[(HdcDataType.UINT8, 'CommandID')],
                          command_returns=[(HdcDataType.UTF8, 'Description')],
-                         command_raises=[CommandErrorCode.UNKNOWN_COMMAND])
+                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
+                                         CommandErrorCode.UNKNOWN_COMMAND,
+                                         CommandErrorCode.COMMAND_FAILED])
 
     def _cmd_impl(self, command_id: int) -> str:
         cmd_descr = self.feature_descriptor.command_descriptors.get(command_id, None)
@@ -637,7 +684,7 @@ class GetCommandDescriptionCommandDescriptor(CommandDescriptorBase):
         return cmd_descr.command_description
 
 
-class GetEventNameCommandDescriptor(CommandDescriptorBase):
+class GetEventNameCommandDescriptor(TypedCommandDescriptor):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
                          command_id=CmdID.GET_EVT_NAME,
@@ -646,7 +693,9 @@ class GetEventNameCommandDescriptor(CommandDescriptorBase):
                          command_description="",
                          command_arguments=[(HdcDataType.UINT8, 'EventID')],
                          command_returns=[(HdcDataType.UTF8, 'Name')],
-                         command_raises=[CommandErrorCode.UNKNOWN_EVENT])
+                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
+                                         CommandErrorCode.UNKNOWN_EVENT,
+                                         CommandErrorCode.COMMAND_FAILED])
 
     def _cmd_impl(self, event_id: int) -> str:
         evt_descr = self.feature_descriptor.event_descriptors.get(event_id, None)
@@ -656,7 +705,7 @@ class GetEventNameCommandDescriptor(CommandDescriptorBase):
         return evt_descr.event_name
 
 
-class GetEventDescriptionCommandDescriptor(CommandDescriptorBase):
+class GetEventDescriptionCommandDescriptor(TypedCommandDescriptor):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
                          command_id=CmdID.GET_EVT_DESCR,
@@ -665,7 +714,9 @@ class GetEventDescriptionCommandDescriptor(CommandDescriptorBase):
                          command_description="",
                          command_arguments=[(HdcDataType.UINT8, 'EventID')],
                          command_returns=[(HdcDataType.UTF8, 'Description')],
-                         command_raises=[CommandErrorCode.UNKNOWN_EVENT])
+                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
+                                         CommandErrorCode.UNKNOWN_EVENT,
+                                         CommandErrorCode.COMMAND_FAILED])
 
     def _cmd_impl(self, event_id: int) -> str:
         evt_descr = self.feature_descriptor.event_descriptors.get(event_id, None)
@@ -725,12 +776,12 @@ class EventDescriptorBase:
         description_already_contains_event_signature = event_description.startswith('(')
         if not description_already_contains_event_signature:
             evt_signature = "("
-            evt_signature += ', '.join(f"{str(arg_type)} {arg_name}" for arg_type, arg_name in self.event_arguments)
+            evt_signature += ', '.join(f"{arg_type.name} {arg_name}" for arg_type, arg_name in self.event_arguments)
             evt_signature += ")"
             if event_description:
                 self.event_description = evt_signature + '\n' + event_description
             else:
-                self.event_description = event_description
+                self.event_description = evt_signature
 
         self.msg_prefix = bytes([int(MessageTypeID.EVENT),
                                  self.feature_descriptor.feature_id,
@@ -864,3 +915,51 @@ class PropertyDescriptorBase:
     @property
     def property_is_readonly(self) -> bool:
         return self.property_setter is None
+
+
+class DeviceDescriptorBase:
+    router: hdcproto.device.router.MessageRouter
+    feature_descriptors: dict[int, FeatureDescriptorBase]
+    max_req_msg_size: int
+    core: CoreFeatureDescriptorBase
+
+    def __init__(self,
+                 connection_url: str,
+                 core_feature_descriptor_class: typing.Type[CoreFeatureDescriptorBase] = CoreFeatureDescriptorBase,
+                 max_req_msg_size: int = 2048):
+        # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
+        # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor"
+        self.logger = logger.getChild(self.__class__.__name__)
+
+        if max_req_msg_size < 5:
+            raise ValueError("Configuring HDC_MAX_REQ_MESSAGE_SIZE to less than 5 bytes surely is wrong! "
+                             "(e.g. request of a UINT8 property-setter requires 5 byte)")
+        self.max_req_msg_size = max_req_msg_size  # ToDo: Pass this limit to the SerialTransport & Packetizer. Issue #19
+
+        self.router = hdcproto.device.router.MessageRouter(connection_url=connection_url)
+
+        self.feature_descriptors = dict()
+
+        # The Core feature is quite essential for basic HDC operation, thus this constructor enforces it
+        self.core = core_feature_descriptor_class(self)
+
+    @property
+    def is_connected(self):
+        return self.router.is_connected
+
+    @property
+    def connection_url(self) -> str | None:
+        return self.router.connection_url
+
+    def connect(self, connection_url: str | None = None):
+        self.router.connect(connection_url=connection_url)
+
+    def close(self):
+        self.router.close()
+
+    def __enter__(self) -> DeviceDescriptorBase:
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()

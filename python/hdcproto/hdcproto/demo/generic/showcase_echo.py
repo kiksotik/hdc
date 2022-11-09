@@ -32,7 +32,7 @@ def showcase_echo():
     #################################################
     # Connect to HDC-device at a specific serial port
     device_proxy = DeviceProxyBase(connection_url="COM10")
-    device_proxy.router.connect()
+    device_proxy.connect()
 
     num_requests = 100
     # Warning: HDC-device has limited buffer size for receiving a request message!

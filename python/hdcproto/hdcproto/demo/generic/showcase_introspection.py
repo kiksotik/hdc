@@ -16,7 +16,8 @@ def is_hdc_internal(member_id: int) -> bool:
 
 def showcase_introspection(skip_mandatory_members: bool = False):
     device_proxy = DeviceProxyBase(connection_url="COM10")
-    device_proxy.router.connect()
+    # device_proxy = DeviceProxyBase(connection_url="socket://localhost:55555")
+    device_proxy.connect()
 
     print(f"Device reports to be compliant with: {device_proxy.get_hdc_version_string()}")
 

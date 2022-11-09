@@ -15,7 +15,7 @@ from hdcproto.host.proxy import DeviceProxyBase
 
 
 def provoke_some_log_events(transport: hdcproto.transport.serialport.SerialTransport):
-    transport.serial_port.write(bytes([0, 0, 0]))  # Provoke reading-frame warning
+    transport.write(bytes([0, 0, 0]))  # Provoke reading-frame warning
     transport.send_message(bytes([0, 0, 0]))  # Provoke unknown message type error
     time.sleep(2)  # Wait for some "heart-beat" LogEvents to happen
 
@@ -47,7 +47,7 @@ def showcase_logging():
     #################################################
     # Connect to HDC-device at a specific serial port
     device_proxy = DeviceProxyBase(connection_url="COM10")
-    device_proxy.router.connect()
+    device_proxy.connect()
 
     demo_logger.info("__________________________________________________________________________________________")
     demo_logger.info(f"Device reports to be compliant with: '{device_proxy.get_hdc_version_string()}'")

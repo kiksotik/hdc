@@ -13,7 +13,6 @@ from datetime import datetime
 import semver
 
 import hdcproto.host.router
-import hdcproto.transport.serialport
 from hdcproto.common import (HdcError, MessageTypeID, FeatureID, CmdID, CommandErrorCode, EvtID, PropID, HdcDataType,
                              is_valid_uint8, HdcCommandError)
 
@@ -1100,21 +1099,37 @@ class DeviceProxyBase:
     core: CoreFeatureProxyBase
 
     def __init__(self,
-                 connection_url: str,
+                 connection_url: str | None,
                  core_feature_proxy_class: typing.Type[CoreFeatureProxyBase] = CoreFeatureProxyBase):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy"
         self.logger = logger.getChild(self.__class__.__name__)
 
-        self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"as proxy for device connected at '{connection_url}'")
+        self.router = hdcproto.host.router.MessageRouter(connection_url=connection_url)
 
-        serial_transport = hdcproto.transport.serialport.SerialTransport(serial_url=connection_url)
-        self.router = hdcproto.host.router.MessageRouter(transport=serial_transport)
-
-        # The following may be needed for introspection when using bare DeviceProxyBase objects.
-        # Subclasses will typically override it with a more specific core-feature proxy.
+        # The Core feature is quite essential for basic HDC operation, thus this constructor enforces it
         self.core = core_feature_proxy_class(self)
+
+    @property
+    def is_connected(self):
+        return self.router.is_connected
+
+    @property
+    def connection_url(self) -> str | None:
+        return self.router.connection_url
+
+    def connect(self, connection_url: str | None = None):
+        self.router.connect(connection_url=connection_url)
+
+    def close(self):
+        self.router.close()
+
+    def __enter__(self) -> DeviceProxyBase:
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def get_hdc_version_string(self, timeout: float = 0.2) -> str:
         """Returns the raw string, without attempting to validate nor parsing it."""

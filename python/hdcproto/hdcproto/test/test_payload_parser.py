@@ -1,7 +1,7 @@
 import typing
 import unittest
 
-from hdcproto.common import HdcDataType
+from hdcproto.common import HdcDataType, HdcDataTypeError
 
 
 class TestPayloadParser(unittest.TestCase):
@@ -31,19 +31,19 @@ class TestPayloadParser(unittest.TestCase):
     def test_expecting_void_but_getting_non_empty_payload(self):
         non_empty_payload = bytes(range(1))
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(HdcDataTypeError):
             HdcDataType.parse_payload(
                 raw_payload=non_empty_payload,
                 expected_data_types=None
             )
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(HdcDataTypeError):
             HdcDataType.parse_payload(
                 raw_payload=non_empty_payload,
                 expected_data_types=[]
             )
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(HdcDataTypeError):
             # noinspection PyTypeChecker
             HdcDataType.parse_payload(
                 raw_payload=non_empty_payload,
@@ -60,14 +60,14 @@ class TestPayloadParser(unittest.TestCase):
                 expected_data_types=int
             )
 
-        with self.assertRaises(TypeError):
+        with self.assertRaises(HdcDataTypeError):
             # noinspection PyTypeChecker
             HdcDataType.parse_payload(
                 raw_payload=uint8_payload,
                 expected_data_types=[int]
             )
 
-        with self.assertRaises(TypeError):
+        with self.assertRaises(HdcDataTypeError):
             HdcDataType.parse_payload(
                 raw_payload=uint8_payload,
                 expected_data_types=[HdcDataType.UINT8, int]
@@ -267,7 +267,7 @@ class TestPayloadParser(unittest.TestCase):
         payload.append(0x42)  # This is the one bogus byte that the parser should be complaining about!
         payload = bytes(payload)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(HdcDataTypeError):
             HdcDataType.parse_payload(raw_payload=payload, expected_data_types=expected_data_types)
 
     def test_parsing_multiple_values_with_shorter_payload_than_expected(self):
@@ -289,7 +289,7 @@ class TestPayloadParser(unittest.TestCase):
         payload = payload[:-1]  # This is the one missing byte that the parser should be complaining about!
         payload = bytes(payload)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(HdcDataTypeError):
             HdcDataType.parse_payload(raw_payload=payload, expected_data_types=expected_data_types)
 
     def test_parsing_multiple_values_and_last_is_of_variable_size(self):
@@ -332,7 +332,7 @@ class TestPayloadParser(unittest.TestCase):
             expected_data_types.append(datatype)
         payload = bytes(payload)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(HdcDataTypeError):
             # Should fail, because variable size can only be inferred for the last argument!
             HdcDataType.parse_payload(raw_payload=payload, expected_data_types=expected_data_types)
 

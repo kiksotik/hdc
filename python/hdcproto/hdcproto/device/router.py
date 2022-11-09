@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import typing
 
-from hdcproto.common import MessageTypeID, is_valid_uint8, CommandErrorCode, HDC_VERSION
+from hdcproto.common import MessageTypeID, is_valid_uint8, CommandErrorCode, HDC_VERSION, HdcCommandError
 from hdcproto.transport.base import TransportBase
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.router"
@@ -191,9 +191,12 @@ class MessageRouter:
             # Note how it's up to each individual handler to either reply straight away from within
             # this SerialTransport.receiver_thread context, or to delay its reply into another context.
             logger.info("Routing COMMAND request message to its handler.")
-            return self.command_request_handlers[key](request_message)
+            try:
+                return self.command_request_handlers[key](request_message)
+            except HdcCommandError as e:
+                return self.send_reply_for_pending_request(e.cmd_reply_message)
 
-        # ... else, reply with CommandErrorCode as mandated by HDC-spec
+        # ... else, there's no handler for this command
         error_reply = bytearray(request_message[:3])  # Header: MsgTypeID + FeatureID + CmdID
         is_known_feature = any(ids[0] == feature_id for ids in self.command_request_handlers.keys())
         if is_known_feature:

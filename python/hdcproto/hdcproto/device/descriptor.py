@@ -446,11 +446,14 @@ class TypedCommandDescriptor(CommandDescriptorBase):
                 self.command_description = cmd_signature
 
     def _command_request_handler(self, request_message: bytes) -> None:
-        reply = bytearray(self.msg_prefix)
-        parsed_arguments = HdcDataType.parse_payload(
-            raw_payload=request_message[3:],  # MsgID + FeatureID + CmdID
-            expected_data_types=[arg_type for arg_type, arg_name in self.command_arguments]
-        )
+
+        try:
+            parsed_arguments = HdcDataType.parse_command_request_msg(
+                request_message=request_message,
+                expected_data_types=[arg_type for arg_type, arg_name in self.command_arguments])
+        except HdcDataTypeError as e:
+            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS, error_message=str(e))
+
         try:
             return_values = self.command_implementation(*parsed_arguments)
         except HdcCommandError:
@@ -460,6 +463,7 @@ class TypedCommandDescriptor(CommandDescriptorBase):
         except Exception as e:
             raise self.build_cmd_error(error_code=CommandErrorCode.COMMAND_FAILED, error_message=str(e))
         else:
+            reply = bytearray(self.msg_prefix)
             reply.append(CommandErrorCode.NO_ERROR)
 
         if return_values is None:

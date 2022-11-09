@@ -144,6 +144,53 @@ class TestCommands(unittest.TestCase):
         self.assertSequenceEqual(expected_reply, received_reply)
 
 
+class TestCommandErrors(unittest.TestCase):
+    def setUp(self) -> None:
+        self.my_device = TestableDeviceDescriptor()
+        self.my_device.connect()
+        self.conn_mock: MockTransport = self.my_device.router.transport
+
+    def test_unknown_feature(self):
+        bogus_feature_id = 0x42
+        cmd_req = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_NAME, PropID.LOG_EVT_THRESHOLD])
+        self.conn_mock.receive_message(cmd_req)
+        received_reply = self.conn_mock.outbound_messages.pop()
+        expected_reply = bytes(
+            [MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_NAME, CommandErrorCode.UNKNOWN_FEATURE])
+        self.assertSequenceEqual(expected_reply, received_reply)
+
+    def test_unknown_command(self):
+        bogus_cmd_id = 0x42
+        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, PropID.LOG_EVT_THRESHOLD])
+        self.conn_mock.receive_message(cmd_req)
+        received_reply = self.conn_mock.outbound_messages.pop()
+        expected_reply = bytes(
+            [MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, CommandErrorCode.UNKNOWN_COMMAND])
+        self.assertSequenceEqual(expected_reply, received_reply)
+
+    def test_missing_command_arguments(self):
+        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_NAME])  # Omitting PropID argument!
+        self.conn_mock.receive_message(cmd_req)
+        received_reply = self.conn_mock.outbound_messages.pop()
+        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_NAME,
+                                CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS])
+        expected_reply += "Payload is shorter than expected.".encode(encoding='utf-8')
+
+        self.assertSequenceEqual(expected_reply, received_reply)
+
+    def test_excess_command_arguments(self):
+        unexpected_argument = 0x42
+        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_NAME,
+                         PropID.FEAT_NAME, unexpected_argument])
+        self.conn_mock.receive_message(cmd_req)
+        received_reply = self.conn_mock.outbound_messages.pop()
+        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_NAME,
+                                CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS])
+        expected_reply += "Payload is longer than expected.".encode(encoding='utf-8')
+
+        self.assertSequenceEqual(expected_reply, received_reply)
+
+
 class TestEvents(unittest.TestCase):
     def setUp(self) -> None:
         self.my_device = TestableDeviceDescriptor()

@@ -42,8 +42,7 @@ class HdcCommandError(HdcError):
         self.cmd_reply_message = bytes([MessageTypeID.COMMAND,
                                         self.feature_id,
                                         self.command_id,
-                                        self.error_code,
-                                        HdcDataType.UTF8.value_to_bytes(self.error_message)])
+                                        self.error_code]) + HdcDataType.UTF8.value_to_bytes(self.error_message)
 
     @classmethod
     def from_reply(cls, cmd_reply_message: bytes, known_errors: dict[int, str], proxy_logger: logging.Logger):
@@ -345,6 +344,12 @@ class HdcDataType(enum.IntEnum):
             return return_values[0]  # Return first item, without enclosing it in a list.
 
         return return_values
+
+    @staticmethod
+    def parse_command_request_msg(request_message: bytes,
+                                  expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
+        raw_payload = request_message[3:]  # Strip 3 leading bytes: MsgID + FeatureID + CmdID
+        return HdcDataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
 
     @staticmethod
     def parse_command_reply_msg(reply_message: bytes,

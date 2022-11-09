@@ -228,6 +228,11 @@ class FeatureDescriptorBase:
 
         # Rounding to the nearest multiple of 10. https://stackoverflow.com/a/2422723/20337562
         new_threshold = ((new_threshold + 5) // 10) * 10
+
+        self.logger.info(f"Changing LogEventThreshold from "
+                         f"previously {logging.getLevelName(self.log_event_threshold)} "
+                         f"to now {logging.getLevelName(new_threshold)}.")
+
         self.log_event_threshold = new_threshold
 
         return self.log_event_threshold
@@ -238,6 +243,8 @@ class FeatureDescriptorBase:
 
     def feature_state_transition(self, new_feature_state_id: int):  # ToDo: Improve naming!
         previous_state_id = self.feature_state_id
+        self.logger.info(f"Transitioning FeatureState from previously 0x{previous_state_id:02X} to "
+                         f"now 0x{new_feature_state_id:02X}.")
         self.feature_state_id = new_feature_state_id
         self.evt_state_transition.emit(previous_state_id=previous_state_id,
                                        current_state_id=new_feature_state_id)
@@ -490,6 +497,8 @@ class GetPropertyNameCommandDescriptor(TypedCommandDescriptor):
         if prop_descr is None:
             raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
 
+        self.logger.info(f"Replying with {self.command_name}(0x{property_id:02X}) "
+                         f"-> '{prop_descr.property_name}'")
         return prop_descr.property_name
 
 
@@ -512,6 +521,8 @@ class GetPropertyTypeCommandDescriptor(TypedCommandDescriptor):
         if prop_descr is None:
             raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
 
+        self.logger.info(f"Replying with {self.command_name}('{prop_descr.property_name}') "
+                         f"-> {prop_descr.property_type.name}")
         return prop_descr.property_type
 
 
@@ -534,6 +545,8 @@ class GetPropertyReadonlyCommandDescriptor(TypedCommandDescriptor):
         if prop_descr is None:
             raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
 
+        self.logger.info(f"Replying with {self.command_name}('{prop_descr.property_name}') "
+                         f"-> {prop_descr.property_is_readonly}")
         return prop_descr.property_is_readonly
 
 
@@ -571,6 +584,8 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
         reply.extend(value_as_bytes)
 
         reply = bytes(reply)
+        self.logger.info(f"Replying with {self.command_name}('{prop_descr.property_name}') "
+                         f"-> {repr(prop_value)}")
         self.router.send_reply_for_pending_request(reply)
 
 
@@ -592,6 +607,7 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
         Custom request handler, because GetPropertyValue-command returns
         variable data-types, depending on the requested PropertyID.
         """
+
         if len(request_message) < 4:  # MsgID + FeatID + CmdID + PropID + var NewValue
             raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS)
         property_id = request_message[3]
@@ -618,6 +634,11 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
         reply.extend(actual_new_value_as_bytes)
 
         reply = bytes(reply)
+
+        self.logger.log(level=logging.INFO if new_value == actual_new_value else logging.WARNING,
+                        msg=f"Replying with {self.command_name}('{prop_descr.property_name}', {repr(new_value)}) "
+                            f"-> {repr(actual_new_value)}")
+
         self.router.send_reply_for_pending_request(reply)
 
 
@@ -638,6 +659,9 @@ class GetPropertyDescriptionCommandDescriptor(TypedCommandDescriptor):
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
         if prop_descr is None:
             raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
+
+        self.logger.info(f"Replying with {self.command_name}('{prop_descr.property_name}') "
+                         f"-> '{prop_descr.property_description}'")
 
         return prop_descr.property_description
 
@@ -660,6 +684,9 @@ class GetCommandNameCommandDescriptor(TypedCommandDescriptor):
         if cmd_descr is None:
             raise self.build_cmd_error(CommandErrorCode.UNKNOWN_COMMAND)
 
+        self.logger.info(f"Replying with {self.command_name}(0x{command_id:02X}) "
+                         f"-> '{cmd_descr.command_name}'")
+
         return cmd_descr.command_name
 
 
@@ -680,6 +707,9 @@ class GetCommandDescriptionCommandDescriptor(TypedCommandDescriptor):
         cmd_descr = self.feature_descriptor.command_descriptors.get(command_id, None)
         if cmd_descr is None:
             raise self.build_cmd_error(CommandErrorCode.UNKNOWN_COMMAND)
+
+        self.logger.info(f"Replying with {self.command_name}('{cmd_descr.command_name}') "
+                         f"-> '{cmd_descr.command_description}'")
 
         return cmd_descr.command_description
 
@@ -702,6 +732,9 @@ class GetEventNameCommandDescriptor(TypedCommandDescriptor):
         if evt_descr is None:
             raise self.build_cmd_error(CommandErrorCode.UNKNOWN_EVENT)
 
+        self.logger.info(f"Replying with {self.command_name}(0x{event_id:02X}) "
+                         f"-> '{evt_descr.event_name}'")
+
         return evt_descr.event_name
 
 
@@ -722,6 +755,9 @@ class GetEventDescriptionCommandDescriptor(TypedCommandDescriptor):
         evt_descr = self.feature_descriptor.event_descriptors.get(event_id, None)
         if evt_descr is None:
             raise self.build_cmd_error(CommandErrorCode.UNKNOWN_EVENT)
+
+        self.logger.info(f"Replying with {self.command_name}('{evt_descr.event_name}') "
+                         f"-> '{evt_descr.event_description}'")
 
         return evt_descr.event_description
 
@@ -819,6 +855,7 @@ class LogEventDescriptor(EventDescriptorBase):
 
     def emit(self, log_level: int, log_msg: str) -> None:
         if log_level >= self.feature_descriptor.log_event_threshold:
+            self.logger.info(f"Sending {self.event_name}-event -> ({logging.getLevelName(log_level)}, '{log_msg}')")
             self._send_event_message(event_args=[log_level, log_msg])
 
 
@@ -852,6 +889,7 @@ class FeatureStateTransitionEventDescriptor(EventDescriptorBase):
             raise ValueError(f"previous_state_id of {previous_state_id} is beyond valid range from 0x00 to 0xFF")
         if not is_valid_uint8(current_state_id):
             raise ValueError(f"current_state_id of {current_state_id} is beyond valid range from 0x00 to 0xFF")
+        self.logger.info(f"Sending {self.event_name}-event -> (0x{previous_state_id:02X}, 0x{current_state_id:02X}')")
         self._send_event_message(event_args=[previous_state_id, current_state_id])
 
     
@@ -921,11 +959,10 @@ class DeviceDescriptorBase:
     router: hdcproto.device.router.MessageRouter
     feature_descriptors: dict[int, FeatureDescriptorBase]
     max_req_msg_size: int
-    core: CoreFeatureDescriptorBase
 
     def __init__(self,
                  connection_url: str,
-                 core_feature_descriptor_class: typing.Type[CoreFeatureDescriptorBase] = CoreFeatureDescriptorBase,
+                 core_feature_descriptor_class = CoreFeatureDescriptorBase,
                  max_req_msg_size: int = 2048):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor"

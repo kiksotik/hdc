@@ -1,3 +1,5 @@
+import logging
+
 from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, CommandErrorCode
@@ -8,13 +10,12 @@ from hdcproto.device.descriptor import (DeviceDescriptorBase, CoreFeatureDescrip
 
 class MinimalDeviceDescriptor(DeviceDescriptorBase):
     def __init__(self, connection_url: str):
-        super().__init__(connection_url)
-        self.core = MinimalCoreDescriptor(self)
+        super().__init__(connection_url, core_feature_descriptor_class=MinimalCoreDescriptor)
 
     def main_loop(self):
         self.router.connect()
         kb_listener = keyboard.Listener(on_press=self.core.evt_button.press_callback,
-                              on_release=self.core.evt_button.release_callback)
+                                        on_release=self.core.evt_button.release_callback)
         kb_listener.start()
         kb_listener.join()
 
@@ -138,4 +139,18 @@ def launch_device(connection_url: str):
 
 
 if __name__ == '__main__':
+    ######################################################################
+    # This example uses python logging to show internals of the HDC-device
+    hdc_root_logger = logging.getLogger()
+    log_handler = logging.StreamHandler()
+    log_handler.setFormatter(logging.Formatter('%(asctime)s.%(msecs)03d - %(levelname)7s - %(name)s - %(message)s',
+                                               datefmt='%M:%S'))
+    hdc_root_logger.addHandler(log_handler)
+
+    # You can tweak the following log-levels to tune verbosity of HDC internals:
+    logging.getLogger("hdcproto.transport.packetizer").setLevel(logging.DEBUG)
+    logging.getLogger("hdcproto.transport.tcpserver").setLevel(logging.DEBUG)
+    logging.getLogger("hdcproto.device.router").setLevel(logging.DEBUG)
+    logging.getLogger("hdcproto.device.descriptor").setLevel(logging.DEBUG)
+
     launch_device(connection_url="socket://localhost:55555")

@@ -70,7 +70,6 @@ class MessageRouter:
         else:
             logger.info("Lost connection, in an orderly manner.")
 
-
     def register_command_request_handler(self,
                                          feature_id: int,
                                          command_id: int,
@@ -116,6 +115,7 @@ class MessageRouter:
         if self.transport is None:
             raise RuntimeError("Not connected")
 
+        logger.info("Sending EVENT message")
         self.transport.send_message(event_message)
 
     def send_reply_for_pending_request(self, reply_message: bytes) -> None:
@@ -129,6 +129,7 @@ class MessageRouter:
             # Raise an exception, because Device implementation is to blame for this
             raise RuntimeError("Mustn't send a reply if no request is pending to be replied to")
 
+        logger.info(f"Sending reply message")
         self.pending_request_message = None
         self.transport.send_message(reply_message)
 
@@ -169,6 +170,7 @@ class MessageRouter:
 
     def _handle_hdc_version_request(self, request_message: bytes) -> None:
         assert request_message[0] == MessageTypeID.HDC_VERSION
+        logger.info("Replying to an HDC_VERSION request message.")
         reply_message = bytearray()
         reply_message.append(MessageTypeID.HDC_VERSION)
         reply_message.extend(HDC_VERSION.encode(encoding="utf-8", errors="strict"))
@@ -177,6 +179,7 @@ class MessageRouter:
 
     def _handle_echo_request(self, request_message: bytes) -> None:
         assert request_message[0] == MessageTypeID.ECHO
+        logger.info("Replying to an ECHO request message.")
         reply_message = request_message  # As mandated by HDC-spec
         self.send_reply_for_pending_request(reply_message)
 
@@ -189,6 +192,7 @@ class MessageRouter:
         if key in self.command_request_handlers:
             # Note how it's up to each individual handler to either reply straight away from within
             # this SerialTransport.receiver_thread context, or to delay its reply into another context.
+            logger.info("Routing COMMAND request message to its handler.")
             return self.command_request_handlers[key](request_message)
 
         # ... else, reply with CommandErrorCode as mandated by HDC-spec
@@ -196,8 +200,11 @@ class MessageRouter:
         is_known_feature = any(ids[0] == feature_id for ids in self.command_request_handlers.keys())
         if is_known_feature:
             command_error_code = CommandErrorCode.UNKNOWN_COMMAND
+            logger.warning(f"Failed to route COMMAND request message, because CommandID=0x{command_id:02X} is unknown "
+                           f"for FeatureID=0x{feature_id:02X}.")
         else:
             command_error_code = CommandErrorCode.UNKNOWN_FEATURE
+            logger.warning(f"Failed to route COMMAND request message, because FeatureID=0x{feature_id:02X} is unknown.")
         error_reply.append(command_error_code)
         error_reply = bytes(error_reply)
         self.send_reply_for_pending_request(error_reply)
@@ -205,7 +212,9 @@ class MessageRouter:
     def _handle_custom_message(self, message: bytes) -> None:
         """Warning: This will be executed from within the SerialTransport.receiver_thread"""
         message_type_id = message[0]
+        assert MessageTypeID.is_custom(message_type_id)
         if message_type_id in self.custom_message_handlers:
+            logger.info("Routing custom message request to its handler.")
             return self.custom_message_handlers[message_type_id](message)
         # Do *not* raise an exception, but log and ignore, because Host implementation might be to blame for this
         logger.warning(f"Ignoring custom-message, because no handler has been registered for "

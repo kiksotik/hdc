@@ -861,6 +861,7 @@ class LogEventDescriptor(EventDescriptorBase):
 
 class HdcLoggingHandler(logging.Handler):
     """Python logging handler which emits HDC Log-events on a given HDC-feature."""
+
     def __init__(self, log_event_descriptor: LogEventDescriptor):
         super().__init__()
         self.log_event_descriptor = log_event_descriptor
@@ -892,7 +893,7 @@ class FeatureStateTransitionEventDescriptor(EventDescriptorBase):
         self.logger.info(f"Sending {self.event_name}-event -> (0x{previous_state_id:02X}, 0x{current_state_id:02X}')")
         self._send_event_message(event_args=[previous_state_id, current_state_id])
 
-    
+
 class PropertyDescriptorBase:
     feature_descriptor: FeatureDescriptorBase
     property_id: int
@@ -962,7 +963,7 @@ class DeviceDescriptorBase:
 
     def __init__(self,
                  connection_url: str,
-                 core_feature_descriptor_class = CoreFeatureDescriptorBase,
+                 core_feature_descriptor_class=CoreFeatureDescriptorBase,
                  max_req_msg_size: int = 2048):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor"

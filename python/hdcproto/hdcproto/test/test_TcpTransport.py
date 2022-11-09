@@ -10,7 +10,6 @@ from hdcproto.transport.tcpserver import SocketServerTransport
 
 CONNECTION_URL = "socket://localhost:55555"
 
-
 logger = logging.getLogger(__name__)
 
 

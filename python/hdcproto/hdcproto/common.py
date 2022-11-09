@@ -25,7 +25,12 @@ class HdcCommandError(HdcError):
     error_code: int
     error_name: str
 
-    def __init__(self, feature_id: int, command_id: int, error_code: int, error_name: str, error_message: str | None = None):
+    def __init__(self,
+                 feature_id: int,
+                 command_id: int,
+                 error_code: int,
+                 error_name: str,
+                 error_message: str | None = None):
         self.feature_id = feature_id
         self.command_id = command_id
         self.error_code = error_code

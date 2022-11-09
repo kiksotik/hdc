@@ -8,8 +8,6 @@ import typing
 
 from hdcproto.common import MessageTypeID, is_valid_uint8, CommandErrorCode, HDC_VERSION
 from hdcproto.transport.base import TransportBase
-from hdcproto.transport.serialport import SerialTransport
-from hdcproto.transport.tcpserver import SocketServerTransport
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.router"
 

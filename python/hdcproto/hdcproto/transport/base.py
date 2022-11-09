@@ -58,4 +58,3 @@ class TransportBase:
         # So we'll just use it as a catch-all fallback
         from hdcproto.transport.serialport import SerialTransport
         return SerialTransport
-

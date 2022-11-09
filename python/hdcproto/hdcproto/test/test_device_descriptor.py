@@ -1,9 +1,9 @@
 import logging
 import unittest
 
+from hdcproto.common import MessageTypeID, FeatureID, EvtID, CmdID, PropID, CommandErrorCode, HdcDataType
 from hdcproto.device.descriptor import DeviceDescriptorBase
 from hdcproto.transport.mock import MockTransport
-from hdcproto.common import MessageTypeID, FeatureID, EvtID, CmdID, PropID, CommandErrorCode, HdcDataType
 
 
 class TestableDeviceDescriptor(DeviceDescriptorBase):

@@ -4,8 +4,8 @@ import logging
 import socket
 import threading
 import typing
-
 from urllib.parse import urlparse
+
 from hdcproto.transport.base import TransportBase
 from hdcproto.transport.packetizer import Packetizer
 

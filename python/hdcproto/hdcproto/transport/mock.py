@@ -143,7 +143,7 @@ def showcase_mock_transport():
         transport.inbound_messages.clear()  # We can clear the log, or popleft(), ...
 
         # The following lambda simulates/mocks a reaction to outbound messages, like those sent further below
-        transport.reply_mocking=lambda req: b'pong' if req == b'ping' else None
+        transport.reply_mocking = lambda req: b'pong' if req == b'ping' else None
 
         assert len(transport.outbound_messages) == 0
         msg1 = b'Sent messages can elicit a custom reply, as defined by the reply-mocking function.'

@@ -1,0 +1,444 @@
+{
+    "version": "HDC 1.0.0-alpha.10",
+    "features": {
+        "Core": {
+            "id": 0,
+            "type": "Demo_Minimal",
+            "revision": 42,
+            "doc": "Python implementation of the 'Minimal' HDC-device demonstration",
+            "tags": "",
+            "states": "{0: \"Off\", 1:\"Initializing\", 2: \"Ready, 3: \"Busy\"",
+            "commands": {
+                "Reset": {
+                    "id": 193,
+                    "doc": "(VOID) -> VOID\nReinitializes the whole device.",
+                    "raises": [],
+                    "args": [],
+                    "returns": []
+                },
+                "GetPropertyName": {
+                    "id": 240,
+                    "doc": "(UINT8 PropertyID) -> UTF8 Name",
+                    "raises": [
+                        [
+                            244,
+                            "Incorrect command arguments"
+                        ],
+                        [
+                            242,
+                            "Unknown property"
+                        ],
+                        [
+                            246,
+                            "Command failed"
+                        ]
+                    ],
+                    "args": [
+                        [
+                            "UINT8",
+                            "PropertyID"
+                        ]
+                    ],
+                    "returns": [
+                        [
+                            "UTF8",
+                            "Name"
+                        ]
+                    ]
+                },
+                "GetPropertyType": {
+                    "id": 241,
+                    "doc": "(UINT8 PropertyID) -> UINT8 DataTypeID",
+                    "raises": [
+                        [
+                            244,
+                            "Incorrect command arguments"
+                        ],
+                        [
+                            242,
+                            "Unknown property"
+                        ],
+                        [
+                            246,
+                            "Command failed"
+                        ]
+                    ],
+                    "args": [
+                        [
+                            "UINT8",
+                            "PropertyID"
+                        ]
+                    ],
+                    "returns": [
+                        [
+                            "UINT8",
+                            "DataTypeID"
+                        ]
+                    ]
+                },
+                "GetPropertyReadonly": {
+                    "id": 242,
+                    "doc": "(UINT8 PropertyID) -> BOOL IsReadonly",
+                    "raises": [
+                        [
+                            244,
+                            "Incorrect command arguments"
+                        ],
+                        [
+                            242,
+                            "Unknown property"
+                        ],
+                        [
+                            246,
+                            "Command failed"
+                        ]
+                    ],
+                    "args": [
+                        [
+                            "UINT8",
+                            "PropertyID"
+                        ]
+                    ],
+                    "returns": [
+                        [
+                            "BOOL",
+                            "IsReadonly"
+                        ]
+                    ]
+                },
+                "GetPropertyValue": {
+                    "id": 243,
+                    "doc": "(UINT8 PropertyID) -> var Value",
+                    "raises": [
+                        [
+                            244,
+                            "Incorrect command arguments"
+                        ],
+                        [
+                            242,
+                            "Unknown property"
+                        ],
+                        [
+                            246,
+                            "Command failed"
+                        ]
+                    ]
+                },
+                "SetPropertyValue": {
+                    "id": 244,
+                    "doc": "(UINT8 PropertyID, var NewValue) -> var ActualNewValue",
+                    "raises": [
+                        [
+                            244,
+                            "Incorrect command arguments"
+                        ],
+                        [
+                            242,
+                            "Unknown property"
+                        ],
+                        [
+                            248,
+                            "Property is read-only"
+                        ],
+                        [
+                            247,
+                            "Invalid property value"
+                        ]
+                    ]
+                },
+                "GetPropertyDescription": {
+                    "id": 245,
+                    "doc": "(UINT8 PropertyID) -> UTF8 Description",
+                    "raises": [
+                        [
+                            244,
+                            "Incorrect command arguments"
+                        ],
+                        [
+                            242,
+                            "Unknown property"
+                        ],
+                        [
+                            246,
+                            "Command failed"
+                        ]
+                    ],
+                    "args": [
+                        [
+                            "UINT8",
+                            "PropertyID"
+                        ]
+                    ],
+                    "returns": [
+                        [
+                            "UTF8",
+                            "Description"
+                        ]
+                    ]
+                },
+                "GetCommandName": {
+                    "id": 246,
+                    "doc": "(UINT8 CommandID) -> UTF8 Name",
+                    "raises": [
+                        [
+                            244,
+                            "Incorrect command arguments"
+                        ],
+                        [
+                            241,
+                            "Unknown command"
+                        ],
+                        [
+                            246,
+                            "Command failed"
+                        ]
+                    ],
+                    "args": [
+                        [
+                            "UINT8",
+                            "CommandID"
+                        ]
+                    ],
+                    "returns": [
+                        [
+                            "UTF8",
+                            "Name"
+                        ]
+                    ]
+                },
+                "GetCommandDescription": {
+                    "id": 247,
+                    "doc": "(UINT8 CommandID) -> UTF8 Description",
+                    "raises": [
+                        [
+                            244,
+                            "Incorrect command arguments"
+                        ],
+                        [
+                            241,
+                            "Unknown command"
+                        ],
+                        [
+                            246,
+                            "Command failed"
+                        ]
+                    ],
+                    "args": [
+                        [
+                            "UINT8",
+                            "CommandID"
+                        ]
+                    ],
+                    "returns": [
+                        [
+                            "UTF8",
+                            "Description"
+                        ]
+                    ]
+                },
+                "GetEventName": {
+                    "id": 248,
+                    "doc": "(UINT8 EventID) -> UTF8 Name",
+                    "raises": [
+                        [
+                            244,
+                            "Incorrect command arguments"
+                        ],
+                        [
+                            243,
+                            "Unknown event"
+                        ],
+                        [
+                            246,
+                            "Command failed"
+                        ]
+                    ],
+                    "args": [
+                        [
+                            "UINT8",
+                            "EventID"
+                        ]
+                    ],
+                    "returns": [
+                        [
+                            "UTF8",
+                            "Name"
+                        ]
+                    ]
+                },
+                "GetEventDescription": {
+                    "id": 249,
+                    "doc": "(UINT8 EventID) -> UTF8 Description",
+                    "raises": [
+                        [
+                            244,
+                            "Incorrect command arguments"
+                        ],
+                        [
+                            243,
+                            "Unknown event"
+                        ],
+                        [
+                            246,
+                            "Command failed"
+                        ]
+                    ],
+                    "args": [
+                        [
+                            "UINT8",
+                            "EventID"
+                        ]
+                    ],
+                    "returns": [
+                        [
+                            "UTF8",
+                            "Description"
+                        ]
+                    ]
+                }
+            },
+            "events": {
+                "ButtonEvent": {
+                    "id": 1,
+                    "doc": "(UINT8 ButtonID, UINT8 ButtonState)\nShowcases implementation of a custom HDC-event: Notify host about the button being pressed on the device.",
+                    "args": [
+                        [
+                            "UINT8",
+                            "ButtonID"
+                        ],
+                        [
+                            "UINT8",
+                            "ButtonState"
+                        ]
+                    ]
+                },
+                "Log": {
+                    "id": 240,
+                    "doc": "(UINT8 LogLevel, UTF8 LogMsg)",
+                    "args": [
+                        [
+                            "UINT8",
+                            "LogLevel"
+                        ],
+                        [
+                            "UTF8",
+                            "LogMsg"
+                        ]
+                    ]
+                },
+                "FeatureStateTransition": {
+                    "id": 241,
+                    "doc": "(UINT8 PreviousStateID, UINT8 CurrentStateID)",
+                    "args": [
+                        [
+                            "UINT8",
+                            "PreviousStateID"
+                        ],
+                        [
+                            "UINT8",
+                            "CurrentStateID"
+                        ]
+                    ]
+                }
+            },
+            "properties": {
+                "uC_DEVID": {
+                    "id": 16,
+                    "type": "UINT32",
+                    "doc": "32bit Device-ID of STM32 microcontroller.",
+                    "ro": true
+                },
+                "uC_REVID": {
+                    "id": 17,
+                    "type": "UINT32",
+                    "doc": "32bit Revision-ID of STM32 microcontroller.",
+                    "ro": true
+                },
+                "uC_UID": {
+                    "id": 18,
+                    "type": "BLOB",
+                    "doc": "96bit unique-ID of STM32 microcontroller.",
+                    "ro": true
+                },
+                "LedBlinkingRate": {
+                    "id": 19,
+                    "type": "UINT32",
+                    "doc": "Blinking frequency of the LED given in Herz.",
+                    "ro": false
+                },
+                "FeatureName": {
+                    "id": 240,
+                    "type": "UTF8",
+                    "doc": "Unique label of this feature-instance.",
+                    "ro": true
+                },
+                "FeatureTypeName": {
+                    "id": 241,
+                    "type": "UTF8",
+                    "doc": "Unique label of this feature's class.",
+                    "ro": true
+                },
+                "FeatureTypeRevision": {
+                    "id": 242,
+                    "type": "UINT8",
+                    "doc": "Revision number of this feature's class-implementation.",
+                    "ro": true
+                },
+                "FeatureDescription": {
+                    "id": 243,
+                    "type": "UTF8",
+                    "doc": "Human readable documentation about this feature.",
+                    "ro": true
+                },
+                "FeatureTags": {
+                    "id": 244,
+                    "type": "UTF8",
+                    "doc": "Semicolon-delimited list of tags and categories associated with this feature.",
+                    "ro": true
+                },
+                "AvailableCommands": {
+                    "id": 245,
+                    "type": "BLOB",
+                    "doc": "List of IDs of commands available on this feature.",
+                    "ro": true
+                },
+                "AvailableEvents": {
+                    "id": 246,
+                    "type": "BLOB",
+                    "doc": "List of IDs of events available on this feature.",
+                    "ro": true
+                },
+                "AvailableProperties": {
+                    "id": 247,
+                    "type": "BLOB",
+                    "doc": "List of IDs of properties available on this feature.",
+                    "ro": true
+                },
+                "FeatureState": {
+                    "id": 248,
+                    "type": "UINT8",
+                    "doc": "{0: \"Off\", 1:\"Initializing\", 2: \"Ready, 3: \"Busy\"",
+                    "ro": true
+                },
+                "LogEventThreshold": {
+                    "id": 249,
+                    "type": "UINT8",
+                    "doc": "Suppresses LogEvents with lower log-levels.",
+                    "ro": false
+                },
+                "AvailableFeatures": {
+                    "id": 250,
+                    "type": "BLOB",
+                    "doc": "List of IDs of features available on this device.",
+                    "ro": true
+                },
+                "MaxReqMsgSize": {
+                    "id": 251,
+                    "type": "UINT32",
+                    "doc": "Maximum number of bytes of a request message that this device can cope with.",
+                    "ro": true
+                }
+            }
+        }
+    }
+}

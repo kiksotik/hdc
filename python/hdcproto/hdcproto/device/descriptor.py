@@ -249,6 +249,28 @@ class FeatureDescriptorBase:
         self.evt_state_transition.emit(previous_state_id=previous_state_id,
                                        current_state_id=new_feature_state_id)
 
+    def to_json(self) -> dict:
+        return dict(
+            id=self.feature_id,
+            type=self.feature_type_name,
+            revision=self.feature_type_revision,
+            doc=self.feature_description,
+            tags=self.feature_tags,
+            states=self.feature_states_description,
+            commands={
+                d.command_name: d.to_json()
+                for d in sorted(self.command_descriptors.values(), key=lambda d: d.command_id)
+            },
+            events={
+                d.event_name: d.to_json()
+                for d in sorted(self.event_descriptors.values(), key=lambda d: d.event_id)
+            },
+            properties={
+                d.property_name: d.to_json()
+                for d in sorted(self.property_descriptors.values(), key=lambda d: d.property_id)
+            }
+        )
+
 
 class CoreFeatureDescriptorBase(FeatureDescriptorBase):
     def __init__(self, device_descriptor: DeviceDescriptorBase):
@@ -256,8 +278,10 @@ class CoreFeatureDescriptorBase(FeatureDescriptorBase):
             device_descriptor=device_descriptor,
             feature_id=FeatureID.CORE.CORE,
             feature_name="Core",
-            feature_type_name=self.__class__.__name__,
-            feature_type_revision=0  # To be overriden in specific subclass!
+            feature_type_name=device_descriptor.device_name,
+            feature_type_revision=device_descriptor.device_revision,
+            feature_description=device_descriptor.device_description,
+            feature_states_description=device_descriptor.device_states
         )
 
         # Mandatory properties of a Core feature as required by HDC-spec
@@ -384,6 +408,16 @@ class CommandDescriptorBase:
     def router(self) -> hdcproto.device.router.MessageRouter:
         return self.feature_descriptor.device_descriptor.router
 
+    def to_json(self) -> dict:
+        return dict(
+            id=self.command_id,
+            doc=self.command_description,
+            raises=[
+                (error_id, error_name)
+                for error_id, error_name in self.command_raises.items()
+            ]
+        )
+
 
 class TypedCommandDescriptor(CommandDescriptorBase):
     """
@@ -429,7 +463,11 @@ class TypedCommandDescriptor(CommandDescriptorBase):
         description_already_contains_command_signature = command_description.startswith('(')
         if not description_already_contains_command_signature:
             cmd_signature = "("
-            cmd_signature += ', '.join(f"{arg_type.name} {arg_name}" for arg_type, arg_name in self.command_arguments)
+            if not self.command_arguments:
+                cmd_signature += "VOID"
+            else:
+                cmd_signature += ', '.join(f"{arg_type.name} {arg_name}"
+                                           for arg_type, arg_name in self.command_arguments)
             cmd_signature += ") -> "
             if not self.command_returns:
                 cmd_signature += "VOID"
@@ -481,6 +519,18 @@ class TypedCommandDescriptor(CommandDescriptorBase):
             reply.extend(ret_type.value_to_bytes(ret_value))
         reply = bytes(reply)
         self.router.send_reply_for_pending_request(reply)
+
+    def to_json(self) -> dict:
+        d = super().to_json()
+        d["args"] = [
+            (arg_type.name, arg_name)
+            for arg_type, arg_name in self.command_arguments
+        ]
+        d["returns"] = [
+            (ret_type.name, ret_name)
+            for ret_type, ret_name in self.command_returns
+        ]
+        return d
 
 
 class GetPropertyNameCommandDescriptor(TypedCommandDescriptor):
@@ -771,15 +821,13 @@ class EventDescriptorBase:
     event_id: int
     event_name: str
     event_description: str
-    event_arguments: list[tuple[HdcDataType, str]] | None
     msg_prefix: bytes
 
     def __init__(self,
                  feature_descriptor: FeatureDescriptorBase,
                  event_id: int,
                  event_name: str,
-                 event_description: str | None,
-                 event_arguments: list[tuple[HdcDataType, str]] | None):
+                 event_description: str | None):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor.MyFeatureDescriptor.MyEventDescriptor"
@@ -807,6 +855,49 @@ class EventDescriptorBase:
             raise ValueError("Event name must be a non-empty string")
         self.event_name = event_name
 
+        if event_description is None:
+            event_description = ""
+        self.event_description = event_description
+
+        self.msg_prefix = bytes([int(MessageTypeID.EVENT),
+                                 self.feature_descriptor.feature_id,
+                                 self.event_id])
+
+    @property
+    def router(self) -> hdcproto.device.router.MessageRouter:
+        return self.feature_descriptor.device_descriptor.router
+
+    def _send_event_message(self, event_message: bytes) -> None:
+        if not isinstance(event_message, (bytes, bytearray)):
+            raise TypeError()
+
+        if len(event_message) < len(self.msg_prefix) \
+                or event_message[:len(self.msg_prefix)] != self.msg_prefix:
+            raise ValueError()
+
+        self.router.send_event_message(event_message=event_message)
+
+    def to_json(self) -> dict:
+        return dict(
+            id=self.event_id,
+            doc=self.event_description)
+
+
+class TypedEventDescriptor(EventDescriptorBase):
+    event_arguments: list[tuple[HdcDataType, str]] | None
+
+    def __init__(self,
+                 feature_descriptor: FeatureDescriptorBase,
+                 event_id: int,
+                 event_name: str,
+                 event_description: str | None,
+                 event_arguments: list[tuple[HdcDataType, str]] | None):
+
+        super().__init__(feature_descriptor=feature_descriptor,
+                         event_id=event_id,
+                         event_name=event_name,
+                         event_description=event_description)
+
         if event_arguments is None:
             event_arguments = list()
         if any(arg_type.size is None for arg_type, arg_name in event_arguments[:-1]):
@@ -823,14 +914,6 @@ class EventDescriptorBase:
             else:
                 self.event_description = evt_signature
 
-        self.msg_prefix = bytes([int(MessageTypeID.EVENT),
-                                 self.feature_descriptor.feature_id,
-                                 self.event_id])
-
-    @property
-    def router(self) -> hdcproto.device.router.MessageRouter:
-        return self.feature_descriptor.device_descriptor.router
-
     def _send_event_message(self, event_args: list[typing.Any] | None) -> None:
         event_message = bytearray(self.msg_prefix)
 
@@ -845,10 +928,18 @@ class EventDescriptorBase:
 
         event_message = bytes(event_message)
 
-        self.router.send_event_message(event_message=event_message)
+        super()._send_event_message(event_message=event_message)
+
+    def to_json(self) -> dict:
+        d = super().to_json()
+        d["args"] = [
+            (arg_type.name, arg_name)
+            for arg_type, arg_name in self.event_arguments
+        ]
+        return d
 
 
-class LogEventDescriptor(EventDescriptorBase):
+class LogEventDescriptor(TypedEventDescriptor):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
                          event_id=EvtID.LOG,
@@ -880,7 +971,7 @@ class HdcLoggingHandler(logging.Handler):
             self.handleError(record)
 
 
-class FeatureStateTransitionEventDescriptor(EventDescriptorBase):
+class FeatureStateTransitionEventDescriptor(TypedEventDescriptor):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
                          event_id=EvtID.FEATURE_STATE_TRANSITION,
@@ -959,6 +1050,13 @@ class PropertyDescriptorBase:
     def property_is_readonly(self) -> bool:
         return self.property_setter is None
 
+    def to_json(self) -> dict:
+        return dict(
+            id=self.property_id,
+            type=self.property_type.name,
+            doc=self.property_description,
+            ro=self.property_is_readonly)
+
 
 class DeviceDescriptorBase:
     router: hdcproto.device.router.MessageRouter
@@ -967,10 +1065,18 @@ class DeviceDescriptorBase:
 
     def __init__(self,
                  connection_url: str,
+                 device_name: str,
+                 device_revision: int,
+                 device_description: str,
+                 device_states: str,
                  core_feature_descriptor_class=CoreFeatureDescriptorBase,
                  max_req_msg_size: int = 2048):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor"
+        self.device_name = device_name
+        self.device_revision = device_revision
+        self.device_description = device_description
+        self.device_states = device_states
         self.logger = logger.getChild(self.__class__.__name__)
 
         if max_req_msg_size < 5:
@@ -1005,3 +1111,12 @@ class DeviceDescriptorBase:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    def to_json(self) -> dict:
+        return dict(
+            version=hdcproto.common.HDC_VERSION,
+            features={
+                d.feature_name: d.to_json()
+                for d in sorted(self.feature_descriptors.values(), key=lambda d: d.feature_id)
+            }
+        )

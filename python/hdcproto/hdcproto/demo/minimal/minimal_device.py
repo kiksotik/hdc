@@ -4,13 +4,19 @@ from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, CommandErrorCode
 from hdcproto.device.descriptor import (DeviceDescriptorBase, CoreFeatureDescriptorBase,
-                                        TypedCommandDescriptor, EventDescriptorBase, PropertyDescriptorBase,
-                                        FeatureDescriptorBase)
+                                        TypedCommandDescriptor, PropertyDescriptorBase,
+                                        FeatureDescriptorBase, TypedEventDescriptor)
 
 
 class MinimalDeviceDescriptor(DeviceDescriptorBase):
     def __init__(self, connection_url: str):
-        super().__init__(connection_url, core_feature_descriptor_class=MinimalCoreDescriptor)
+        super().__init__(connection_url,
+                         core_feature_descriptor_class=MinimalCoreDescriptor,
+                         device_name="Demo_Minimal",
+                         device_revision=42,  # Mocking a revision for this implementation
+                         device_description="Python implementation of the 'Minimal' HDC-device demonstration",
+                         device_states="{0: \"Off\", 1:\"Initializing\", 2: \"Ready, 3: \"Busy\""  # ToDo: Descriptors!
+                         )
 
     def main_loop(self):
         self.router.connect()
@@ -30,11 +36,6 @@ class MinimalCoreDescriptor:
         # it allows us to separate more cleanly our custom descriptors from those defined in FeatureDescriptorBase.
         # This is for example useful to keep the autocompletion list short and readable while coding.
         self.hdc = CoreFeatureDescriptorBase(device_descriptor=device_descriptor)
-
-        # Mocking of name and revision number
-        # of device implementation which we are emulating here.
-        self.hdc.feature_type_name = "MinimalCore"
-        self.hdc.feature_type_revision = 1
 
         # Custom attributes
         self.led_blinking_rate = 5
@@ -107,7 +108,7 @@ class MinimalCoreDescriptor:
         return self.led_blinking_rate
 
 
-class ButtonEventDescriptor(EventDescriptorBase):
+class ButtonEventDescriptor(TypedEventDescriptor):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor=feature_descriptor,
                          event_id=0x01,
@@ -135,6 +136,11 @@ class ButtonEventDescriptor(EventDescriptorBase):
 
 def launch_device(connection_url: str):
     device = MinimalDeviceDescriptor(connection_url=connection_url)
+
+    import json
+    with open('minimal_device.json', 'w', encoding='utf-8') as f:
+        json.dump(device.to_json(), f, ensure_ascii=False, indent=4)
+
     device.main_loop()
 
 

@@ -1088,7 +1088,7 @@ class CoreFeatureProxyBase(FeatureProxyBase):
 
         # Mandatory properties of a Core feature as required by HDC-spec
         self.prop_available_features = PropertyProxy_RO_BLOB(self, PropID.AVAIL_FEAT)
-        self.prop_max_req_msg_size = PropertyProxy_RO_UINT16(self, PropID.MAX_REQ_MSG_SIZE)
+        self.prop_max_req_msg_size = PropertyProxy_RO_UINT32(self, PropID.MAX_REQ_MSG_SIZE)
 
         # HDC-spec does not require any mandatory commands nor events for the Core feature, other than what's
         # already mandatory for any feature, which has been inherited from the FeatureProxyBase base class.

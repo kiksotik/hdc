@@ -210,136 +210,22 @@ void HDC_Compose_EmptyPacket() {
   pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKET_TERMINATOR;
 }
 
-/*
- * Packetize an HDC-message that's made available as a single, contiguous block of data.
- * You might be better off using HDC_Compose_Packets_From_Pieces(), instead, because
- * it combines message and packet composition in a single call.
- * As required by HDC-spec:
- *  - Messages larger than 255 bytes will be split into multiple packets.
- *  - Messages that are an exact multiple of 255 will be terminated with an empty packet.
- */
-void HDC_Compose_Packets(const uint8_t* pMsg, const uint16_t MsgSize) {
-  uint16_t nMsg = 0;
-  uint8_t PacketPayloadSize;
-  do {
-    PacketPayloadSize = MsgSize - nMsg < 255 ? MsgSize - nMsg : 255;
-    uint8_t *pBuffer = 0;
-    uint16_t *pNumBytesInBuffer = 0;
-    HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKET_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
-    uint8_t checksum = 0;
-    pBuffer[(*pNumBytesInBuffer)++] = PacketPayloadSize;
-    for (uint8_t nPkt=0; nPkt<PacketPayloadSize; nPkt++){
-      checksum += pMsg[nMsg];
-      pBuffer[(*pNumBytesInBuffer)++] = pMsg[nMsg++];
-    }
-    pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)0xFF - checksum + 1;
-    pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKET_TERMINATOR;
-  } while (nMsg < MsgSize);
-
-  if (PacketPayloadSize==255) {
-    // Last packet had a payload of exactly 255 bytes.
-    // We must therefore send an empty packet, to signal
-    // that the multi-packet message is complete.
-    HDC_Compose_EmptyPacket();
-  }
-
-}
 
 /*
- * A more convenient way to create HDC-packets, since it doesn't require
- * callers to compose the HDC-message themselves, thus reducing RAM consumption.
- * Besides specifying the four header bytes individually, the message payload can
- * be provided as two chunks (prefix&suffix), which is convenient in many use-cases.
- * The CommandErrorCode argument will only be used, whenever the MsgType is a Command.
- * As required by HDC-spec:
- *  - Messages larger than 255 bytes will be split into multiple packets.
- *  - Messages that are an exact multiple of 255 will be terminated with an empty packet.
- */
-void HDC_Compose_Packets_From_Pieces(
-    const uint8_t MsgType,
-    const uint8_t FeatureID,
-    const uint8_t CmdOrEvtID,
-    const HDC_CommandErrorCode_t CommandErrorCode,
-    const uint8_t* pMsgPayloadPrefix,
-    const size_t MsgPayloadPrefixSize,
-    const uint8_t* pMsgPayloadSuffix,
-    const size_t MsgPayloadSuffixSize
-   )
-{
-  const uint8_t MsgHeaderSize = (MsgType==HDC_MessageTypeID_Command) ? 4 : 3;  // MsgType ; FeatureID ; CmdOrEvtID ; (CommandErrorCode)
-  const uint16_t MsgSize = MsgHeaderSize + MsgPayloadPrefixSize + MsgPayloadSuffixSize;
-  uint8_t PacketPayloadSize;
-  uint16_t nMsg = 0;
-  do {  // Loop for multi-packet message composition
-    PacketPayloadSize = MsgSize - nMsg < 255 ? MsgSize - nMsg : 255;
-    uint8_t *pBuffer = 0;
-    uint16_t *pNumBytesInBuffer = 0;
-    HDC_GetTxBufferWithCapacityForAtLeast(PacketPayloadSize + HDC_PACKET_OVERHEAD, &pBuffer, &pNumBytesInBuffer);
-    uint8_t checksum = 0;
-    pBuffer[(*pNumBytesInBuffer)++] = PacketPayloadSize;
-    uint8_t nPkt=0;
-    if (nMsg == 0) {
-      // MsgType
-      checksum += MsgType;
-      pBuffer[(*pNumBytesInBuffer)++] = MsgType;
-      nMsg++;
-      nPkt++;
-
-      // FeatureID
-      checksum += FeatureID;
-      pBuffer[(*pNumBytesInBuffer)++] = FeatureID;
-      nMsg++;
-      nPkt++;
-
-      // CmdID or EvtID (depending on the MsgType)
-      checksum += CmdOrEvtID;
-      pBuffer[(*pNumBytesInBuffer)++] = CmdOrEvtID;
-      nMsg++;
-      nPkt++;
-
-      if (MsgType == HDC_MessageTypeID_Command) {
-        // CommandErrorCode
-        checksum += (uint8_t)CommandErrorCode;
-        pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)CommandErrorCode;
-        nMsg++;
-        nPkt++;
-      }
-    }
-
-    while (nPkt < PacketPayloadSize && nMsg < MsgHeaderSize + MsgPayloadPrefixSize) {
-      const uint16_t nPrefix = nMsg - MsgHeaderSize;
-      checksum += pMsgPayloadPrefix[nPrefix];
-      pBuffer[(*pNumBytesInBuffer)++] = pMsgPayloadPrefix[nPrefix];
-      nMsg++;
-      nPkt++;
-    }
-
-    while (nPkt < PacketPayloadSize && nMsg < MsgHeaderSize + MsgPayloadPrefixSize + MsgPayloadSuffixSize) {
-      const uint16_t nSuffix = nMsg - MsgHeaderSize - MsgPayloadPrefixSize;
-      checksum += pMsgPayloadSuffix[nSuffix];
-      pBuffer[(*pNumBytesInBuffer)++] = pMsgPayloadSuffix[nSuffix];
-      nMsg++;
-      nPkt++;
-    }
-
-    pBuffer[(*pNumBytesInBuffer)++] = (uint8_t)0xFF - checksum + 1;
-    pBuffer[(*pNumBytesInBuffer)++] = HDC_PACKET_TERMINATOR;
-  } while (nMsg < MsgSize);
-
-  if (PacketPayloadSize==255) {
-    // Last packet had a payload of exactly 255 bytes.
-    // We must therefore send an empty packet, to signal
-    // that the multi-packet message is complete.
-    HDC_Compose_EmptyPacket();
-  }
-}
-
-/*
- * Packetizes message(s) whose size is not known ahead of time, i.e. JSON string built on-the-fly for the Meta-reply.
- * Call this method multiple times:
+ * Packetizes payloads whose size is not known ahead of time, i.e. dynamic JSON string generation for the Meta-reply.
+ * This method is meant to be called multiple times:
  *    - First call must pass DataSize=-1 and no data, to initialize the composition.
- *    - Subsequent calls with proper data. If HDC_BUFFER_SIZE_TX is 258 or larger
- *    - Last call must pass DataSize=-2 and no data, to finalize the composition
+ *
+ *    - Subsequent calls can provide as much data as necessary in as many calls as necessary.
+ *      Packets are composed directly into the TX buffers, and are being transmitted as necessary.
+ *
+ *    - Last call must pass DataSize=-2 and no data, to finalize the composition.
+ *
+ * Satisfies HDC-spec requirements:
+ *    - Payloads larger than 255 bytes will be split into multiple packets.
+ *    - Payloads that are an exact multiple of 255 will be terminated with an empty packet.
+ *
+ * ToDo: Fail more graciously whenever user provides less than 258 bytes for HDC_BUFFER_SIZE_TX but sends larger packets than that.
  */
 void HDC_Compose_Packets_From_Stream(
     const uint8_t *const pDataStart,  // Constant pointer to a constant uint8_t: Can't change pointer nor the values it points to.
@@ -418,7 +304,56 @@ void HDC_Compose_Packets_From_Stream(
     pPktEnd = NULL;
     pNumBytesInBuffer = NULL;
   }
+}
 
+
+/*
+ * Packetizes data provided as a single, contiguous block.
+ * Packets are composed directly into the TX buffers, and are being transmitted as necessary.
+ * Whether data contains one or more HDC-messages is up to the caller.
+ *
+ * For composition of HDC-messages emitted by the HDC-Feature-layer it might be more convenient
+ * to use HDC_Compose_Message_From_Pieces(), instead, because it combines message- and
+ * packet-composition in a single call.
+ */
+void HDC_Compose_Packets_From_Buffer(const uint8_t* pData, const uint16_t DataSize) {
+  HDC_Compose_Packets_From_Stream(NULL, -1);        // Initialize packet composition
+  HDC_Compose_Packets_From_Stream(pData, DataSize); // Packetize data
+  HDC_Compose_Packets_From_Stream(NULL, -2);        // Finalize packet composition
+}
+
+
+/*
+ * A more convenient way to packetize one Command- or Event-message in a single call.
+ * Besides passing the four header bytes as individual values, the message payload can
+ * be supplied as two chunks (prefix & suffix), which is convenient in many use-cases.
+ * The CommandErrorCode argument will only be used to compose Command-messages.
+ */
+void HDC_Compose_Message_From_Pieces(
+    const uint8_t MsgType,
+    const uint8_t FeatureID,
+    const uint8_t CmdOrEvtID,
+    const HDC_CommandErrorCode_t CommandErrorCode,
+    const uint8_t* pMsgPayloadPrefix,
+    const size_t MsgPayloadPrefixSize,
+    const uint8_t* pMsgPayloadSuffix,
+    const size_t MsgPayloadSuffixSize)
+{
+  HDC_Compose_Packets_From_Stream(NULL, -1);        // Initialize packet composition
+  HDC_Compose_Packets_From_Stream(&MsgType, 1);     // Msg[0] = MessageTypeID
+  HDC_Compose_Packets_From_Stream(&FeatureID, 1);   // Msg[1] = FeatureID
+  HDC_Compose_Packets_From_Stream(&CmdOrEvtID, 1);  // Msg[2] = CommandID or EventID
+
+  if (MsgType == HDC_MessageTypeID_Command)
+      HDC_Compose_Packets_From_Stream(&CommandErrorCode, 1);  // Msg[3] = CommandErrorCode
+
+  if (MsgPayloadPrefixSize > 0)
+    HDC_Compose_Packets_From_Stream(pMsgPayloadPrefix, MsgPayloadPrefixSize);  // Append first chunk of the message payload
+
+  if (MsgPayloadSuffixSize > 0)
+    HDC_Compose_Packets_From_Stream(pMsgPayloadSuffix, MsgPayloadSuffixSize);  // Append second chunk of the message payload
+
+  HDC_Compose_Packets_From_Stream(NULL, -2);  // Finalize packet composition
 }
 
 
@@ -435,7 +370,7 @@ void HDC_CmdReply_From_Pieces(
     const size_t MsgPayloadSuffixSize)
 {
 
-  HDC_Compose_Packets_From_Pieces(
+  HDC_Compose_Message_From_Pieces(
     HDC_MessageTypeID_Command,
     FeatureID,
     CmdID,
@@ -1037,7 +972,7 @@ void HDC_EvtMsg(const HDC_Feature_Descriptor_t *hHDC_Feature,
     // Default to Core-Feature, which by convention is the first array item.
     hHDC_Feature = hHDC.Features[0];
 
-  HDC_Compose_Packets_From_Pieces(
+  HDC_Compose_Message_From_Pieces(
     HDC_MessageTypeID_Event,
     hHDC_Feature->FeatureID,
     EventID,
@@ -1356,7 +1291,7 @@ bool HDC_MsgReply_HdcVersion(
   uint8_t ReplySize = strlen(pReplyMessage);
 
   pReplyMessage[0] = HDC_MessageTypeID_HdcVersion;  // Inject MessageTypID, for this to be a valid reply message.
-  HDC_Compose_Packets((uint8_t*)pReplyMessage, ReplySize);
+  HDC_Compose_Packets_From_Buffer((uint8_t*)pReplyMessage, ReplySize);
 
   return true;
 }
@@ -1372,7 +1307,7 @@ bool HDC_MsgReply_Echo(
   assert_param(pRequestMessage[0] == HDC_MessageTypeID_Echo);
 
   // Reply message must be exactly equal to the full request message.
-  HDC_Compose_Packets(pRequestMessage, Size);
+  HDC_Compose_Packets_From_Buffer(pRequestMessage, Size);
 
   return true;
 }
@@ -1423,7 +1358,7 @@ bool HDC_MsgReply_Meta(
   // EXPERIMENTAL: Debugging streaming-packet-composer
   // ToDo: Implement dynamic generation of JSON representation of a device's HDC-API
   HDC_Compose_Packets_From_Stream(NULL, -1);  // Initialize packet composition
-  uint8_t data[] = "XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXXXXXX6XXXXXXXXX7XXXXXXXXX8XXXXXXXXX9XXXXXXXXX0XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXXXXXX6XXXXXXXXX7XXXXXXXXX8XXXXXXXXX9XXXXXXXXX0XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXXXXXX6XXXXXXXXX7XXXXXXXXX8XXXXXXXXX9XXXXXXXXX0";
+  uint8_t data[] = "XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXXXXXX6XXXXXXXXX7XXXXXXXXX8XXXXXXXXX9XXXXXXXXX0XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXXXXXX6XXXXXXXXX7XXXXXXXXX8XXXXXXXXX9XXXXXXXXX0XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXX";
   uint16_t size = sizeof(data) - 1; // Minus one to get rid of the zero termination of the string literal!
   data[0] = HDC_MessageTypeID_Meta;  // Prepend MessageID for a Meta reply!
   HDC_Compose_Packets_From_Stream(data, size);  // Append dummy payload

@@ -75,6 +75,7 @@ class MessageTypeID(enum.IntEnum):
     ECHO = 0xF1
     COMMAND = 0xF2
     EVENT = 0xF3
+    META = 0xF4
 
     @staticmethod
     def is_custom(message_type_id: int):

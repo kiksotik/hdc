@@ -334,6 +334,93 @@ void HDC_Compose_Packets_From_Pieces(
   }
 }
 
+/*
+ * Packetizes message(s) whose size is not known ahead of time, i.e. JSON string built on-the-fly for the Meta-reply.
+ * Call this method multiple times:
+ *    - First call must pass DataSize=-1 and no data, to initialize the composition.
+ *    - Subsequent calls with proper data. If HDC_BUFFER_SIZE_TX is 258 or larger
+ *    - Last call must pass DataSize=-2 and no data, to finalize the composition
+ */
+void HDC_Compose_Packets_From_Stream(
+    const uint8_t *const pDataStart,  // Constant pointer to a constant uint8_t: Can't change pointer nor the values it points to.
+    int32_t DataSize
+   )
+{
+  assert_param(HDC_BUFFER_SIZE_TX >= 258); // Otherwise we cannot create full packets! ToDo: Is the complexity worth it to deal with smaller TX buffers? Make MsgType META optional for those cases!!
+
+  static const uint8_t* pDataEnd = NULL;  // Non-constant pointer to a constant uint8_t: Pointer can move, but it can not change values it points to.
+  static uint8_t* pPktStart = NULL;  // Points at TX buffer address where the packet begins that is currently being composed.
+  static uint8_t* pPktEnd = NULL;    // Points at TX buffer address at which to continue appending to the packet that's being composed.
+  static uint16_t* pNumBytesInBuffer = NULL;
+
+  bool is_starting_composition = (DataSize == -1);
+  if (is_starting_composition) {
+    // Initialize new message composition
+    assert_param(pDataStart == NULL);
+    assert_param(is_composing == false);
+    DataSize = 0;  // Do not confuse the remainder of the code-flow!
+    // Allocation of TX buffer happens further below
+  }
+
+  bool is_finished_composing = (DataSize == -2);
+  if (is_finished_composing) {
+    assert_param(pDataStart == NULL);
+    assert_param(is_composing == true);
+    DataSize = 0;  // Do not confuse the remainder of the code-flow!
+    // Flushing of current packet happens further below
+  }
+
+  pDataEnd = pDataStart; // Points at data item that's still pending to be packetized.
+
+  size_t pending_data;
+  do {
+    size_t available_packet_payload = 255 - (pPktEnd - pPktStart) + 1;  // Plus one of the leading PS byte of the packet header, which does not count as payload.
+    pending_data = DataSize - (pDataEnd - pDataStart);
+
+    size_t num_bytes_to_copy = (pending_data > available_packet_payload) ? available_packet_payload : pending_data;
+    memcpy(pPktEnd, pDataEnd, num_bytes_to_copy);
+
+    *pNumBytesInBuffer += num_bytes_to_copy;
+    pDataEnd += num_bytes_to_copy;
+    pPktEnd += num_bytes_to_copy;
+    pending_data -= num_bytes_to_copy;
+    available_packet_payload -= num_bytes_to_copy;
+
+    bool is_packet_full = (available_packet_payload==0) && !is_starting_composition;
+
+    if (is_packet_full || is_finished_composing) {
+      // First byte of the packet is the size of the payload
+      uint8_t packet_size = pPktEnd - pPktStart - 1;
+      *pPktStart = packet_size;
+      // Penultimate byte of the packet is the two's complement checksum
+      uint8_t checksum = 0;
+      for (uint8_t *p=pPktStart+1 ; p<pPktEnd ; p++)
+        checksum += *p;
+      checksum = (uint8_t)0xFF - checksum + 1;
+      *pPktEnd = checksum;  // pPktEnd is pointing to byte that follows the last payload byte
+      // Last byte of the packet is the HDC terminator
+      *(pPktEnd+1) = HDC_PACKET_TERMINATOR;
+
+      *pNumBytesInBuffer += 3; // The one byte we prepended and the two bytes we just appended to the payload
+    }
+
+    if (is_starting_composition || is_packet_full) {
+      HDC_GetTxBufferWithCapacityForAtLeast(255+HDC_PACKET_OVERHEAD, &pPktStart, &pNumBytesInBuffer);  // Assuming we are going to fill up one packet
+      pPktEnd = pPktStart + 1;  // Skip leading PS byte of the packet header. Will be populated later, when packet is completed.
+    }
+
+  } while (pending_data);
+
+  if (is_finished_composing) {
+    // Reset static variables to initial values
+    pDataEnd = NULL;
+    pPktStart = NULL;
+    pPktEnd = NULL;
+    pNumBytesInBuffer = NULL;
+  }
+
+}
+
 
 /////////////////////////////////////////
 // HDC replies to Command requests
@@ -1326,6 +1413,28 @@ bool HDC_MsgReply_Command(
   return true;
 }
 
+bool HDC_MsgReply_Meta(
+    const uint8_t* pRequestMessage,
+    const uint8_t Size)
+{
+  // Sanity check whether caller did its job correctly
+  assert_param(pRequestMessage[0] == HDC_MessageTypeID_Meta);
+
+  // EXPERIMENTAL: Debugging streaming-packet-composer
+  // ToDo: Implement dynamic generation of JSON representation of a device's HDC-API
+  HDC_Compose_Packets_From_Stream(NULL, -1);  // Initialize packet composition
+  uint8_t data[] = "XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXXXXXX6XXXXXXXXX7XXXXXXXXX8XXXXXXXXX9XXXXXXXXX0XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXXXXXX6XXXXXXXXX7XXXXXXXXX8XXXXXXXXX9XXXXXXXXX0XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXXXXXX6XXXXXXXXX7XXXXXXXXX8XXXXXXXXX9XXXXXXXXX0";
+  uint16_t size = sizeof(data) - 1; // Minus one to get rid of the zero termination of the string literal!
+  data[0] = HDC_MessageTypeID_Meta;  // Prepend MessageID for a Meta reply!
+  HDC_Compose_Packets_From_Stream(data, size);  // Append dummy payload
+  data[0] = 'X';  // Restore test data
+  HDC_Compose_Packets_From_Stream(data, size);  // Append dummy payload, again. Still fits into one packet.
+  HDC_Compose_Packets_From_Stream(data, size);  // Append dummy payload, again. Doesn't fit anymore into one packet, so the next packet will be started.
+  HDC_Compose_Packets_From_Stream(NULL, -2);  // Finalize packet composition
+
+  return true;
+}
+
 /*
  * Routing of received messages (aka requests)
  *
@@ -1355,6 +1464,9 @@ bool HDC_ProcessRxMessage(const uint8_t *pRequestMessage, const uint8_t Size) {
         return false;
       }
       return HDC_MsgReply_Command(pRequestMessage, Size);
+
+    case HDC_MessageTypeID_Meta:
+      return HDC_MsgReply_Meta(pRequestMessage, Size);
   }
 
   if ((hHDC.CustomMsgRouter != NULL)

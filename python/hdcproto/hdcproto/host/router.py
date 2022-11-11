@@ -148,7 +148,7 @@ class MessageRouter:
 
         message_type_id = message[0]
 
-        if message_type_id in [MessageTypeID.HDC_VERSION, MessageTypeID.ECHO, MessageTypeID.COMMAND]:
+        if message_type_id in [MessageTypeID.HDC_VERSION, MessageTypeID.ECHO, MessageTypeID.COMMAND, MessageTypeID.META]:
             self._handle_requested_reply(message)
         elif message_type_id == MessageTypeID.EVENT:
             self._handle_event_message(message)

@@ -31,6 +31,10 @@
 #error "Configuring HDC_BUFFER_SIZE_TX to less than 8 bytes surely is wrong! (e.g. reply of a UINT8 property-getter requires 5 byte + 3 byte of the packet)"
 #endif
 
+#if (HDC_BUFFER_SIZE_TX > UINT16_MAX)
+#error "Current implementation of hdc_device driver can only cope with HDC_BUFFER_SIZE_TX of up to UINT16_MAX bytes!"
+#endif
+
 
 /////////////////////////////////////////////////////////////
 // Import HAL driver for the targeted microcontroller
@@ -101,6 +105,7 @@ typedef enum {
   HDC_MessageTypeID_Echo = 0xF1,
   HDC_MessageTypeID_Command = 0xF2,
   HDC_MessageTypeID_Event = 0xF3,
+  HDC_MessageTypeID_Meta = 0xF4,
 } HDC_MessageTypeID_t;
 
 typedef enum {

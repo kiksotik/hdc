@@ -1163,3 +1163,15 @@ class DeviceProxyBase:
             raise HdcError("Reply does not match the expected prefix")
         reply_payload = reply_message[1:]  # Skip MessageTypeID prefix
         return reply_payload
+
+    def get_meta(self, timeout: float = 0.2):
+        """Returns a JSON string representation of the device's HDC API."""
+        request_message = bytes([MessageTypeID.META])
+        reply_message = self.router.send_request_and_get_reply(request_message, timeout)
+        message_type_id_of_reply = reply_message[0]
+        if message_type_id_of_reply != MessageTypeID.META:
+            raise HdcError("Reply does not match the expected prefix")
+        reply_payload = reply_message[1:]  # Skip MessageTypeID prefix
+        reply_string = reply_payload.decode(encoding="utf-8", errors="strict")
+        return reply_string
+

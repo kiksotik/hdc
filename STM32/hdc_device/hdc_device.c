@@ -1287,10 +1287,11 @@ bool HDC_MsgReply_HdcVersion(
   // Sanity check whether caller did its job correctly
   assert_param(pRequestMessage[0] == HDC_MessageTypeID_HdcVersion);
 
-  char pReplyMessage[] = "_HDC 1.0.0-alpha.10";  // Leading underscore is just a placeholder for the MessageTypeID.
+  char pReplyMessage[] = "_" HDC_VERSION_STRING;  // Leading underscore is just a placeholder for the MessageTypeID.
   uint8_t ReplySize = strlen(pReplyMessage);
 
   pReplyMessage[0] = HDC_MessageTypeID_HdcVersion;  // Inject MessageTypID, for this to be a valid reply message.
+
   HDC_Compose_Packets_From_Buffer((uint8_t*)pReplyMessage, ReplySize);
 
   return true;
@@ -1348,6 +1349,206 @@ bool HDC_MsgReply_Command(
   return true;
 }
 
+void HDC_JSON_Object_start(){
+  HDC_Compose_Packets_From_Stream((uint8_t*)"{", 1);
+}
+
+void HDC_JSON_Object_end(){
+  HDC_Compose_Packets_From_Stream((uint8_t*)"}", 1);
+}
+
+void HDC_JSON_Array_start(){
+  HDC_Compose_Packets_From_Stream((uint8_t*)"[", 1);
+}
+
+void HDC_JSON_Array_end(){
+  HDC_Compose_Packets_From_Stream((uint8_t*)"]", 1);
+}
+
+void HDC_JSON_Colon(){
+  HDC_Compose_Packets_From_Stream((uint8_t*)":", 1);
+}
+
+void HDC_JSON_Comma(){
+  HDC_Compose_Packets_From_Stream((uint8_t*)",", 1);
+}
+
+void HDC_JSON_Quoted(const char* value) {
+  HDC_Compose_Packets_From_Stream((uint8_t*)"\"", 1);
+  HDC_Compose_Packets_From_Stream((uint8_t*)value, strlen(value));
+  HDC_Compose_Packets_From_Stream((uint8_t*)"\"", 1);
+}
+
+void HDC_JSON_Integer(const uint16_t integer) {
+  char str[6]; // 65535 + zero terminator!
+  sprintf(str, "%d", integer);
+  HDC_Compose_Packets_From_Stream((uint8_t*)str, strlen(str));
+}
+
+void HDC_JSON_Key(const char* key) {
+  HDC_JSON_Quoted(key);
+  HDC_JSON_Colon();
+}
+
+void HDC_JSON_Attr_str(const char* key, const char* value) {
+  HDC_JSON_Quoted(key);
+  HDC_JSON_Colon();
+
+  // ToDo: Escape illicit characters contained in string values.
+  // But replacing a single character like '\n' with a two character string like "\\n" is not worth the trouble!!
+  // We should expect developers to take care of that themselves when populating the descriptors. Can be validated easier than fixed here!
+  HDC_JSON_Quoted(value);
+}
+
+void HDC_JSON_Attr_int(const char* key, const uint16_t value) {
+  HDC_JSON_Quoted(key);
+  HDC_JSON_Colon();
+  HDC_JSON_Integer(value);
+}
+
+void HDC_JSON_Attr_bool(const char* key, const bool value) {
+  HDC_JSON_Quoted(key);
+  HDC_JSON_Colon();
+  if (value)
+    HDC_Compose_Packets_From_Stream((uint8_t*)"true", 4);
+  else
+    HDC_Compose_Packets_From_Stream((uint8_t*)"false", 5);
+}
+
+void HDC_JSON_Command(const HDC_Command_Descriptor_t *d) {
+  HDC_JSON_Object_start();
+
+  HDC_JSON_Attr_int("id", d->CommandID);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("name", d->CommandName);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("doc", d->CommandDescription);
+
+  HDC_JSON_Object_end();
+}
+
+void HDC_JSON_Event(const HDC_Event_Descriptor_t *d) {
+  HDC_JSON_Object_start();
+
+  HDC_JSON_Attr_int("id", d->EventID);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("name", d->EventName);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("doc", d->EventDescription);
+
+  HDC_JSON_Object_end();
+}
+
+void HDC_JSON_Property(const HDC_Property_Descriptor_t *d) {
+  HDC_JSON_Object_start();
+
+  HDC_JSON_Attr_int("id", d->PropertyID);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("name", d->PropertyName);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_int("type", d->PropertyDataType);  // ToDo: Resolve names of HdcDataTypes? Or keep using their ID?
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_bool("revision", d->PropertyIsReadonly);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("doc", d->PropertyDescription);
+  if (d->ValueSize > 0 && (d->PropertyDataType == HDC_DataTypeID_BLOB || d->PropertyDataType == HDC_DataTypeID_UTF8)) {
+    HDC_JSON_Comma();
+    HDC_JSON_Attr_int("size", d->ValueSize);
+  }
+
+  HDC_JSON_Object_end();
+}
+
+void HDC_JSON_Feature(const HDC_Feature_Descriptor_t *d) {
+  HDC_JSON_Object_start();
+  HDC_JSON_Attr_int("id", d->FeatureID);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("name", d->FeatureName);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("type", d->FeatureTypeName);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_int("revision", d->FeatureTypeRevision);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("doc", d->FeatureDescription);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("tags", d->FeatureTags);
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_str("states", d->FeatureStatesDescription);
+
+  HDC_JSON_Comma();
+  HDC_JSON_Key("commands");
+  HDC_JSON_Array_start();
+  for (uint8_t idxCmd=0; idxCmd < d->NumCommands; idxCmd++) {
+    if (idxCmd != 0)
+       HDC_JSON_Comma();
+    HDC_JSON_Command(d->Commands[idxCmd]);
+  }
+  for (uint8_t idxCmd=0; idxCmd < NUM_MANDATORY_COMMANDS; idxCmd++) {
+    if (idxCmd != 0 || d->NumCommands != 0)
+       HDC_JSON_Comma();
+    HDC_JSON_Command(HDC_MandatoryCommands[idxCmd]);
+  }
+  HDC_JSON_Array_end();
+
+  HDC_JSON_Comma();
+  HDC_JSON_Key("events");
+  HDC_JSON_Array_start();
+  for (uint8_t idxEvt=0; idxEvt < d->NumEvents; idxEvt++) {
+    if (idxEvt != 0)
+       HDC_JSON_Comma();
+    HDC_JSON_Event(d->Events[idxEvt]);
+  }
+  for (uint8_t idxEvt=0; idxEvt < NUM_MANDATORY_EVENTS; idxEvt++) {
+    if (idxEvt != 0 || d->NumEvents != 0)
+       HDC_JSON_Comma();
+    HDC_JSON_Event(HDC_MandatoryEvents[idxEvt]);
+  }
+  HDC_JSON_Array_end();
+
+  HDC_JSON_Comma();
+  HDC_JSON_Key("properties");
+  HDC_JSON_Array_start();
+  for (uint8_t idxProp=0; idxProp < d->NumProperties; idxProp++) {
+    if (idxProp != 0)
+       HDC_JSON_Comma();
+    HDC_JSON_Property(d->Properties[idxProp]);
+  }
+  for (uint8_t idxProp=0; idxProp < NUM_MANDATORY_PROPERTIES; idxProp++) {
+    if (idxProp != 0 || d->NumProperties != 0)
+       HDC_JSON_Comma();
+    HDC_JSON_Property(HDC_MandatoryProperties[idxProp]);
+  }
+  for (uint8_t idxProp=0; idxProp < NUM_MANDATORY_PROPERTIES_OF_CORE_FEATURE; idxProp++) {
+    HDC_JSON_Comma();
+    HDC_JSON_Property(HDC_MandatoryPropertiesOfCoreFeature[idxProp]);
+  }
+  HDC_JSON_Array_end();
+
+  HDC_JSON_Object_end();
+}
+
+
+void HDC_JSON_Device() {
+  HDC_JSON_Object_start();
+
+  HDC_JSON_Attr_str("version", HDC_VERSION_STRING);
+
+  HDC_JSON_Comma();
+  HDC_JSON_Attr_int("MaxReq", HDC_MAX_REQ_MESSAGE_SIZE);
+
+  HDC_JSON_Comma();
+  HDC_JSON_Key("features");
+  HDC_JSON_Array_start();
+  for (uint8_t idxFeature=0; idxFeature < hHDC.NumFeatures; idxFeature++) {
+    if (idxFeature != 0)
+       HDC_JSON_Comma();
+    HDC_JSON_Feature(hHDC.Features[idxFeature]);
+  }
+  HDC_JSON_Array_end();
+
+  HDC_JSON_Object_end();
+}
+
 bool HDC_MsgReply_Meta(
     const uint8_t* pRequestMessage,
     const uint8_t Size)
@@ -1355,16 +1556,13 @@ bool HDC_MsgReply_Meta(
   // Sanity check whether caller did its job correctly
   assert_param(pRequestMessage[0] == HDC_MessageTypeID_Meta);
 
-  // EXPERIMENTAL: Debugging streaming-packet-composer
-  // ToDo: Implement dynamic generation of JSON representation of a device's HDC-API
+  // ToDo: Return empty reply if request contains any payload.
+  //       In future a request may contain arguments and an empty reply means it's an unsupported kind of request.
+
   HDC_Compose_Packets_From_Stream(NULL, -1);  // Initialize packet composition
-  uint8_t data[] = "XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXXXXXX6XXXXXXXXX7XXXXXXXXX8XXXXXXXXX9XXXXXXXXX0XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXXXXXX6XXXXXXXXX7XXXXXXXXX8XXXXXXXXX9XXXXXXXXX0XXXXXXXXX1XXXXXXXXX2XXXXXXXXX3XXXXXXXXX4XXXXXXXXX5XXXXX";
-  uint16_t size = sizeof(data) - 1; // Minus one to get rid of the zero termination of the string literal!
-  data[0] = HDC_MessageTypeID_Meta;  // Prepend MessageID for a Meta reply!
-  HDC_Compose_Packets_From_Stream(data, size);  // Append dummy payload
-  data[0] = 'X';  // Restore test data
-  HDC_Compose_Packets_From_Stream(data, size);  // Append dummy payload, again. Still fits into one packet.
-  HDC_Compose_Packets_From_Stream(data, size);  // Append dummy payload, again. Doesn't fit anymore into one packet, so the next packet will be started.
+  uint8_t msg_type_id = HDC_MessageTypeID_Meta;
+  HDC_Compose_Packets_From_Stream(&msg_type_id, 1);
+  HDC_JSON_Device();
   HDC_Compose_Packets_From_Stream(NULL, -2);  // Finalize packet composition
 
   return true;

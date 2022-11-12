@@ -32,7 +32,7 @@ def showcase_introspection():
     device_proxy.connect()
 
     print(f"Device describes its HDC-API as follows:")
-    meta = device_proxy.get_meta()
+    meta = device_proxy.get_meta(timeout=2)
     print(meta)
     print(f"Size of message payload: {len(meta)} bytes")
 

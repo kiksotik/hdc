@@ -7,9 +7,12 @@
 #ifndef INC_HDC_DEVICE_H_
 #define INC_HDC_DEVICE_H_
 
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+
+#define HDC_VERSION_STRING "HDC 1.0.0-alpha.11"
 
 /////////////////////////////////////////////////
 // Import and validate user-defined configuration

@@ -252,23 +252,24 @@ class FeatureDescriptorBase:
     def to_json(self) -> dict:
         return dict(
             id=self.feature_id,
+            name=self.feature_name,
             type=self.feature_type_name,
-            revision=self.feature_type_revision,
+            revision=self.feature_type_revision,   # ToDo: Issue #20
             doc=self.feature_description,
             tags=self.feature_tags,
-            states=self.feature_states_description,
-            commands={
-                d.command_name: d.to_json()
+            states=self.feature_states_description,  # ToDo: Issue #18
+            commands=[
+                d.to_json()
                 for d in sorted(self.command_descriptors.values(), key=lambda d: d.command_id)
-            },
-            events={
-                d.event_name: d.to_json()
+            ],
+            events=[
+                d.to_json()
                 for d in sorted(self.event_descriptors.values(), key=lambda d: d.event_id)
-            },
-            properties={
-                d.property_name: d.to_json()
+            ],
+            properties=[
+                d.to_json()
                 for d in sorted(self.property_descriptors.values(), key=lambda d: d.property_id)
-            }
+            ]
         )
 
 
@@ -411,9 +412,10 @@ class CommandDescriptorBase:
     def to_json(self) -> dict:
         return dict(
             id=self.command_id,
+            name=self.command_name,
             doc=self.command_description,
             raises=[
-                (error_id, error_name)
+                dict(id=error_id, name=error_name)
                 for error_id, error_name in self.command_raises.items()
             ]
         )
@@ -523,11 +525,11 @@ class TypedCommandDescriptor(CommandDescriptorBase):
     def to_json(self) -> dict:
         d = super().to_json()
         d["args"] = [
-            (arg_type.name, arg_name)
+            dict(name=arg_name, type=arg_type.name)
             for arg_type, arg_name in self.command_arguments
         ]
         d["returns"] = [
-            (ret_type.name, ret_name)
+            dict(name=ret_name, type=ret_type.name)
             for ret_type, ret_name in self.command_returns
         ]
         return d
@@ -880,6 +882,7 @@ class EventDescriptorBase:
     def to_json(self) -> dict:
         return dict(
             id=self.event_id,
+            name=self.event_name,
             doc=self.event_description)
 
 
@@ -933,7 +936,7 @@ class TypedEventDescriptor(EventDescriptorBase):
     def to_json(self) -> dict:
         d = super().to_json()
         d["args"] = [
-            (arg_type.name, arg_name)
+            dict(name=arg_name, type=arg_type.name)
             for arg_type, arg_name in self.event_arguments
         ]
         return d
@@ -1053,6 +1056,7 @@ class PropertyDescriptorBase:
     def to_json(self) -> dict:
         return dict(
             id=self.property_id,
+            name=self.property_name,
             type=self.property_type.name,
             doc=self.property_description,
             ro=self.property_is_readonly)
@@ -1115,8 +1119,9 @@ class DeviceDescriptorBase:
     def to_json(self) -> dict:
         return dict(
             version=hdcproto.common.HDC_VERSION,
-            features={
-                d.feature_name: d.to_json()
+            max_req=self.max_req_msg_size,
+            features=[
+                d.to_json()
                 for d in sorted(self.feature_descriptors.values(), key=lambda d: d.feature_id)
-            }
+            ]
         )

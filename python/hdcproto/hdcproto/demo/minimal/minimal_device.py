@@ -1,9 +1,11 @@
+import enum
 import logging
 
 from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, CommandErrorCode
 from hdcproto.device.descriptor import (DeviceDescriptorBase, CoreFeatureDescriptorBase,
+                                        StateDescriptor,
                                         TypedCommandDescriptor, PropertyDescriptorBase,
                                         FeatureDescriptorBase, TypedEventDescriptor)
 
@@ -15,8 +17,7 @@ class MinimalDeviceDescriptor(DeviceDescriptorBase):
                          device_name="Demo_Minimal",
                          device_revision=42,  # Mocking a revision for this implementation
                          device_description="Python implementation of the 'Minimal' HDC-device demonstration",
-                         device_states="{0: \"Off\", 1:\"Initializing\", 2: \"Ready, 3: \"Busy\""  # ToDo: Descriptors!
-                         )
+                         device_states=self.States)
 
     def main_loop(self):
         self.router.connect()
@@ -29,6 +30,12 @@ class MinimalDeviceDescriptor(DeviceDescriptorBase):
             # ToDo: Delayed processing of requests in the app's main thread should be happening here.
             pass
 
+    @enum.unique
+    class States(enum.IntEnum):
+        OFF = 0x00
+        INIT = 0x01
+        READY = 0x02
+        ERROR = 0xFF
 
 class MinimalCoreDescriptor:
     def __init__(self, device_descriptor: DeviceDescriptorBase):
@@ -92,7 +99,7 @@ class MinimalCoreDescriptor:
             property_id=0x13,
             property_name="LedBlinkingRate",
             property_description="Blinking frequency of the LED given in Herz.",
-            property_type=HdcDataType.UINT32,
+            property_type=HdcDataType.UINT8,
             property_getter=lambda: self.led_blinking_rate,
             property_setter=self.led_blinking_rate_setter
         )
@@ -136,11 +143,6 @@ class ButtonEventDescriptor(TypedEventDescriptor):
 
 def launch_device(connection_url: str):
     device = MinimalDeviceDescriptor(connection_url=connection_url)
-
-    import json
-    with open('minimal_device.json', 'w', encoding='utf-8') as f:
-        json.dump(device.to_json(), f, ensure_ascii=False, indent=4)
-
     device.main_loop()
 
 

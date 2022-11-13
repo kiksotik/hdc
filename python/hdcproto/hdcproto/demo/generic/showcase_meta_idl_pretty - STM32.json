@@ -1,0 +1,110 @@
+{
+    "version": "HDC 1.0.0-alpha.11",
+    "MaxReq": 128,
+    "features": [
+        {
+            "id": 0,
+            "name": "Core",
+            "type": "Demo_Minimal",
+            "revision": 42,
+            "doc": "STM32 C implementation of the 'Minimal' HDC-device demonstration",
+            "states": [
+                {
+                    "id": 0,
+                    "name": "OFF"
+                },
+                {
+                    "id": 1,
+                    "name": "INIT"
+                },
+                {
+                    "id": 2,
+                    "name": "READY"
+                },
+                {
+                    "id": 255,
+                    "name": "ERROR"
+                }
+            ],
+            "commands": [
+                {
+                    "id": 193,
+                    "name": "Reset",
+                    "doc": "(VOID) -> VOID\nReinitializes the whole device."
+                },
+                {
+                    "id": 240,
+                    "name": "GetPropertyValue",
+                    "doc": "(UINT8 PropertyID) -> var Value"
+                },
+                {
+                    "id": 241,
+                    "name": "SetPropertyValue",
+                    "doc": "(UINT8 PropertyID, var NewValue) -> var ActualNewValue\nReturned value might differ from NewValue argument, i.e. because of trimming to valid range or discretisation."
+                }
+            ],
+            "events": [
+                {
+                    "id": 1,
+                    "name": "ButtonEvent",
+                    "doc": "(UINT8 ButtonID, UINT8 ButtonState)\nShowcases implementation of a custom HDC-event: Notify host about the button being pressed on the device."
+                },
+                {
+                    "id": 240,
+                    "name": "Log",
+                    "doc": "(UINT8 LogLevel, UTF8 LogMsg)\nSoftware logging. LogLevels are the same as defined in python's logging module."
+                },
+                {
+                    "id": 241,
+                    "name": "FeatureStateTransition",
+                    "doc": "(UINT8 PreviousStateID , UINT8 CurrentStateID)\nNotifies host about transitions of this feature's state-machine."
+                }
+            ],
+            "properties": [
+                {
+                    "id": 16,
+                    "name": "uC_DEVID",
+                    "type": "UINT32",
+                    "ro": true,
+                    "doc": "32bit Device-ID of STM32 microcontroller."
+                },
+                {
+                    "id": 17,
+                    "name": "uC_REVID",
+                    "type": "UINT32",
+                    "ro": true,
+                    "doc": "32bit Revision-ID of STM32 microcontroller."
+                },
+                {
+                    "id": 18,
+                    "name": "uC_UID",
+                    "type": "BLOB",
+                    "size": 12,
+                    "ro": true,
+                    "doc": "96bit unique-ID of STM32 microcontroller."
+                },
+                {
+                    "id": 19,
+                    "name": "LedBlinkingRate",
+                    "type": "UINT8",
+                    "ro": false,
+                    "doc": "Blinking frequency of the LED given in Herz."
+                },
+                {
+                    "id": 240,
+                    "name": "LogEventThreshold",
+                    "type": "UINT8",
+                    "ro": false,
+                    "doc": "Suppresses LogEvents with lower log-levels."
+                },
+                {
+                    "id": 241,
+                    "name": "FeatureState",
+                    "type": "UINT8",
+                    "ro": true,
+                    "doc": "Current feature-state"
+                }
+            ]
+        }
+    ]
+}

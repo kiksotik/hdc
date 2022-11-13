@@ -5,7 +5,7 @@ import logging
 import struct
 import typing
 
-HDC_VERSION = "HDC 1.0.0-alpha.10"  # ToDo: How should we manage the HDC version?
+HDC_VERSION = "HDC 1.0.0-alpha.11"  # ToDo: How should we manage the HDC version?
 
 
 class HdcError(Exception):
@@ -71,17 +71,24 @@ class HdcCommandError(HdcError):
 @enum.unique
 class MessageTypeID(enum.IntEnum):
     """As defined by HDC-spec"""
-    HDC_VERSION = 0xF0
+    META = 0xF0
     ECHO = 0xF1
     COMMAND = 0xF2
     EVENT = 0xF3
-    META = 0xF4
 
     @staticmethod
     def is_custom(message_type_id: int):
         if not is_valid_uint8(message_type_id):
             raise ValueError(f"message_type_id value of {message_type_id} is beyond valid range from 0x00 to 0xFF")
         return message_type_id < 0xF0
+
+
+@enum.unique
+class MetaID(enum.IntEnum):
+    """As defined by HDC-spec"""
+    HDC_VERSION = 0xF0
+    MAX_REQ = 0xF1
+    IDL_JSON = 0xF2
 
 
 @enum.unique
@@ -93,16 +100,8 @@ class FeatureID(enum.IntEnum):
 @enum.unique
 class CmdID(enum.IntEnum):
     """Reserved IDs of mandatory Commands required by HDC-spec"""
-    GET_PROP_NAME = 0xF0
-    GET_PROP_TYPE = 0xF1
-    GET_PROP_RO = 0xF2
-    GET_PROP_VALUE = 0xF3
-    SET_PROP_VALUE = 0xF4
-    GET_PROP_DESCR = 0xF5
-    GET_CMD_NAME = 0xF6
-    GET_CMD_DESCR = 0xF7
-    GET_EVT_NAME = 0xF8
-    GET_EVT_DESCR = 0xF9
+    GET_PROP_VALUE = 0xF0
+    SET_PROP_VALUE = 0xF1
 
 
 @enum.unique
@@ -375,19 +374,5 @@ def is_valid_uint8(value_to_check: int) -> bool:
 @enum.unique
 class PropID(enum.IntEnum):
     """Reserved IDs of mandatory Properties required by HDC-spec"""
-    FEAT_NAME = 0xF0
-    FEAT_TYPE_NAME = 0xF1
-    FEAT_TYPE_REV = 0xF2
-    FEAT_DESCR = 0xF3
-    FEAT_TAGS = 0xF4
-    AVAIL_CMD = 0xF5
-    AVAIL_EVT = 0xF6
-    AVAIL_PROP = 0xF7
-    FEAT_STATE = 0xF8
-    LOG_EVT_THRESHOLD = 0xF9
-
-    AVAIL_FEAT = 0xFA
-    """List of available features on a device (Only mandatory for the Core feature)"""
-
-    MAX_REQ_MSG_SIZE = 0xFB
-    """Largest request-message a device can cope with (Only mandatory for the Core feature)"""
+    LOG_EVT_THRESHOLD = 0xF0
+    FEAT_STATE = 0xF1

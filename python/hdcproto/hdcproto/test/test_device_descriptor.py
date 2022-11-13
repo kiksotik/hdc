@@ -1,7 +1,10 @@
+import enum
+import json
 import logging
 import unittest
 
-from hdcproto.common import MessageTypeID, FeatureID, EvtID, CmdID, PropID, CommandErrorCode, HdcDataType
+from hdcproto.common import MessageTypeID, FeatureID, EvtID, CmdID, PropID, CommandErrorCode, HdcDataType, MetaID, \
+    HDC_VERSION
 from hdcproto.device.descriptor import DeviceDescriptorBase
 from hdcproto.transport.mock import MockTransport
 
@@ -10,7 +13,18 @@ class TestableDeviceDescriptor(DeviceDescriptorBase):
     def __init__(self):
         # Mock the transport-layer by connecting with the MockTransport class, which allows tests to
         # intercept any HDC-request messages emitted by the proxy classes that are under scrutiny.
-        super().__init__(connection_url="mock://")
+        super().__init__(connection_url="mock://",
+                         device_name="TestDeviceMockup",
+                         device_revision=42,
+                         device_description="",
+                         device_states=self.States)
+
+    @enum.unique
+    class States(enum.IntEnum):
+        OFF = 0x00
+        INIT = 0x01
+        READY = 0x02
+        ERROR = 0xFF
 
 
 class TestConnection(unittest.TestCase):
@@ -60,35 +74,42 @@ class TestConnection(unittest.TestCase):
             my_device.core.evt_log.emit(logging.ERROR, log_text)
 
 
-class TestCommands(unittest.TestCase):
+class TestMessages(unittest.TestCase):
     def setUp(self) -> None:
         self.my_device = TestableDeviceDescriptor()
         self.my_device.connect()
         self.conn_mock: MockTransport = self.my_device.router.transport
 
-    def test_get_property_name(self):
-        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_NAME, PropID.LOG_EVT_THRESHOLD])
+    def test_meta_hdc_version(self):
+        cmd_req = bytes([MessageTypeID.META, MetaID.HDC_VERSION])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_NAME, CommandErrorCode.NO_ERROR])
-        expected_reply += 'LogEventThreshold'.encode(encoding='utf-8')
+        expected_reply = bytes([MessageTypeID.META, MetaID.HDC_VERSION])
+        expected_reply += HDC_VERSION.encode(encoding='utf-8', errors='strict')
         self.assertSequenceEqual(expected_reply, received_reply)
 
-    def test_get_property_type(self):
-        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_TYPE, PropID.LOG_EVT_THRESHOLD])
+    def test_meta_max_req(self):
+        cmd_req = bytes([MessageTypeID.META, MetaID.MAX_REQ])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_TYPE,
-                                CommandErrorCode.NO_ERROR, HdcDataType.UINT8])
+        expected_reply = bytes([MessageTypeID.META, MetaID.MAX_REQ])
+        expected_reply += self.my_device.router.max_req_msg_size.to_bytes(length=4, byteorder='little')
         self.assertSequenceEqual(expected_reply, received_reply)
 
-    def test_get_property_readonly(self):
-        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_RO, PropID.LOG_EVT_THRESHOLD])
+    def test_meta_idl_json(self):
+        cmd_req = bytes([MessageTypeID.META, MetaID.IDL_JSON])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_RO,
-                                CommandErrorCode.NO_ERROR, int(False)])
-        self.assertSequenceEqual(expected_reply, received_reply)
+        self.assertSequenceEqual(cmd_req, received_reply[:2])
+        idl_json = received_reply[2:]
+        json.loads(idl_json)  # Test whether it's valid JSON syntax.
+        # ToDo: Validate IDL-JSON produced by Python descriptors with a JSON-Schema grammar.
+
+class TestCommands(unittest.TestCase):
+    def setUp(self) -> None:
+        self.my_device = TestableDeviceDescriptor()
+        self.my_device.connect()
+        self.conn_mock: MockTransport = self.my_device.router.transport
 
     def test_get_property_value(self):
         self.my_device.core.log_event_threshold = logging.WARNING
@@ -111,38 +132,6 @@ class TestCommands(unittest.TestCase):
         self.assertSequenceEqual(expected_reply, received_reply)
         self.assertEqual(self.my_device.core.log_event_threshold, logging.INFO)
 
-    def test_get_command_name(self):
-        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_CMD_NAME, CmdID.GET_PROP_NAME])
-        self.conn_mock.receive_message(cmd_req)
-        received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_CMD_NAME, CommandErrorCode.NO_ERROR])
-        expected_reply += 'GetPropertyName'.encode(encoding='utf-8')
-        self.assertSequenceEqual(expected_reply, received_reply)
-
-    def test_get_command_description(self):
-        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_CMD_DESCR, CmdID.GET_PROP_NAME])
-        self.conn_mock.receive_message(cmd_req)
-        received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_CMD_DESCR, CommandErrorCode.NO_ERROR])
-        expected_reply += '(UINT8 PropertyID) -> UTF8 Name'.encode(encoding='utf-8')
-        self.assertSequenceEqual(expected_reply, received_reply)
-
-    def test_get_event_name(self):
-        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_EVT_NAME, EvtID.FEATURE_STATE_TRANSITION])
-        self.conn_mock.receive_message(cmd_req)
-        received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_EVT_NAME, CommandErrorCode.NO_ERROR])
-        expected_reply += 'FeatureStateTransition'.encode(encoding='utf-8')
-        self.assertSequenceEqual(expected_reply, received_reply)
-
-    def test_get_event_description(self):
-        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_EVT_DESCR, EvtID.FEATURE_STATE_TRANSITION])
-        self.conn_mock.receive_message(cmd_req)
-        received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_EVT_DESCR, CommandErrorCode.NO_ERROR])
-        expected_reply += '(UINT8 PreviousStateID, UINT8 CurrentStateID)'.encode(encoding='utf-8')
-        self.assertSequenceEqual(expected_reply, received_reply)
-
 
 class TestCommandErrors(unittest.TestCase):
     def setUp(self) -> None:
@@ -152,11 +141,11 @@ class TestCommandErrors(unittest.TestCase):
 
     def test_unknown_feature(self):
         bogus_feature_id = 0x42
-        cmd_req = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_NAME, PropID.LOG_EVT_THRESHOLD])
+        cmd_req = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, PropID.LOG_EVT_THRESHOLD])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes(
-            [MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_NAME, CommandErrorCode.UNKNOWN_FEATURE])
+            [MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, CommandErrorCode.UNKNOWN_FEATURE])
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_unknown_command(self):
@@ -169,26 +158,24 @@ class TestCommandErrors(unittest.TestCase):
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_missing_command_arguments(self):
-        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_NAME])  # Omitting PropID argument!
+        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE])  # Omitting PropID argument!
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_NAME,
+        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
                                 CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS])
-        expected_reply += "Payload is shorter than expected.".encode(encoding='utf-8')
 
-        self.assertSequenceEqual(expected_reply, received_reply)
+        self.assertSequenceEqual(expected_reply, received_reply[:4])
 
     def test_excess_command_arguments(self):
         unexpected_argument = 0x42
-        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_NAME,
-                         PropID.FEAT_NAME, unexpected_argument])
+        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
+                         PropID.LOG_EVT_THRESHOLD, unexpected_argument])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_NAME,
+        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
                                 CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS])
-        expected_reply += "Payload is longer than expected.".encode(encoding='utf-8')
 
-        self.assertSequenceEqual(expected_reply, received_reply)
+        self.assertSequenceEqual(expected_reply, received_reply[:4])
 
 
 class TestEvents(unittest.TestCase):
@@ -214,7 +201,7 @@ class TestEvents(unittest.TestCase):
 
     def test_feature_state_transition_event(self):
         previous_state_id = self.my_device.core.feature_state_id
-        new_feature_state_id = previous_state_id + 3  # Arbitrary
+        new_feature_state_id = TestableDeviceDescriptor.States.READY  # Arbitrary
         self.my_device.core.feature_state_transition(new_feature_state_id)
         sent_msg = self.conn_mock.outbound_messages.pop()
         expected_msg = bytes([MessageTypeID.EVENT, FeatureID.CORE, EvtID.FEATURE_STATE_TRANSITION,

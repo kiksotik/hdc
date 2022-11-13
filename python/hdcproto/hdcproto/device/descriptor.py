@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import json
 import logging
 import typing
 import uuid
@@ -20,9 +21,8 @@ class FeatureDescriptorBase:
     feature_type_name: str
     feature_type_revision: int
     feature_description: str | None
-    feature_tags: str | None
-    feature_states_description: str | None
     device_descriptor: DeviceDescriptorBase
+    state_descriptors: list[enum.IntEnum] | list[StateDescriptor] | None
     command_descriptors: dict[int, CommandDescriptorBase]
     event_descriptors: dict[int, EventDescriptorBase]
     property_descriptors: dict[int, PropertyDescriptorBase]
@@ -36,8 +36,7 @@ class FeatureDescriptorBase:
                  feature_type_name: str,
                  feature_type_revision: int,
                  feature_description: str | None = None,
-                 feature_tags: str | None = None,
-                 feature_states_description: str | None = None
+                 state_descriptors: list[StateDescriptor] | None = None
                  ):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor.MyFeatureDescriptor"
@@ -77,30 +76,25 @@ class FeatureDescriptorBase:
             feature_description = ""
         self.feature_description = feature_description
 
-        if feature_tags is None:
-            feature_tags = ""
-        self.feature_tags = feature_tags
-
-        # ToDo: Also use descriptors for FeatureState IDs, instead of a docstring!
-        if feature_states_description is None:
-            feature_states_description = ""
-        self.feature_states_description = feature_states_description
+        if state_descriptors is None:
+            self.state_descriptors = None
+        else:
+            self.state_descriptors: list[StateDescriptor] = list()
+            for d in state_descriptors:
+                if isinstance(d, enum.IntEnum):
+                    self.state_descriptors.append(
+                        StateDescriptor(state_id=d, state_name=d.name)
+                    )
+                elif isinstance(d, StateDescriptor):
+                    self.state_descriptors.append(d)
 
         self.feature_state_id = 0
         self.log_event_threshold = logging.WARNING
 
         # Commands
         self.command_descriptors = dict()
-        self.cmd_get_property_name = GetPropertyNameCommandDescriptor(self)
-        self.cmd_get_property_type = GetPropertyTypeCommandDescriptor(self)
-        self.cmd_get_property_readonly = GetPropertyReadonlyCommandDescriptor(self)
         self.cmd_get_property_value = GetPropertyValueCommandDescriptor(self)
         self.cmd_set_property_value = SetPropertyValueCommandDescriptor(self)
-        self.cmd_get_property_description = GetPropertyDescriptionCommandDescriptor(self)
-        self.cmd_get_command_name = GetCommandNameCommandDescriptor(self)
-        self.cmd_get_command_description = GetCommandDescriptionCommandDescriptor(self)
-        self.cmd_get_event_name = GetEventNameCommandDescriptor(self)
-        self.cmd_get_event_description = GetEventDescriptionCommandDescriptor(self)
 
         # Events
         self.event_descriptors = dict()
@@ -113,95 +107,6 @@ class FeatureDescriptorBase:
 
         # Properties
         self.property_descriptors = dict()
-        self.prop_feature_name = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.FEAT_NAME,
-            property_name='FeatureName',
-            property_description="Unique label of this feature-instance.",
-            property_type=HdcDataType.UTF8,
-            property_getter=lambda: self.feature_name,
-            property_setter=None
-        )
-
-        self.prop_feature_type_name = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.FEAT_TYPE_NAME,
-            property_name='FeatureTypeName',
-            property_description="Unique label of this feature's class.",
-            property_type=HdcDataType.UTF8,
-            property_getter=lambda: self.feature_type_name,
-            property_setter=None
-        )
-
-        self.prop_feature_type_revision = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.FEAT_TYPE_REV,
-            property_name='FeatureTypeRevision',
-            property_description="Revision number of this feature's class-implementation.",
-            property_type=HdcDataType.UINT8,
-            property_getter=lambda: self.feature_type_revision,
-            property_setter=None
-        )
-
-        self.prop_feature_description = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.FEAT_DESCR,
-            property_name='FeatureDescription',
-            property_description="Human readable documentation about this feature.",
-            property_type=HdcDataType.UTF8,
-            property_getter=lambda: self.feature_description,
-            property_setter=None
-        )
-
-        self.prop_feature_tags = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.FEAT_TAGS,
-            property_name='FeatureTags',
-            property_description="Semicolon-delimited list of tags and categories associated with this feature.",
-            property_type=HdcDataType.UTF8,
-            property_getter=lambda: self.feature_tags,
-            property_setter=None
-        )
-
-        self.prop_available_commands = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.AVAIL_CMD,
-            property_name='AvailableCommands',
-            property_description="List of IDs of commands available on this feature.",
-            property_type=HdcDataType.BLOB,
-            property_getter=lambda: bytes(cmd.command_id for cmd in self.command_descriptors.values()),
-            property_setter=None
-        )
-
-        self.prop_available_events = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.AVAIL_EVT,
-            property_name='AvailableEvents',
-            property_description="List of IDs of events available on this feature.",
-            property_type=HdcDataType.BLOB,
-            property_getter=lambda: bytes(evt.event_id for evt in self.event_descriptors.values()),
-            property_setter=None
-        )
-
-        self.prop_available_properties = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.AVAIL_PROP,
-            property_name='AvailableProperties',
-            property_description="List of IDs of properties available on this feature.",
-            property_type=HdcDataType.BLOB,
-            property_getter=lambda: bytes(prop.property_id for prop in self.property_descriptors.values()),
-            property_setter=None
-        )
-
-        self.prop_feature_state = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.FEAT_STATE,
-            property_name='FeatureState',
-            property_description=self.feature_states_description,
-            property_type=HdcDataType.UINT8,
-            property_getter=lambda: self.feature_state_id,
-            property_setter=None  # Not exposing a setter on HDC interface does *not* mean this is immutable. ;-)
-        )
 
         self.prop_log_event_threshold = PropertyDescriptorBase(
             feature_descriptor=self,
@@ -211,6 +116,16 @@ class FeatureDescriptorBase:
             property_type=HdcDataType.UINT8,
             property_getter=lambda: self.log_event_threshold,
             property_setter=self.prop_log_event_threshold_setter
+        )
+
+        self.prop_feature_state = PropertyDescriptorBase(
+            feature_descriptor=self,
+            property_id=PropID.FEAT_STATE,
+            property_name='FeatureState',
+            property_description="Current feature-state",
+            property_type=HdcDataType.UINT8,
+            property_getter=lambda: self.feature_state_id,
+            property_setter=None  # Not exposing a setter on HDC interface does *not* mean this is immutable. ;-)
         )
 
     def prop_log_event_threshold_setter(self, new_threshold: int) -> int:
@@ -242,6 +157,8 @@ class FeatureDescriptorBase:
         return self.device_descriptor.router
 
     def feature_state_transition(self, new_feature_state_id: int):  # ToDo: Improve naming!
+        if not any(d.state_id == new_feature_state_id for d in self.state_descriptors):
+            raise ValueError(f"Unknown state_id {new_feature_state_id}")
         previous_state_id = self.feature_state_id
         self.logger.info(f"Transitioning FeatureState from previously 0x{previous_state_id:02X} to "
                          f"now 0x{new_feature_state_id:02X}.")
@@ -249,28 +166,62 @@ class FeatureDescriptorBase:
         self.evt_state_transition.emit(previous_state_id=previous_state_id,
                                        current_state_id=new_feature_state_id)
 
-    def to_json(self) -> dict:
+    def to_idl_dict(self) -> dict:
         return dict(
             id=self.feature_id,
             name=self.feature_name,
             type=self.feature_type_name,
             revision=self.feature_type_revision,   # ToDo: Issue #20
             doc=self.feature_description,
-            tags=self.feature_tags,
-            states=self.feature_states_description,  # ToDo: Issue #18
+            states=[
+                d.to_idl_dict()
+                for d in sorted(self.state_descriptors, key=lambda d: d.state_id)
+            ],
             commands=[
-                d.to_json()
+                d.to_idl_dict()
                 for d in sorted(self.command_descriptors.values(), key=lambda d: d.command_id)
             ],
             events=[
-                d.to_json()
+                d.to_idl_dict()
                 for d in sorted(self.event_descriptors.values(), key=lambda d: d.event_id)
             ],
             properties=[
-                d.to_json()
+                d.to_idl_dict()
                 for d in sorted(self.property_descriptors.values(), key=lambda d: d.property_id)
             ]
         )
+
+
+class StateDescriptor:
+    feature_descriptor: FeatureDescriptorBase
+    state_id: int
+    state_name: str
+    state_description: str
+
+    def __init__(self,
+                 state_id: int,
+                 state_name: str,
+                 state_description: str | None = None):
+
+        if not is_valid_uint8(state_id):
+            raise ValueError(f"state_id value of {state_id} is beyond valid range from 0x00 to 0xFF")
+
+        self.state_id = state_id
+
+        if not state_name:
+            raise ValueError("State name must be a non-empty string")
+        self.state_name = state_name
+
+        if state_description is None:
+            state_description = ""
+        self.state_description = state_description
+
+    def to_idl_dict(self) -> dict:
+        result = dict(id=self.state_id,
+                      name=self.state_name)
+        if self.state_description:
+            result['doc'] = self.state_description
+        return result
 
 
 class CoreFeatureDescriptorBase(FeatureDescriptorBase):
@@ -282,30 +233,7 @@ class CoreFeatureDescriptorBase(FeatureDescriptorBase):
             feature_type_name=device_descriptor.device_name,
             feature_type_revision=device_descriptor.device_revision,
             feature_description=device_descriptor.device_description,
-            feature_states_description=device_descriptor.device_states
-        )
-
-        # Mandatory properties of a Core feature as required by HDC-spec
-
-        self.prop_available_features = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.AVAIL_FEAT,
-            property_name='AvailableFeatures',
-            property_description="List of IDs of features available on this device.",
-            property_type=HdcDataType.BLOB,
-            property_getter=lambda: bytes(feat.feature_id
-                                          for feat in self.device_descriptor.feature_descriptors.values()),
-            property_setter=None
-        )
-
-        self.prop_max_req_msg_size = PropertyDescriptorBase(
-            feature_descriptor=self,
-            property_id=PropID.MAX_REQ_MSG_SIZE,
-            property_name='MaxReqMsgSize',
-            property_description="Maximum number of bytes of a request message that this device can cope with.",
-            property_type=HdcDataType.UINT32,
-            property_getter=lambda: self.device_descriptor.max_req_msg_size,
-            property_setter=None
+            state_descriptors=device_descriptor.device_states
         )
 
 
@@ -409,7 +337,7 @@ class CommandDescriptorBase:
     def router(self) -> hdcproto.device.router.MessageRouter:
         return self.feature_descriptor.device_descriptor.router
 
-    def to_json(self) -> dict:
+    def to_idl_dict(self) -> dict:
         return dict(
             id=self.command_id,
             name=self.command_name,
@@ -522,8 +450,8 @@ class TypedCommandDescriptor(CommandDescriptorBase):
         reply = bytes(reply)
         self.router.send_reply_for_pending_request(reply)
 
-    def to_json(self) -> dict:
-        d = super().to_json()
+    def to_idl_dict(self) -> dict:
+        d = super().to_idl_dict()
         d["args"] = [
             dict(name=arg_name, type=arg_type.name)
             for arg_type, arg_name in self.command_arguments
@@ -533,77 +461,6 @@ class TypedCommandDescriptor(CommandDescriptorBase):
             for ret_type, ret_name in self.command_returns
         ]
         return d
-
-
-class GetPropertyNameCommandDescriptor(TypedCommandDescriptor):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
-                         command_id=CmdID.GET_PROP_NAME,
-                         command_name="GetPropertyName",
-                         command_implementation=self._cmd_impl,
-                         command_description="",
-                         command_arguments=[(HdcDataType.UINT8, 'PropertyID')],
-                         command_returns=[(HdcDataType.UTF8, 'Name')],
-                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
-                                         CommandErrorCode.UNKNOWN_PROPERTY,
-                                         CommandErrorCode.COMMAND_FAILED])
-
-    def _cmd_impl(self, property_id: int) -> str:
-        prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
-        if prop_descr is None:
-            raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
-
-        self.logger.info(f"Replying with {self.command_name}(0x{property_id:02X}) "
-                         f"-> '{prop_descr.property_name}'")
-        return prop_descr.property_name
-
-
-class GetPropertyTypeCommandDescriptor(TypedCommandDescriptor):
-
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
-                         command_id=CmdID.GET_PROP_TYPE,
-                         command_name="GetPropertyType",
-                         command_implementation=self._cmd_impl,
-                         command_description="",
-                         command_arguments=[(HdcDataType.UINT8, 'PropertyID')],
-                         command_returns=[(HdcDataType.UINT8, 'DataTypeID')],
-                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
-                                         CommandErrorCode.UNKNOWN_PROPERTY,
-                                         CommandErrorCode.COMMAND_FAILED])
-
-    def _cmd_impl(self, property_id: int) -> int:
-        prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
-        if prop_descr is None:
-            raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
-
-        self.logger.info(f"Replying with {self.command_name}('{prop_descr.property_name}') "
-                         f"-> {prop_descr.property_type.name}")
-        return prop_descr.property_type
-
-
-class GetPropertyReadonlyCommandDescriptor(TypedCommandDescriptor):
-
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
-                         command_id=CmdID.GET_PROP_RO,
-                         command_name="GetPropertyReadonly",
-                         command_implementation=self._cmd_impl,
-                         command_description="",
-                         command_arguments=[(HdcDataType.UINT8, 'PropertyID')],
-                         command_returns=[(HdcDataType.BOOL, 'IsReadonly')],
-                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
-                                         CommandErrorCode.UNKNOWN_PROPERTY,
-                                         CommandErrorCode.COMMAND_FAILED])
-
-    def _cmd_impl(self, property_id: int) -> bool:
-        prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
-        if prop_descr is None:
-            raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
-
-        self.logger.info(f"Replying with {self.command_name}('{prop_descr.property_name}') "
-                         f"-> {prop_descr.property_is_readonly}")
-        return prop_descr.property_is_readonly
 
 
 class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
@@ -652,7 +509,9 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
                          command_name="SetPropertyValue",
                          command_request_handler=self._command_request_handler,
                          # Signature uses 'var' to express that data-type depends on requested property
-                         command_description="(UINT8 PropertyID, var NewValue) -> var ActualNewValue",
+                         command_description="(UINT8 PropertyID, var NewValue) -> var ActualNewValue\\n"
+                                             "Returned value might differ from NewValue argument, "
+                                             "i.e. because of trimming to valid range or discretisation.",
                          command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
                                          CommandErrorCode.UNKNOWN_PROPERTY,
                                          CommandErrorCode.PROPERTY_IS_READ_ONLY,
@@ -696,126 +555,6 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
                             f"-> {repr(actual_new_value)}")
 
         self.router.send_reply_for_pending_request(reply)
-
-
-class GetPropertyDescriptionCommandDescriptor(TypedCommandDescriptor):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
-                         command_id=CmdID.GET_PROP_DESCR,
-                         command_name="GetPropertyDescription",
-                         command_implementation=self._cmd_impl,
-                         command_description="",
-                         command_arguments=[(HdcDataType.UINT8, 'PropertyID')],
-                         command_returns=[(HdcDataType.UTF8, 'Description')],
-                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
-                                         CommandErrorCode.UNKNOWN_PROPERTY,
-                                         CommandErrorCode.COMMAND_FAILED])
-
-    def _cmd_impl(self, property_id: int) -> str:
-        prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
-        if prop_descr is None:
-            raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
-
-        self.logger.info(f"Replying with {self.command_name}('{prop_descr.property_name}') "
-                         f"-> '{prop_descr.property_description}'")
-
-        return prop_descr.property_description
-
-
-class GetCommandNameCommandDescriptor(TypedCommandDescriptor):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
-                         command_id=CmdID.GET_CMD_NAME,
-                         command_name="GetCommandName",
-                         command_implementation=self._cmd_impl,
-                         command_description="",
-                         command_arguments=[(HdcDataType.UINT8, 'CommandID')],
-                         command_returns=[(HdcDataType.UTF8, 'Name')],
-                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
-                                         CommandErrorCode.UNKNOWN_COMMAND,
-                                         CommandErrorCode.COMMAND_FAILED])
-
-    def _cmd_impl(self, command_id: int) -> str:
-        cmd_descr = self.feature_descriptor.command_descriptors.get(command_id, None)
-        if cmd_descr is None:
-            raise self.build_cmd_error(CommandErrorCode.UNKNOWN_COMMAND)
-
-        self.logger.info(f"Replying with {self.command_name}(0x{command_id:02X}) "
-                         f"-> '{cmd_descr.command_name}'")
-
-        return cmd_descr.command_name
-
-
-class GetCommandDescriptionCommandDescriptor(TypedCommandDescriptor):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
-                         command_id=CmdID.GET_CMD_DESCR,
-                         command_name="GetCommandDescription",
-                         command_implementation=self._cmd_impl,
-                         command_description="",
-                         command_arguments=[(HdcDataType.UINT8, 'CommandID')],
-                         command_returns=[(HdcDataType.UTF8, 'Description')],
-                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
-                                         CommandErrorCode.UNKNOWN_COMMAND,
-                                         CommandErrorCode.COMMAND_FAILED])
-
-    def _cmd_impl(self, command_id: int) -> str:
-        cmd_descr = self.feature_descriptor.command_descriptors.get(command_id, None)
-        if cmd_descr is None:
-            raise self.build_cmd_error(CommandErrorCode.UNKNOWN_COMMAND)
-
-        self.logger.info(f"Replying with {self.command_name}('{cmd_descr.command_name}') "
-                         f"-> '{cmd_descr.command_description}'")
-
-        return cmd_descr.command_description
-
-
-class GetEventNameCommandDescriptor(TypedCommandDescriptor):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
-                         command_id=CmdID.GET_EVT_NAME,
-                         command_name="GetEventName",
-                         command_implementation=self._cmd_impl,
-                         command_description="",
-                         command_arguments=[(HdcDataType.UINT8, 'EventID')],
-                         command_returns=[(HdcDataType.UTF8, 'Name')],
-                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
-                                         CommandErrorCode.UNKNOWN_EVENT,
-                                         CommandErrorCode.COMMAND_FAILED])
-
-    def _cmd_impl(self, event_id: int) -> str:
-        evt_descr = self.feature_descriptor.event_descriptors.get(event_id, None)
-        if evt_descr is None:
-            raise self.build_cmd_error(CommandErrorCode.UNKNOWN_EVENT)
-
-        self.logger.info(f"Replying with {self.command_name}(0x{event_id:02X}) "
-                         f"-> '{evt_descr.event_name}'")
-
-        return evt_descr.event_name
-
-
-class GetEventDescriptionCommandDescriptor(TypedCommandDescriptor):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
-                         command_id=CmdID.GET_EVT_DESCR,
-                         command_name="GetEventDescription",
-                         command_implementation=self._cmd_impl,
-                         command_description="",
-                         command_arguments=[(HdcDataType.UINT8, 'EventID')],
-                         command_returns=[(HdcDataType.UTF8, 'Description')],
-                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
-                                         CommandErrorCode.UNKNOWN_EVENT,
-                                         CommandErrorCode.COMMAND_FAILED])
-
-    def _cmd_impl(self, event_id: int) -> str:
-        evt_descr = self.feature_descriptor.event_descriptors.get(event_id, None)
-        if evt_descr is None:
-            raise self.build_cmd_error(CommandErrorCode.UNKNOWN_EVENT)
-
-        self.logger.info(f"Replying with {self.command_name}('{evt_descr.event_name}') "
-                         f"-> '{evt_descr.event_description}'")
-
-        return evt_descr.event_description
 
 
 class EventDescriptorBase:
@@ -879,7 +618,7 @@ class EventDescriptorBase:
 
         self.router.send_event_message(event_message=event_message)
 
-    def to_json(self) -> dict:
+    def to_idl_dict(self) -> dict:
         return dict(
             id=self.event_id,
             name=self.event_name,
@@ -933,8 +672,8 @@ class TypedEventDescriptor(EventDescriptorBase):
 
         super()._send_event_message(event_message=event_message)
 
-    def to_json(self) -> dict:
-        d = super().to_json()
+    def to_idl_dict(self) -> dict:
+        d = super().to_idl_dict()
         d["args"] = [
             dict(name=arg_name, type=arg_type.name)
             for arg_type, arg_name in self.event_arguments
@@ -947,7 +686,7 @@ class LogEventDescriptor(TypedEventDescriptor):
         super().__init__(feature_descriptor,
                          event_id=EvtID.LOG,
                          event_name="Log",
-                         event_description="",
+                         event_description="Software logging. LogLevels are the same as defined in python's logging module.",
                          event_arguments=[(HdcDataType.UINT8, 'LogLevel'),
                                           (HdcDataType.UTF8, 'LogMsg')])
 
@@ -979,7 +718,7 @@ class FeatureStateTransitionEventDescriptor(TypedEventDescriptor):
         super().__init__(feature_descriptor,
                          event_id=EvtID.FEATURE_STATE_TRANSITION,
                          event_name="FeatureStateTransition",
-                         event_description="",
+                         event_description="Notifies host about transitions of this feature's state-machine.",
                          event_arguments=[(HdcDataType.UINT8, 'PreviousStateID'),
                                           (HdcDataType.UINT8, 'CurrentStateID')])
 
@@ -1053,26 +792,28 @@ class PropertyDescriptorBase:
     def property_is_readonly(self) -> bool:
         return self.property_setter is None
 
-    def to_json(self) -> dict:
-        return dict(
+    def to_idl_dict(self) -> dict:
+        result = dict(
             id=self.property_id,
             name=self.property_name,
             type=self.property_type.name,
-            doc=self.property_description,
+            # ToDo: ValueSize attribute, as in STM32 implementation
             ro=self.property_is_readonly)
+        if self.property_description:
+            result['doc'] = self.property_description
+        return result
 
 
 class DeviceDescriptorBase:
     router: hdcproto.device.router.MessageRouter
     feature_descriptors: dict[int, FeatureDescriptorBase]
-    max_req_msg_size: int
 
     def __init__(self,
                  connection_url: str,
                  device_name: str,
                  device_revision: int,
                  device_description: str,
-                 device_states: str,
+                 device_states: list[enum.IntEnum] | list[StateDescriptor] | None,
                  core_feature_descriptor_class=CoreFeatureDescriptorBase,
                  max_req_msg_size: int = 2048):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
@@ -1083,12 +824,9 @@ class DeviceDescriptorBase:
         self.device_states = device_states
         self.logger = logger.getChild(self.__class__.__name__)
 
-        if max_req_msg_size < 5:
-            raise ValueError("Configuring HDC_MAX_REQ_MESSAGE_SIZE to less than 5 bytes surely is wrong! "
-                             "(e.g. request of a UINT8 property-setter requires 5 byte)")
-        self.max_req_msg_size = max_req_msg_size  # ToDo: Pass this limit to the SerialTransport & Packetizer. Issue #19
-
-        self.router = hdcproto.device.router.MessageRouter(connection_url=connection_url)
+        self.router = hdcproto.device.router.MessageRouter(connection_url=connection_url,
+                                                           max_req_msg_size=max_req_msg_size,
+                                                           idl_json_generator=self.to_idl_json)
 
         self.feature_descriptors = dict()
 
@@ -1116,12 +854,16 @@ class DeviceDescriptorBase:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def to_json(self) -> dict:
+    def to_idl_dict(self) -> dict:
         return dict(
             version=hdcproto.common.HDC_VERSION,
-            max_req=self.max_req_msg_size,
+            max_req=self.router.max_req_msg_size,
             features=[
-                d.to_json()
+                d.to_idl_dict()
                 for d in sorted(self.feature_descriptors.values(), key=lambda d: d.feature_id)
             ]
         )
+
+    def to_idl_json(self) -> str:
+        idl_dict = self.to_idl_dict()
+        return json.dumps(idl_dict)

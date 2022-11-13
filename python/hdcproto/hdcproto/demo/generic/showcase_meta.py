@@ -6,12 +6,13 @@ https://en.wikipedia.org/wiki/Interface_description_language
 
 This script has also been handy to debug the C implementation of the HDC-device.
 """
+import json
 import logging
 
 from hdcproto.host.proxy import DeviceProxyBase
 
 
-def showcase_introspection():
+def showcase_meta():
     ###################
     # SSetup logging
     hdc_root_logger = logging.getLogger()
@@ -32,10 +33,19 @@ def showcase_introspection():
     device_proxy.connect()
 
     print(f"Device describes its HDC-API as follows:")
-    meta = device_proxy.get_meta(timeout=2)
-    print(meta)
-    print(f"Size of message payload: {len(meta)} bytes")
+    idl_json = device_proxy.get_idl_json(timeout=2)
+
+    print(f"Size of message payload: {len(idl_json)} bytes")
+
+    print(f"Saving {len(idl_json)} bytes of IDL-JSON to file: showcase_meta_idl_raw.json")
+    with open('showcase_meta_idl_raw.json', 'w', encoding='utf-8') as f:
+        print(idl_json, file=f)
+
+    print(f"Saving pretty printed IDL-JSON to file: showcase_meta_idl_pretty.json")
+    idl_dict = json.loads(idl_json)
+    with open('showcase_meta_idl_pretty.json', 'w', encoding='utf-8') as f:
+        json.dump(idl_dict, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == '__main__':
-    showcase_introspection()
+    showcase_meta()

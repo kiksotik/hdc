@@ -41,8 +41,8 @@ const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
     .CommandName = "Reset",  // Name of the corresponding, automatically generated API-method in a proxy-class.
     .CommandHandler = &Core_HDC_Cmd_Reset,  // Function pointer to the handler defined above.
     .CommandDescription =
-        "(void) -> void\n"                 // ToDo: Standardize argument and return value documentation.
-        "Reinitializes the whole device."  // Human readable docstring
+        "(VOID) -> VOID\\n"                 // ToDo: Standardize argument and return value documentation.
+        "Reinitializes the whole device."   // Human readable docstring
   },
 
   // Note how hdc_device driver takes care of all mandatory HDC-commands (GetPropertyName, GetPropertyValue, ...)
@@ -58,7 +58,7 @@ const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
 HDC_Event_Descriptor_t Core_HDC_Event_Button = {
       .EventID = 0x01,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
       .EventName = "ButtonEvent",  // Name of the corresponding, automatically generated event handler in a proxy-class.
-      .EventDescription = "(UINT8 ButtonID, UINT8 ButtonState)\n"
+      .EventDescription = "(UINT8 ButtonID, UINT8 ButtonState)\\n"
                           "Showcases implementation of a custom HDC-event: Notify host about the button being pressed on the device."
 };
 
@@ -151,6 +151,27 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
 };
 
 
+// Example of state descriptors.
+// Note how some descriptor attributes can simply be omitted.
+const HDC_State_Descriptor_t *Core_HDC_States[] = {
+  &(HDC_State_Descriptor_t ) {
+    .id = Core_State_Off,
+    .name = "OFF"
+  },
+  &(HDC_State_Descriptor_t ) {
+    .id = Core_State_Initializing,
+    .name = "INIT"
+  },
+  &(HDC_State_Descriptor_t ) {
+    .id = Core_State_Ready,
+    .name = "READY"
+  },
+  &(HDC_State_Descriptor_t ) {
+    .id = Core_State_Error,
+    .name = "ERROR"
+  },
+};
+
 
 //////////////
 // HDC Feature
@@ -158,14 +179,14 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
 // Example of an HDC-feature descriptor.
 // In this case for the mandatory core-feature of this device.
 HDC_Feature_Descriptor_t Core_HDC_Feature = {
-  .FeatureID = HDC_FeatureID_Core,      // A FeatureID of 0x00 is what makes this the mandatory Core-Feature of this device.
-  .FeatureName = "Core",                // Name of this feature instance --> name of the proxy instance
-  .FeatureTypeName = "MinimalCore",     // Name of this feature's implementation --> name of the proxy class
-  .FeatureTypeRevision = 1,             // Revision number of this feature's implementation
-  .FeatureDescription = "Core feature of the minimal demo.",  // Docstring about this feature
-  .FeatureTags = "Demo;NUCLEO-F303RE",  // ToDo: Standardize tag delimiter and explain potential use-cases.
+  .FeatureID = HDC_FeatureID_Core,       // A FeatureID of 0x00 is what makes this the mandatory Core-Feature of this device.
+  .FeatureName = "Core",                 // Name of this feature instance --> name of the proxy instance
+  .FeatureTypeName = "Demo_Minimal",     // Name of this feature's implementation --> name of the proxy class
+  .FeatureTypeRevision = 42,             // Revision number of this feature's implementation
+  .FeatureDescription = "STM32 C implementation of the 'Minimal' HDC-device demonstration",  // Docstring about this feature/device
   // Documentation of this feature's states and their human readable names. Syntax as for python dictionary initialization
-  .FeatureStatesDescription = "{0:'Off', 1:'Initializing', 2:'Ready', 0xFF:'Error'}",
+  .States = Core_HDC_States,
+  .NumStates = sizeof(Core_HDC_States) / sizeof(HDC_State_Descriptor_t*),
   .Commands = Core_HDC_Commands,
   .NumCommands = sizeof(Core_HDC_Commands) / sizeof(HDC_Command_Descriptor_t*),
   .Properties = Core_HDC_Properties,

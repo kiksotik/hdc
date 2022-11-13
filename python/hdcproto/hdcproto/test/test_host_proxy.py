@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from hdcproto.common import CommandErrorCode, MessageTypeID
+from hdcproto.common import CommandErrorCode, MessageTypeID, MetaID
 from hdcproto.host.proxy import (DeviceProxyBase, FeatureProxyBase, VoidWithoutArgsCommandProxy,
                                  PropertyProxy_RW_INT32, EventProxyBase)
 from hdcproto.transport.mock import MockTransport
@@ -69,22 +69,51 @@ class TestMessages(unittest.TestCase):
         self.my_proxy.connect()
         self.conn_mock: MockTransport = self.my_proxy.router.transport
 
-    def test_echo_msg(self):
+    def test_echo(self):
         self.conn_mock.reply_mocking = lambda req: req if req[0] == MessageTypeID.ECHO else None
         sent_payload = b'Just some arbitrary payload'
         received_payload = self.my_proxy.get_echo(sent_payload)
         self.assertEqual(sent_payload, received_payload)
 
-    def test_hdc_version_msg(self):
-        mocked_version = 'HDC 1.0.0-alpha.10'
+    def test_meta_hdc_version(self):
+        mocked_version = 'HDC 1.0.0-alpha.11'
 
         def reply_mocking(req: bytes) -> bytes | None:
-            if req[0] == MessageTypeID.HDC_VERSION:
-                return bytes([MessageTypeID.HDC_VERSION]) + mocked_version.encode()
+            if req[0] == MessageTypeID.META and req[1] == MetaID.HDC_VERSION:
+                return bytes([MessageTypeID.META, MetaID.HDC_VERSION]) + mocked_version.encode()
 
         self.conn_mock.reply_mocking = reply_mocking
         received_version_str = self.my_proxy.get_hdc_version_string()
         self.assertEqual(mocked_version, received_version_str)
+
+    def test_meta_max_req(self):
+        mocked_max_req = 128
+
+        def reply_mocking(req: bytes) -> bytes | None:
+            if req[0] == MessageTypeID.META and req[1] == MetaID.MAX_REQ:
+                return bytes([MessageTypeID.META, MetaID.MAX_REQ]) + mocked_max_req.to_bytes(length=4,
+                                                                                                 byteorder='little')
+
+        self.conn_mock.reply_mocking = reply_mocking
+        received_max_req = self.my_proxy.get_max_req_msg_size()
+        self.assertEqual(mocked_max_req, received_max_req)
+
+    def test_meta_idl_json(self):
+        mocked_idl_json = '''
+        {
+            "version": "HDC 1.0.0-alpha.11",
+            "MaxReq": 128,
+            "features": []
+        }
+        '''
+
+        def reply_mocking(req: bytes) -> bytes | None:
+            if req[0] == MessageTypeID.META and req[1] == MetaID.IDL_JSON:
+                return bytes([MessageTypeID.META, MetaID.IDL_JSON]) + mocked_idl_json.encode()
+
+        self.conn_mock.reply_mocking = reply_mocking
+        received_idl_json = self.my_proxy.get_idl_json()
+        self.assertEqual(mocked_idl_json, received_idl_json)
 
 
 class TestCommandErrorCodeRegistration(unittest.TestCase):

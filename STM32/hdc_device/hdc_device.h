@@ -104,28 +104,26 @@ typedef void (*HDC_PropertyValueSetter_t)(
 // Enums
 
 typedef enum {
-  HDC_MessageTypeID_HdcVersion = 0xF0,
+  HDC_MessageTypeID_Meta = 0xF0,
   HDC_MessageTypeID_Echo = 0xF1,
   HDC_MessageTypeID_Command = 0xF2,
   HDC_MessageTypeID_Event = 0xF3,
-  HDC_MessageTypeID_Meta = 0xF4,
 } HDC_MessageTypeID_t;
+
+typedef enum {
+  HDC_MetaID_HdcVersion = 0xF0,
+  HDC_MetaID_MaxReq = 0xF1,
+  HDC_MetaID_IdlJson = 0xF2,
+} HDC_MetaID_t;
+
 
 typedef enum {
   HDC_FeatureID_Core = 0x00,
 } HDC_FeatureID_t;
 
 typedef enum {
-  HDC_CommandID_GetPropertyName = 0xF0,
-  HDC_CommandID_GetPropertyType = 0xF1,
-  HDC_CommandID_GetPropertyReadonly = 0xF2,
-  HDC_CommandID_GetPropertyValue = 0xF3,
-  HDC_CommandID_SetPropertyValue = 0xF4,
-  HDC_CommandID_GetPropertyDescription = 0xF5,
-  HDC_CommandID_GetCommandName = 0xF6,
-  HDC_CommandID_GetCommandDescription = 0xF7,
-  HDC_CommandID_GetEventName = 0xF8,
-  HDC_CommandID_GetEventDescription = 0xF9,
+  HDC_CommandID_GetPropertyValue = 0xF0,
+  HDC_CommandID_SetPropertyValue = 0xF1,
 } HDC_CommandID_t;
 
 typedef enum {
@@ -173,18 +171,8 @@ typedef enum {
 
 
 typedef enum {
-  HDC_PropertyID_FeatureName = 0xF0,
-  HDC_PropertyID_FeatureTypeName = 0xF1,
-  HDC_PropertyID_FeatureTypeRevision = 0xF2,
-  HDC_PropertyID_FeatureDescription = 0xF3,
-  HDC_PropertyID_FeatureTags = 0xF4,
-  HDC_PropertyID_AvailableCommands = 0xF5,
-  HDC_PropertyID_AvailableEvents = 0xF6,
-  HDC_PropertyID_AvailableProperties = 0xF7,
-  HDC_PropertyID_FeatureState = 0xF8,
-  HDC_PropertyID_LogEventThreshold = 0xF9,
-  HDC_PropertyID_AvailableFeatures = 0xFA,  // Only mandatory for the Core-feature
-  HDC_PropertyID_MaxReqMsgSize = 0xFB,  // Only mandatory for the Core-feature
+  HDC_PropertyID_LogEventThreshold = 0xF0,
+  HDC_PropertyID_FeatureState = 0xF1,
 } HDC_PropertyID_t;
 
 
@@ -233,6 +221,11 @@ typedef struct HDC_Property_struct {
   char* PropertyDescription;
 } HDC_Property_Descriptor_t;
 
+typedef struct {
+  uint8_t id;
+  char* name;
+  char* doc;
+} HDC_State_Descriptor_t;
 
 typedef struct HDC_Feature_struct {
   uint8_t FeatureID;
@@ -240,8 +233,9 @@ typedef struct HDC_Feature_struct {
   char* FeatureTypeName;
   uint8_t FeatureTypeRevision;
   char* FeatureDescription;
-  char* FeatureTags;
-  char* FeatureStatesDescription;
+
+  const HDC_State_Descriptor_t** States;
+  uint8_t NumStates;
 
   const HDC_Command_Descriptor_t** Commands;
   uint8_t NumCommands;
@@ -261,9 +255,9 @@ typedef struct HDC_Feature_struct {
 
   //////////////////////////////////////
   // Mandatory and mutable properties
-
-  uint8_t FeatureState;
   uint8_t LogEventThreshold;
+  uint8_t FeatureState;
+
 
 } HDC_Feature_Descriptor_t;
 

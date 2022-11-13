@@ -14,7 +14,7 @@ import semver
 
 import hdcproto.host.router
 from hdcproto.common import (HdcError, MessageTypeID, FeatureID, CmdID, CommandErrorCode, EvtID, PropID, HdcDataType,
-                             is_valid_uint8, HdcCommandError)
+                             is_valid_uint8, HdcCommandError, MetaID)
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.proxy"
 
@@ -154,59 +154,6 @@ class VoidWithoutArgsCommandProxy(CommandProxyBase):
         return super()._call_cmd(cmd_args=None, return_types=None, timeout=timeout)
 
 
-class GetPropertyNameCommandProxy(CommandProxyBase):
-
-    def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=CmdID.GET_PROP_NAME)
-        self.register_error(CommandErrorCode.UNKNOWN_PROPERTY)
-
-    def __call__(self, property_id: int, timeout: float | None = None) -> str:
-        if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
-
-        return super()._call_cmd(
-            cmd_args=[(HdcDataType.UINT8, property_id), ],
-            return_types=HdcDataType.UTF8,
-            timeout=timeout
-        )
-
-
-class GetPropertyTypeCommandProxy(CommandProxyBase):
-
-    def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=CmdID.GET_PROP_TYPE)
-        self.register_error(CommandErrorCode.UNKNOWN_PROPERTY)
-
-    def __call__(self, property_id: int, timeout: float | None = None) -> HdcDataType:
-        if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
-
-        property_type_id = super()._call_cmd(
-            cmd_args=[(HdcDataType.UINT8, property_id), ],
-            return_types=HdcDataType.UINT8,
-            timeout=timeout
-        )
-        property_type = HdcDataType(property_type_id)
-        return property_type
-
-
-class GetPropertyReadonlyCommandProxy(CommandProxyBase):
-
-    def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=CmdID.GET_PROP_RO)
-        self.register_error(CommandErrorCode.UNKNOWN_PROPERTY)
-
-    def __call__(self, property_id: int, timeout: float | None = None) -> bool:
-        if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
-
-        return super()._call_cmd(
-            cmd_args=[(HdcDataType.UINT8, property_id), ],
-            return_types=HdcDataType.BOOL,
-            timeout=timeout
-        )
-
-
 class GetPropertyValueCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
@@ -249,78 +196,6 @@ class SetPropertyValueCommandProxy(CommandProxyBase):
                 (property_data_type, new_value),
             ],
             return_types=property_data_type,
-            timeout=timeout
-        )
-
-
-class GetPropertyDescriptionCommandProxy(CommandProxyBase):
-
-    def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=CmdID.GET_PROP_DESCR)
-        self.register_error(CommandErrorCode.UNKNOWN_PROPERTY)
-
-    def __call__(self, property_id: int, timeout: float | None = None) -> str:
-        if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
-
-        return super()._call_cmd(
-            cmd_args=[(HdcDataType.UINT8, property_id), ],
-            return_types=HdcDataType.UTF8,
-            timeout=timeout
-        )
-
-
-class GetCommandNameCommandProxy(CommandProxyBase):
-
-    def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=CmdID.GET_CMD_NAME)
-        # Reuses CommandErrorCode.UNKNOWN_COMMAND to also mean we requested the name for an unknown CommandID
-
-    def __call__(self, command_id: int, timeout: float | None = None) -> str:
-        return super()._call_cmd(
-            cmd_args=[(HdcDataType.UINT8, command_id), ],
-            return_types=HdcDataType.UTF8,
-            timeout=timeout
-        )
-
-
-class GetCommandDescriptionCommandProxy(CommandProxyBase):
-
-    def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=CmdID.GET_CMD_DESCR)
-        # Reuses CommandErrorCode.UNKNOWN_COMMAND to also mean we requested the description for an unknown CommandID
-
-    def __call__(self, command_id: int, timeout: float | None = None) -> str:
-        return super()._call_cmd(
-            cmd_args=[(HdcDataType.UINT8, command_id), ],
-            return_types=HdcDataType.UTF8,
-            timeout=timeout
-        )
-
-
-class GetEventNameCommandProxy(CommandProxyBase):
-
-    def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=CmdID.GET_EVT_NAME)
-        self.register_error(CommandErrorCode.UNKNOWN_EVENT)
-
-    def __call__(self, event_id: int, timeout: float | None = None) -> str:
-        return super()._call_cmd(
-            cmd_args=[(HdcDataType.UINT8, event_id), ],
-            return_types=HdcDataType.UTF8,
-            timeout=timeout
-        )
-
-
-class GetEventDescriptionCommandProxy(CommandProxyBase):
-    def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=CmdID.GET_EVT_DESCR)
-        self.register_error(CommandErrorCode.UNKNOWN_EVENT)
-
-    def __call__(self, event_id: int, timeout: float | None = None) -> str:
-        return super()._call_cmd(
-            cmd_args=[(HdcDataType.UINT8, event_id), ],
-            return_types=HdcDataType.UTF8,
             timeout=timeout
         )
 
@@ -965,40 +840,14 @@ class FeatureProxyBase:
             self.register_states(state_names_by_id)
 
         # Commands
-        self.cmd_get_property_name = GetPropertyNameCommandProxy(self)
-        self.cmd_get_property_type = GetPropertyTypeCommandProxy(self)
-        self.cmd_get_property_readonly = GetPropertyReadonlyCommandProxy(self)
         self.cmd_get_property_value = GetPropertyValueCommandProxy(self)
         self.cmd_set_property_value = SetPropertyValueCommandProxy(self)
-        self.cmd_get_property_description = GetPropertyDescriptionCommandProxy(self)
-        self.cmd_get_command_name = GetCommandNameCommandProxy(self)
-        self.cmd_get_command_description = GetCommandDescriptionCommandProxy(self)
-        self.cmd_get_event_name = GetEventNameCommandProxy(self)
-        self.cmd_get_event_description = GetEventDescriptionCommandProxy(self)
 
         # Events
         self.evt_state_transition = StateTransitionEventProxy(self)
         self.evt_log = LogEventProxy(self)
 
-        # Properties (immutable)
-        inf = float('inf')  # Infinity, meaning that the cached value will not expire (by default)
-        self.prop_feature_name = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_NAME,
-                                                       default_freshness=inf)
-        self.prop_feature_type_name = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_TYPE_NAME,
-                                                            default_freshness=inf)
-        self.prop_feature_type_revision = PropertyProxy_RO_UINT8(self, property_id=PropID.FEAT_TYPE_REV,
-                                                                 default_freshness=inf)
-        self.prop_feature_description = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_DESCR,
-                                                              default_freshness=inf)
-        self.prop_feature_tags = PropertyProxy_RO_UTF8(self, property_id=PropID.FEAT_TAGS,
-                                                       default_freshness=inf)
-        self.prop_available_commands = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_CMD,
-                                                             default_freshness=inf)
-        self.prop_available_events = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_EVT,
-                                                           default_freshness=inf)
-        self.prop_available_properties = PropertyProxy_RO_BLOB(self, property_id=PropID.AVAIL_PROP,
-                                                               default_freshness=inf)
-        # Properties (mutable)
+        # Properties
         self.prop_feature_state = PropertyProxy_FeatureState(self)
         self.prop_log_event_threshold = PropertyProxy_LogEventThreshold(self)
 
@@ -1086,12 +935,8 @@ class CoreFeatureProxyBase(FeatureProxyBase):
     def __init__(self, device_proxy: DeviceProxyBase):
         super().__init__(device_proxy=device_proxy, feature_id=FeatureID.CORE)
 
-        # Mandatory properties of a Core feature as required by HDC-spec
-        self.prop_available_features = PropertyProxy_RO_BLOB(self, PropID.AVAIL_FEAT)
-        self.prop_max_req_msg_size = PropertyProxy_RO_UINT32(self, PropID.MAX_REQ_MSG_SIZE)
-
-        # HDC-spec does not require any mandatory commands nor events for the Core feature, other than what's
-        # already mandatory for any feature, which has been inherited from the FeatureProxyBase base class.
+        # HDC-spec does not require any mandatory properties, commands nor events for the Core feature, other than
+        # what's already mandatory for any feature, which has been inherited from the FeatureProxyBase base class.
 
 
 class DeviceProxyBase:
@@ -1133,12 +978,11 @@ class DeviceProxyBase:
 
     def get_hdc_version_string(self, timeout: float = 0.2) -> str:
         """Returns the raw string, without attempting to validate nor parsing it."""
-        request_message = bytes([MessageTypeID.HDC_VERSION])
+        request_message = bytes([MessageTypeID.META, MetaID.HDC_VERSION])
         reply_message = self.router.send_request_and_get_reply(request_message, timeout)
-        message_type_id_of_reply = reply_message[0]
-        if message_type_id_of_reply != MessageTypeID.HDC_VERSION:
+        if reply_message[:2] != request_message:
             raise HdcError("Reply does not match the expected prefix")
-        reply_payload = reply_message[1:]  # Skip MessageTypeID prefix
+        reply_payload = reply_message[2:]  # Skip MessageTypeID + MetaID
         reply_string = reply_payload.decode(encoding="utf-8", errors="strict")
         return reply_string
 
@@ -1153,6 +997,29 @@ class DeviceProxyBase:
 
         raise HdcError(f"Don't know how to handle HDC-spec '{reply_string}'")
 
+    def get_max_req_msg_size(self, timeout: float = 0.2) -> int:
+        """Returns the maximum size of a request that the device can cope with."""
+        request_message = bytes([MessageTypeID.META, MetaID.MAX_REQ])
+        reply_message = self.router.send_request_and_get_reply(request_message, timeout)
+        if reply_message[:2] != request_message:
+            raise HdcError("Reply does not match the expected prefix")
+
+        reply_payload = reply_message[2:]  # Skip MessageTypeID + MetaID
+        if not reply_payload:
+            raise HdcError("Device did not know how to reply")
+
+        return HdcDataType.UINT32.bytes_to_value(reply_payload)
+
+    def get_idl_json(self, timeout: float = 2.0):  # Increased timeout, because IDL-JSON can take a while to transmit
+        """Returns a JSON string representation of the device's HDC API."""
+        request_message = bytes([MessageTypeID.META, MetaID.IDL_JSON])
+        reply_message = self.router.send_request_and_get_reply(request_message, timeout)
+        if reply_message[:2] != request_message:
+            raise HdcError("Reply does not match the expected prefix")
+        reply_payload = reply_message[2:]  # Skip MessageTypeID + MetaID
+        reply_string = reply_payload.decode(encoding="utf-8", errors="strict")
+        return reply_string
+
     def get_echo(self, echo_payload: bytes, timeout: float = 0.2) -> bytes:
         request_message = bytearray()
         request_message.append(MessageTypeID.ECHO)
@@ -1163,15 +1030,3 @@ class DeviceProxyBase:
             raise HdcError("Reply does not match the expected prefix")
         reply_payload = reply_message[1:]  # Skip MessageTypeID prefix
         return reply_payload
-
-    def get_meta(self, timeout: float = 0.2):
-        """Returns a JSON string representation of the device's HDC API."""
-        request_message = bytes([MessageTypeID.META])
-        reply_message = self.router.send_request_and_get_reply(request_message, timeout)
-        message_type_id_of_reply = reply_message[0]
-        if message_type_id_of_reply != MessageTypeID.META:
-            raise HdcError("Reply does not match the expected prefix")
-        reply_payload = reply_message[1:]  # Skip MessageTypeID prefix
-        reply_string = reply_payload.decode(encoding="utf-8", errors="strict")
-        return reply_string
-

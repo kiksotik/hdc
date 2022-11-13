@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import typing
 
-from hdcproto.common import MessageTypeID, is_valid_uint8, CommandErrorCode, HDC_VERSION, HdcCommandError
+from hdcproto.common import MessageTypeID, is_valid_uint8, CommandErrorCode, HDC_VERSION, HdcCommandError, MetaID
 from hdcproto.transport.base import TransportBase
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.router"
@@ -21,13 +21,23 @@ class MessageRouter:
         - Routing of event-messages received from the device
     """
     connection_url: str | None
+    idl_json_generator: typing.Callable[[], str] | None
+    max_req_msg_size: int
     transport: TransportBase | None
     pending_request_message: bytes | None
     command_request_handlers: dict[typing.Tuple[int, int], typing.Callable[[bytes], None]]
     custom_message_handlers: dict[int, typing.Callable[[bytes], None]]
 
-    def __init__(self, connection_url: str):
+    def __init__(self,
+                 connection_url: str,
+                 idl_json_generator: typing.Callable[[], str] | None = None,
+                 max_req_msg_size: int = 2048):
         self.connection_url = connection_url
+        self.idl_json_generator = idl_json_generator
+        if max_req_msg_size < 5:
+            raise ValueError("Less than 5 bytes surely is wrong! "
+                             "(e.g. request of a UINT8 property-setter requires 5 byte)")
+        self.max_req_msg_size = max_req_msg_size  # ToDo: Pass MaxReq limit to the Transport. Issue #19
         self.transport = None
         self.pending_request_message = None
         self.command_request_handlers = dict()
@@ -155,8 +165,8 @@ class MessageRouter:
 
         self.pending_request_message = message
 
-        if message_type_id == MessageTypeID.HDC_VERSION:
-            return self._handle_hdc_version_request(message)
+        if message_type_id == MessageTypeID.META:
+            return self._handle_meta_request(message)
         if message_type_id == MessageTypeID.ECHO:
             return self._handle_echo_request(message)
         if message_type_id == MessageTypeID.COMMAND:
@@ -166,14 +176,53 @@ class MessageRouter:
             logger.warning(f"Don't know how to handle MessageTypeID=0x{message_type_id:02X}")
             self.pending_request_message = None
 
-    def _handle_hdc_version_request(self, request_message: bytes) -> None:
-        assert request_message[0] == MessageTypeID.HDC_VERSION
-        logger.info("Replying to an HDC_VERSION request message.")
+    def _handle_meta_hdc_version_request(self, request_message: bytes) -> None:
+        assert request_message[0] == MessageTypeID.META
+        assert request_message[1] == MetaID.HDC_VERSION
+        logger.info("Replying to a Meta.HDC_VERSION request message.")
         reply_message = bytearray()
-        reply_message.append(MessageTypeID.HDC_VERSION)
+        reply_message.append(MessageTypeID.META)
+        reply_message.append(MetaID.HDC_VERSION)
         reply_message.extend(HDC_VERSION.encode(encoding="utf-8", errors="strict"))
         reply_message = bytes(reply_message)
         self.send_reply_for_pending_request(reply_message)
+
+    def _handle_meta_max_req_request(self, request_message: bytes) -> None:
+        assert request_message[0] == MessageTypeID.META
+        assert request_message[1] == MetaID.MAX_REQ
+        logger.info("Replying to a Meta.MAX_REQ request message.")
+        reply_message = bytearray()
+        reply_message.append(MessageTypeID.META)
+        reply_message.append(MetaID.MAX_REQ)
+        reply_message.extend(self.max_req_msg_size.to_bytes(length=4, byteorder='little'))
+        reply_message = bytes(reply_message)
+        self.send_reply_for_pending_request(reply_message)
+
+    def _handle_meta_idl_json_request(self, request_message: bytes) -> None:
+        assert request_message[0] == MessageTypeID.META
+        assert request_message[1] == MetaID.IDL_JSON
+        logger.info("Replying to a Meta.IDL_JSON request message.")
+        reply_message = bytearray()
+        reply_message.append(MessageTypeID.META)
+        reply_message.append(MetaID.IDL_JSON)
+        idl_json = "" if self.idl_json_generator is None else self.idl_json_generator()
+        reply_message.extend(idl_json.encode(encoding="utf-8", errors="strict"))
+        reply_message = bytes(reply_message)
+        self.send_reply_for_pending_request(reply_message)
+
+    def _handle_meta_request(self, request_message: bytes) -> None:
+        """Warning: This will be executed from within the SerialTransport.receiver_thread"""
+        assert request_message[0] == MessageTypeID.META
+        meta_id = request_message[1]
+
+        if meta_id == MetaID.HDC_VERSION:
+            return self._handle_meta_hdc_version_request(request_message)
+
+        if meta_id == MetaID.MAX_REQ:
+            return self._handle_meta_max_req_request(request_message)
+
+        if meta_id == MetaID.IDL_JSON:
+            return self._handle_meta_idl_json_request(request_message)
 
     def _handle_echo_request(self, request_message: bytes) -> None:
         assert request_message[0] == MessageTypeID.ECHO

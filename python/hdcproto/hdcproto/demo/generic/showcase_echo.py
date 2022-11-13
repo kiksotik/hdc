@@ -38,7 +38,7 @@ def showcase_echo():
     # Warning: HDC-device has limited buffer size for receiving a request message!
     #          Larger messages will raise reading-frame-error LogEvents!
     # Find out what the largest request message size is that this device can cope with.
-    max_req_msg_size = device_proxy.core.prop_max_req_msg_size.get()
+    max_req_msg_size = device_proxy.get_max_req_msg_size()
     payload_size = max_req_msg_size - 1  # Because of the MessageType byte that the Echo-request will prepend
 
     demo_logger.info(f"Device reports to be compliant with: '{device_proxy.get_hdc_version_string()}'")

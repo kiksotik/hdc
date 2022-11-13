@@ -5,7 +5,6 @@ from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, CommandErrorCode
 from hdcproto.device.descriptor import (DeviceDescriptorBase, CoreFeatureDescriptorBase,
-                                        StateDescriptor,
                                         TypedCommandDescriptor, PropertyDescriptorBase,
                                         FeatureDescriptorBase, TypedEventDescriptor)
 
@@ -36,6 +35,7 @@ class MinimalDeviceDescriptor(DeviceDescriptorBase):
         INIT = 0x01
         READY = 0x02
         ERROR = 0xFF
+
 
 class MinimalCoreDescriptor:
     def __init__(self, device_descriptor: DeviceDescriptorBase):

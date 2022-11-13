@@ -171,7 +171,7 @@ class FeatureDescriptorBase:
             id=self.feature_id,
             name=self.feature_name,
             type=self.feature_type_name,
-            revision=self.feature_type_revision,   # ToDo: Issue #20
+            revision=self.feature_type_revision,  # ToDo: Issue #20
             doc=self.feature_description,
             states=[
                 d.to_idl_dict()

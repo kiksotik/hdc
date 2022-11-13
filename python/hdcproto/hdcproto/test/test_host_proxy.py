@@ -92,7 +92,7 @@ class TestMessages(unittest.TestCase):
         def reply_mocking(req: bytes) -> bytes | None:
             if req[0] == MessageTypeID.META and req[1] == MetaID.MAX_REQ:
                 return bytes([MessageTypeID.META, MetaID.MAX_REQ]) + mocked_max_req.to_bytes(length=4,
-                                                                                                 byteorder='little')
+                                                                                             byteorder='little')
 
         self.conn_mock.reply_mocking = reply_mocking
         received_max_req = self.my_proxy.get_max_req_msg_size()

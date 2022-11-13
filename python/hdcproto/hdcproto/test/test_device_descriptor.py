@@ -3,8 +3,7 @@ import json
 import logging
 import unittest
 
-from hdcproto.common import MessageTypeID, FeatureID, EvtID, CmdID, PropID, CommandErrorCode, HdcDataType, MetaID, \
-    HDC_VERSION
+from hdcproto.common import (MessageTypeID, FeatureID, EvtID, CmdID, PropID, CommandErrorCode, MetaID, HDC_VERSION)
 from hdcproto.device.descriptor import DeviceDescriptorBase
 from hdcproto.transport.mock import MockTransport
 
@@ -104,6 +103,7 @@ class TestMessages(unittest.TestCase):
         idl_json = received_reply[2:]
         json.loads(idl_json)  # Test whether it's valid JSON syntax.
         # ToDo: Validate IDL-JSON produced by Python descriptors with a JSON-Schema grammar.
+
 
 class TestCommands(unittest.TestCase):
     def setUp(self) -> None:

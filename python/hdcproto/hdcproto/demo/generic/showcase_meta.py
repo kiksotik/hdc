@@ -32,10 +32,11 @@ def showcase_meta():
     # device_proxy = DeviceProxyBase(connection_url="socket://localhost:55555")
     device_proxy.connect()
 
-    print(f"Device describes its HDC-API as follows:")
-    idl_json = device_proxy.get_idl_json(timeout=2)
+    print(f"Device is compliant with: '{device_proxy.get_hdc_version_string()}'")
 
-    print(f"Size of message payload: {len(idl_json)} bytes")
+    print(f"Device can cope with request messages of up to {device_proxy.get_max_req_msg_size()} bytes")
+
+    idl_json = device_proxy.get_idl_json(timeout=2)
 
     print(f"Saving {len(idl_json)} bytes of IDL-JSON to file: showcase_meta_idl_raw.json")
     with open('showcase_meta_idl_raw.json', 'w', encoding='utf-8') as f:

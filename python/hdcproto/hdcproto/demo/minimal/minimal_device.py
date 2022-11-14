@@ -13,8 +13,8 @@ class MinimalDeviceDescriptor(DeviceDescriptorBase):
     def __init__(self, connection_url: str):
         super().__init__(connection_url,
                          core_feature_descriptor_class=MinimalCoreDescriptor,
-                         device_name="Demo_Minimal",
-                         device_revision=42,  # Mocking a revision for this implementation
+                         device_name="MinimalCore",
+                         device_version="0.0.1",  # Mocking a SemVer for this implementation
                          device_description="Python implementation of the 'Minimal' HDC-device demonstration")
 
     def main_loop(self):

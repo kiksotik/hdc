@@ -5,8 +5,8 @@
         {
             "id": 0,
             "name": "Core",
-            "type": "Demo_Minimal",
-            "revision": 42,
+            "class": "MinimalCore",
+            "version": "0.0.1",
             "doc": "STM32 C implementation of the 'Minimal' HDC-device demonstration",
             "states": [
                 {
@@ -40,7 +40,7 @@
                 {
                     "id": 241,
                     "name": "SetPropertyValue",
-                    "doc": "(UINT8 PropertyID, var NewValue) -> var ActualNewValue\nReturned value might differ from NewValue argument, i.e. because of trimming to valid range or discretisation."
+                    "doc": "(UINT8 PropertyID, var NewValue) -> var ActualNewValue\nReturned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization."
                 }
             ],
             "events": [

@@ -1001,12 +1001,13 @@ class DeviceProxyBase:
         """Validates device's reply, parses version and returns it as a semver.VersionInfo object."""
         reply_string = self.get_hdc_version_string(timeout=timeout)
         expected_prefix = "HDC "
-        if reply_string.startswith(expected_prefix):
-            version_string = reply_string[len(expected_prefix):]
-            if semver.VersionInfo.isvalid(version_string):
-                return semver.VersionInfo.parse(version_string)
+        if not reply_string.startswith(expected_prefix):
+            raise HdcError(f"Don't know how to handle HDC-spec '{reply_string}'")
 
-        raise HdcError(f"Don't know how to handle HDC-spec '{reply_string}'")
+        version_string = reply_string[len(expected_prefix):]
+        return semver.VersionInfo.parse(version_string)  # Raises ValueError
+
+
 
     def get_max_req_msg_size(self, timeout: float = 0.2) -> int:
         """Returns the maximum size of a request that the device can cope with."""

@@ -230,8 +230,8 @@ typedef struct {
 typedef struct HDC_Feature_struct {
   uint8_t FeatureID;
   char* FeatureName;
-  char* FeatureTypeName;
-  uint8_t FeatureTypeRevision;
+  char* FeatureClassName;
+  char* FeatureClassVersion;
   char* FeatureDescription;
 
   const HDC_State_Descriptor_t** States;

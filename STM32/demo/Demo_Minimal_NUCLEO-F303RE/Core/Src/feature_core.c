@@ -181,8 +181,8 @@ const HDC_State_Descriptor_t *Core_HDC_States[] = {
 HDC_Feature_Descriptor_t Core_HDC_Feature = {
   .FeatureID = HDC_FeatureID_Core,       // A FeatureID of 0x00 is what makes this the mandatory Core-Feature of this device.
   .FeatureName = "Core",                 // Name of this feature instance --> name of the proxy instance
-  .FeatureTypeName = "Demo_Minimal",     // Name of this feature's implementation --> name of the proxy class
-  .FeatureTypeRevision = 42,             // Revision number of this feature's implementation
+  .FeatureClassName = "MinimalCore",     // Name of this feature's implementation
+  .FeatureClassVersion = "0.0.1",        // SemVer of this feature's implementation
   .FeatureDescription = "STM32 C implementation of the 'Minimal' HDC-device demonstration",  // Docstring about this feature/device
   // Documentation of this feature's states and their human readable names. Syntax as for python dictionary initialization
   .States = Core_HDC_States,

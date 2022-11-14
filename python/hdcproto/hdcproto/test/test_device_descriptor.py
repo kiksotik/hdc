@@ -4,7 +4,7 @@ import logging
 import unittest
 
 from hdcproto.common import (MessageTypeID, FeatureID, EvtID, CmdID, PropID, CommandErrorCode, MetaID, HDC_VERSION)
-from hdcproto.device.descriptor import DeviceDescriptorBase
+from hdcproto.device.descriptor import DeviceDescriptorBase, CoreFeatureDescriptorBase
 from hdcproto.transport.mock import MockTransport
 
 
@@ -14,9 +14,14 @@ class TestableDeviceDescriptor(DeviceDescriptorBase):
         # intercept any HDC-request messages emitted by the proxy classes that are under scrutiny.
         super().__init__(connection_url="mock://",
                          device_name="TestDeviceMockup",
-                         device_revision=42,
+                         device_version="0.0.42",
                          device_description="",
-                         device_states=self.States)
+                         core_feature_descriptor_class=TestableCoreDescriptor)
+
+
+class TestableCoreDescriptor(CoreFeatureDescriptorBase):
+    def __init__(self, device_descriptor: DeviceDescriptorBase):
+        super().__init__(device_descriptor=device_descriptor, feature_states=self.States)
 
     @enum.unique
     class States(enum.IntEnum):
@@ -201,7 +206,7 @@ class TestEvents(unittest.TestCase):
 
     def test_feature_state_transition_event(self):
         previous_state_id = self.my_device.core.feature_state_id
-        new_feature_state_id = TestableDeviceDescriptor.States.READY  # Arbitrary
+        new_feature_state_id = TestableCoreDescriptor.States.READY  # Arbitrary
         self.my_device.core.feature_state_transition(new_feature_state_id)
         sent_msg = self.conn_mock.outbound_messages.pop()
         expected_msg = bytes([MessageTypeID.EVENT, FeatureID.CORE, EvtID.FEATURE_STATE_TRANSITION,

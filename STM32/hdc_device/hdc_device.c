@@ -659,7 +659,7 @@ const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
     .CommandName = "SetPropertyValue",
     .CommandHandler = &HDC_Cmd_SetPropertyValue,
     .CommandDescription = "(UINT8 PropertyID, var NewValue) -> var ActualNewValue\\n"
-        "Returned value might differ from NewValue argument, i.e. because of trimming to valid range or discretisation."
+        "Returned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization."
   },
 };
 
@@ -1014,9 +1014,9 @@ void HDC_JSON_Feature(const HDC_Feature_Descriptor_t *d) {
   HDC_JSON_Comma();
   HDC_JSON_Attr_str("name", d->FeatureName);
   HDC_JSON_Comma();
-  HDC_JSON_Attr_str("type", d->FeatureTypeName);
+  HDC_JSON_Attr_str("class", d->FeatureClassName);
   HDC_JSON_Comma();
-  HDC_JSON_Attr_int("revision", d->FeatureTypeRevision);
+  HDC_JSON_Attr_str("version", d->FeatureClassVersion);
   HDC_JSON_Comma();
   HDC_JSON_Attr_str("doc", d->FeatureDescription);
 

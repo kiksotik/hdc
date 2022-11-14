@@ -6,6 +6,8 @@ import logging
 import typing
 import uuid
 
+import semver
+
 import hdcproto.device
 import hdcproto.device.router
 import hdcproto.transport.serialport
@@ -18,8 +20,8 @@ logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.descriptor
 class FeatureDescriptorBase:
     feature_id: int
     feature_name: str
-    feature_type_name: str
-    feature_type_revision: int
+    feature_class_name: str
+    feature_class_version: str | semver.VersionInfo | None
     feature_description: str | None
     device_descriptor: DeviceDescriptorBase
     state_descriptors: dict[int, StateDescriptor] | None
@@ -33,8 +35,8 @@ class FeatureDescriptorBase:
                  device_descriptor: DeviceDescriptorBase,
                  feature_id: int,
                  feature_name: str,
-                 feature_type_name: str,
-                 feature_type_revision: int,
+                 feature_class_name: str,
+                 feature_class_version: str | semver.VersionInfo | None = None,
                  feature_description: str | None = None,
                  feature_states: typing.Type[enum.IntEnum] | list[StateDescriptor] | None = None):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
@@ -62,14 +64,13 @@ class FeatureDescriptorBase:
             raise ValueError("feature_name must be a non-empty string")
         self.feature_name = feature_name
 
-        if not feature_type_name:
-            raise ValueError("feature_type_name must be a non-empty string")
-        self.feature_type_name = feature_type_name
+        if not feature_class_name:
+            raise ValueError("feature_class_name must be a non-empty string")
+        self.feature_class_name = feature_class_name
 
-        if not is_valid_uint8(feature_type_revision):
-            raise ValueError(f"feature_type_revision value of 0x{feature_id:02X} "
-                             f"is beyond valid range from 0x00 to 0xFF")
-        self.feature_type_revision = feature_type_revision
+        if feature_class_version is not None and not isinstance(feature_class_version, semver.VersionInfo):
+            feature_class_version = semver.VersionInfo.parse(feature_class_version)
+        self.feature_class_version = feature_class_version
 
         if feature_description is None:
             feature_description = ""
@@ -170,29 +171,29 @@ class FeatureDescriptorBase:
                                        current_state_id=new_feature_state_id)
 
     def to_idl_dict(self) -> dict:
-        return dict(
-            id=self.feature_id,
-            name=self.feature_name,
-            type=self.feature_type_name,
-            revision=self.feature_type_revision,  # ToDo: Issue #20
-            doc=self.feature_description,
-            states=[
+        return {  # Using alternative syntax, because ...
+            "id": self.feature_id,
+            "name": self.feature_name,
+            "class": self.feature_class_name,  # ... 'class' is a reserved keyword in Python!
+            "version": str(self.feature_class_version) if self.feature_class_version is not None else None,
+            "doc": self.feature_description,
+            "states": [
                 d.to_idl_dict()
                 for d in sorted(self.state_descriptors.values(), key=lambda d: d.state_id)
             ] if self.state_descriptors is not None else None,
-            commands=[
+            "commands": [
                 d.to_idl_dict()
                 for d in sorted(self.command_descriptors.values(), key=lambda d: d.command_id)
             ],
-            events=[
+            "events": [
                 d.to_idl_dict()
                 for d in sorted(self.event_descriptors.values(), key=lambda d: d.event_id)
             ],
-            properties=[
+            "properties": [
                 d.to_idl_dict()
                 for d in sorted(self.property_descriptors.values(), key=lambda d: d.property_id)
             ]
-        )
+        }
 
 
 class StateDescriptor:
@@ -233,8 +234,8 @@ class CoreFeatureDescriptorBase(FeatureDescriptorBase):
             device_descriptor=device_descriptor,
             feature_id=FeatureID.CORE.CORE,
             feature_name="Core",
-            feature_type_name=device_descriptor.device_name,
-            feature_type_revision=device_descriptor.device_revision,
+            feature_class_name=device_descriptor.device_name,
+            feature_class_version=device_descriptor.device_version,
             feature_description=device_descriptor.device_description,
             feature_states=feature_states
         )
@@ -514,7 +515,7 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
                          # Signature uses 'var' to express that data-type depends on requested property
                          command_description="(UINT8 PropertyID, var NewValue) -> var ActualNewValue\\n"
                                              "Returned value might differ from NewValue argument, "
-                                             "i.e. because of trimming to valid range or discretisation.",
+                                             "i.e. because of trimming to valid range or discretization.",
                          command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
                                          CommandErrorCode.UNKNOWN_PROPERTY,
                                          CommandErrorCode.PROPERTY_IS_READ_ONLY,
@@ -807,20 +808,26 @@ class PropertyDescriptorBase:
 
 
 class DeviceDescriptorBase:
+    device_name: str
+    device_version: semver.VersionInfo | None
+    device_description: str | None
     router: hdcproto.device.router.MessageRouter
     feature_descriptors: dict[int, FeatureDescriptorBase]
 
     def __init__(self,
                  connection_url: str,
                  device_name: str,
-                 device_revision: int,
-                 device_description: str,
+                 device_version: str | semver.VersionInfo | None,
+                 device_description: str | None,
                  core_feature_descriptor_class=CoreFeatureDescriptorBase,
                  max_req_msg_size: int = 2048):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor"
         self.device_name = device_name
-        self.device_revision = device_revision
+
+        if device_version is not None and not isinstance(device_version, semver.VersionInfo):
+            device_version = semver.VersionInfo.parse(device_version)
+        self.device_version = device_version
         self.device_description = device_description
         self.logger = logger.getChild(self.__class__.__name__)
 

@@ -15,8 +15,7 @@ class MinimalDeviceDescriptor(DeviceDescriptorBase):
                          core_feature_descriptor_class=MinimalCoreDescriptor,
                          device_name="Demo_Minimal",
                          device_revision=42,  # Mocking a revision for this implementation
-                         device_description="Python implementation of the 'Minimal' HDC-device demonstration",
-                         device_states=self.States)
+                         device_description="Python implementation of the 'Minimal' HDC-device demonstration")
 
     def main_loop(self):
         self.router.connect()
@@ -29,20 +28,13 @@ class MinimalDeviceDescriptor(DeviceDescriptorBase):
             # ToDo: Delayed processing of requests in the app's main thread should be happening here.
             pass
 
-    @enum.unique
-    class States(enum.IntEnum):
-        OFF = 0x00
-        INIT = 0x01
-        READY = 0x02
-        ERROR = 0xFF
-
 
 class MinimalCoreDescriptor:
     def __init__(self, device_descriptor: DeviceDescriptorBase):
         # We could "inherit" from CoreFeatureDescriptor, but we choose "composition", instead, because
         # it allows us to separate more cleanly our custom descriptors from those defined in FeatureDescriptorBase.
         # This is for example useful to keep the autocompletion list short and readable while coding.
-        self.hdc = CoreFeatureDescriptorBase(device_descriptor=device_descriptor)
+        self.hdc = CoreFeatureDescriptorBase(device_descriptor=device_descriptor, feature_states=self.States)
 
         # Custom attributes
         self.led_blinking_rate = 5
@@ -103,6 +95,13 @@ class MinimalCoreDescriptor:
             property_getter=lambda: self.led_blinking_rate,
             property_setter=self.led_blinking_rate_setter
         )
+
+    @enum.unique
+    class States(enum.IntEnum):
+        OFF = 0x00
+        INIT = 0x01
+        READY = 0x02
+        ERROR = 0xFF
 
     def reset(self) -> None:
         # ToDo: Would be interesting to experiment with restarting this script and see how the connection behaves.

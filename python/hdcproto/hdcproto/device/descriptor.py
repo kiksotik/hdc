@@ -22,7 +22,7 @@ class FeatureDescriptorBase:
     feature_type_revision: int
     feature_description: str | None
     device_descriptor: DeviceDescriptorBase
-    state_descriptors: list[enum.IntEnum] | list[StateDescriptor] | None
+    state_descriptors: dict[int, StateDescriptor] | None
     command_descriptors: dict[int, CommandDescriptorBase]
     event_descriptors: dict[int, EventDescriptorBase]
     property_descriptors: dict[int, PropertyDescriptorBase]
@@ -36,8 +36,7 @@ class FeatureDescriptorBase:
                  feature_type_name: str,
                  feature_type_revision: int,
                  feature_description: str | None = None,
-                 state_descriptors: list[StateDescriptor] | None = None
-                 ):
+                 feature_states: typing.Type[enum.IntEnum] | list[StateDescriptor] | None = None):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor.MyFeatureDescriptor"
         self.logger = device_descriptor.logger.getChild(self.__class__.__name__)
@@ -76,19 +75,19 @@ class FeatureDescriptorBase:
             feature_description = ""
         self.feature_description = feature_description
 
-        if state_descriptors is None:
+        if feature_states is None:
+            # Meaning "None documented". Do not confuse with "Has no states", which would be an empty list.
             self.state_descriptors = None
         else:
-            self.state_descriptors: list[StateDescriptor] = list()
-            for d in state_descriptors:
+            self.state_descriptors: dict[int, StateDescriptor] = dict()
+            for d in feature_states:
                 if isinstance(d, enum.IntEnum):
-                    self.state_descriptors.append(
-                        StateDescriptor(state_id=d, state_name=d.name)
-                    )
-                elif isinstance(d, StateDescriptor):
-                    self.state_descriptors.append(d)
+                    d = StateDescriptor(state_id=d, state_name=d.name)
+                if d.state_id in self.state_descriptors.keys():
+                    ValueError("feature_states contains duplicate ID values")
+                self.state_descriptors[d.state_id] = d
 
-        self.feature_state_id = 0
+        self.feature_state_id = 0  # ToDo: Should we establish a convention about initializing states to zero? Nah...
         self.log_event_threshold = logging.WARNING
 
         # Commands
@@ -156,9 +155,13 @@ class FeatureDescriptorBase:
     def router(self) -> hdcproto.device.router.MessageRouter:
         return self.device_descriptor.router
 
-    def feature_state_transition(self, new_feature_state_id: int):  # ToDo: Improve naming!
-        if not any(d.state_id == new_feature_state_id for d in self.state_descriptors):
+    def feature_state_transition(self, new_feature_state_id: int):  # ToDo: Improve naming: Imperative verb
+        if self.state_descriptors is None:
+            raise RuntimeError("Cannot switch feature state if none were registered for this feature")
+
+        if new_feature_state_id not in self.state_descriptors:
             raise ValueError(f"Unknown state_id {new_feature_state_id}")
+
         previous_state_id = self.feature_state_id
         self.logger.info(f"Transitioning FeatureState from previously 0x{previous_state_id:02X} to "
                          f"now 0x{new_feature_state_id:02X}.")
@@ -175,8 +178,8 @@ class FeatureDescriptorBase:
             doc=self.feature_description,
             states=[
                 d.to_idl_dict()
-                for d in sorted(self.state_descriptors, key=lambda d: d.state_id)
-            ],
+                for d in sorted(self.state_descriptors.values(), key=lambda d: d.state_id)
+            ] if self.state_descriptors is not None else None,
             commands=[
                 d.to_idl_dict()
                 for d in sorted(self.command_descriptors.values(), key=lambda d: d.command_id)
@@ -212,20 +215,20 @@ class StateDescriptor:
             raise ValueError("State name must be a non-empty string")
         self.state_name = state_name
 
-        if state_description is None:
-            state_description = ""
         self.state_description = state_description
 
     def to_idl_dict(self) -> dict:
-        result = dict(id=self.state_id,
-                      name=self.state_name)
-        if self.state_description:
-            result['doc'] = self.state_description
-        return result
+        return dict(
+            id=self.state_id,
+            name=self.state_name,
+            doc=self.state_description
+        )
 
 
 class CoreFeatureDescriptorBase(FeatureDescriptorBase):
-    def __init__(self, device_descriptor: DeviceDescriptorBase):
+    def __init__(self,
+                 device_descriptor: DeviceDescriptorBase,
+                 feature_states: typing.Type[enum.IntEnum] | list[StateDescriptor] | None = None):
         super().__init__(
             device_descriptor=device_descriptor,
             feature_id=FeatureID.CORE.CORE,
@@ -233,7 +236,7 @@ class CoreFeatureDescriptorBase(FeatureDescriptorBase):
             feature_type_name=device_descriptor.device_name,
             feature_type_revision=device_descriptor.device_revision,
             feature_description=device_descriptor.device_description,
-            state_descriptors=device_descriptor.device_states
+            feature_states=feature_states
         )
 
 
@@ -686,7 +689,8 @@ class LogEventDescriptor(TypedEventDescriptor):
         super().__init__(feature_descriptor,
                          event_id=EvtID.LOG,
                          event_name="Log",
-                         event_description="Software logging. LogLevels are the same as defined in python's logging module.",
+                         event_description="Software logging. "
+                                           "LogLevels are the same as defined in python's logging module.",
                          event_arguments=[(HdcDataType.UINT8, 'LogLevel'),
                                           (HdcDataType.UTF8, 'LogMsg')])
 
@@ -793,15 +797,13 @@ class PropertyDescriptorBase:
         return self.property_setter is None
 
     def to_idl_dict(self) -> dict:
-        result = dict(
+        return dict(
             id=self.property_id,
             name=self.property_name,
             type=self.property_type.name,
             # ToDo: ValueSize attribute, as in STM32 implementation
-            ro=self.property_is_readonly)
-        if self.property_description:
-            result['doc'] = self.property_description
-        return result
+            ro=self.property_is_readonly,
+            doc=self.property_description)
 
 
 class DeviceDescriptorBase:
@@ -813,7 +815,6 @@ class DeviceDescriptorBase:
                  device_name: str,
                  device_revision: int,
                  device_description: str,
-                 device_states: list[enum.IntEnum] | list[StateDescriptor] | None,
                  core_feature_descriptor_class=CoreFeatureDescriptorBase,
                  max_req_msg_size: int = 2048):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
@@ -821,7 +822,6 @@ class DeviceDescriptorBase:
         self.device_name = device_name
         self.device_revision = device_revision
         self.device_description = device_description
-        self.device_states = device_states
         self.logger = logger.getChild(self.__class__.__name__)
 
         self.router = hdcproto.device.router.MessageRouter(connection_url=connection_url,
@@ -866,4 +866,23 @@ class DeviceDescriptorBase:
 
     def to_idl_json(self) -> str:
         idl_dict = self.to_idl_dict()
+
+        def prune_none_values(d: dict[str, typing.Any]) -> int:
+            """Removes attribute with a None value.
+            Dives recursively into values of type dict and list[dict]"""
+            keys_of_none_items = [key for key, value in d.items() if value is None]
+            num_deleted_items = len(keys_of_none_items)
+            for k in keys_of_none_items:
+                del (d[k])
+            for key, value in d.items():
+                if isinstance(value, dict):
+                    num_deleted_items += prune_none_values(value)
+                elif isinstance(value, list):
+                    for list_item in value:
+                        if isinstance(list_item, dict):
+                            num_deleted_items += prune_none_values(list_item)
+
+            return num_deleted_items
+
+        prune_none_values(idl_dict)
         return json.dumps(idl_dict)

@@ -19,10 +19,12 @@ class MinimalCore:
         # We could "inherit" from CoreFeatureProxyBase, but we choose "composition", instead, because
         # it allows us to separate more cleanly our custom proxies from those defined in CoreFeatureProxyBase.
         # This is for example useful to keep the autocompletion list short and readable while coding.
-        self.hdc = CoreFeatureProxyBase(device_proxy=device_proxy)
+        self.hdc = CoreFeatureProxyBase(
+            device_proxy=device_proxy,
 
-        # Registration of states allows DeviceProxyBase to resolve names and produce more readable logs
-        self.hdc.register_states(MinimalCore.FeatureStateEnum)
+            # Registration of states allows DeviceProxyBase to resolve names and produce more readable logs
+            states=MinimalCore.FeatureStateEnum
+        )
 
         # Commands
         # ToDo: A reset command handler is responsible to evict any cached values/states on the proxies!

@@ -811,15 +811,37 @@ class PropertyProxy_LogEventThreshold(PropertyProxy_RW_UINT8):
         return logging.getLevelName(uint8_level)
 
 
+class StateProxy:
+    state_id: int
+    state_name: str
+    state_description: str
+
+    def __init__(self,
+                 state_id: int,
+                 state_name: str,
+                 state_description: str | None = None):
+
+        if not is_valid_uint8(state_id):
+            raise ValueError(f"state_id value of {state_id} is beyond valid range from 0x00 to 0xFF")
+
+        self.state_id = state_id
+
+        if not state_name:
+            raise ValueError("State name must be a non-empty string")
+        self.state_name = state_name
+
+        self.state_description = state_description
+
+
 class FeatureProxyBase:
     feature_id: int
     device_proxy: DeviceProxyBase
-    state_names_by_id: dict[int, str]
+    state_proxies: dict[int, StateProxy] | None
 
     def __init__(self,
                  device_proxy: DeviceProxyBase,
                  feature_id: int,
-                 state_names_by_id: dict[int, str] | enum.EnumMeta | None = None):
+                 feature_states: typing.Type[enum.IntEnum] | list[StateProxy] | None = None):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy.MyFeatureProxy"
         self.logger = device_proxy.logger.getChild(self.__class__.__name__)
@@ -834,10 +856,17 @@ class FeatureProxyBase:
         self.device_proxy = device_proxy
         self.event_handlers = dict()
 
-        self.state_names_by_id = dict()
-
-        if state_names_by_id:
-            self.register_states(state_names_by_id)
+        if feature_states is None:
+            # Meaning "None documented". Do not confuse with "Has no states", which would be an empty list.
+            self.state_proxies = None
+        else:
+            self.state_proxies: dict[int, StateProxy] = dict()
+            for d in feature_states:
+                if isinstance(d, enum.IntEnum):
+                    d = StateProxy(state_id=d, state_name=d.name)
+                if d.state_id in self.state_proxies:
+                    ValueError("feature_states contains duplicate ID values")
+                self.state_proxies[d.state_id] = d
 
         # Commands
         self.cmd_get_property_value = GetPropertyValueCommandProxy(self)
@@ -855,39 +884,17 @@ class FeatureProxyBase:
     def router(self) -> hdcproto.host.router.MessageRouter:
         return self.device_proxy.router
 
-    def register_state(self, state_id: int, state_name: str):
-        if not is_valid_uint8(state_id):
-            raise ValueError(f"state_id value of 0x{state_id:02X} is beyond valid range from 0x00 to 0xFF")
-
-        if state_id in self.state_names_by_id:
-            self.logger.warning(f"Re-registering state_id=0x{state_id:02X} as '{state_name}'. "
-                                f"Previously registered as '{self.state_names_by_id[state_id]}'")
-        self.state_names_by_id[state_id] = state_name
-
-    def register_states(self, state_names_by_id: dict[int, str] | enum.EnumMeta):
-        if isinstance(state_names_by_id, enum.EnumMeta):
-            state_names_by_id = {e.value: e.name for e in state_names_by_id}
-        elif isinstance(state_names_by_id, dict):
-            pass
-        else:
-            raise TypeError()
-
-        for state_id, state_name in state_names_by_id.items():
-            assert isinstance(state_id, int)
-            assert isinstance(state_name, str)
-            self.register_state(state_id=state_id, state_name=state_name)
-
     def resolve_state_name(self, state_id: int) -> str:
-        if not self.state_names_by_id:
+        if self.state_proxies is None:
             self.logger.warning(f"Can't resolve name of FeatureStateID 0x{state_id:02X}, because "
                                 f"no states were registered with this proxy.")
-
-        if state_id not in self.state_names_by_id:
-            self.logger.warning(f"Can't resolve name of FeatureStateID 0x{state_id:02X}, because "
-                                f"no name was registered for this ID.")
             return f"0x{state_id:02X}"  # Use hexadecimal representation as a fallback
 
-        return self.state_names_by_id[state_id]
+        if state_id not in self.state_proxies:
+            self.logger.error(f"Can't resolve name of unexpected FeatureStateID 0x{state_id:02X}")
+            return f"0x{state_id:02X}"  # Use hexadecimal representation as a fallback
+
+        return self.state_proxies[state_id].state_name
 
     def await_state(self,
                     exits: int | typing.Iterable[int] | None = None,
@@ -932,8 +939,12 @@ class FeatureProxyBase:
 
 
 class CoreFeatureProxyBase(FeatureProxyBase):
-    def __init__(self, device_proxy: DeviceProxyBase):
-        super().__init__(device_proxy=device_proxy, feature_id=FeatureID.CORE)
+    def __init__(self,
+                 device_proxy: DeviceProxyBase,
+                 states: typing.Type[enum.IntEnum] | list[StateProxy] | None = None):
+        super().__init__(device_proxy=device_proxy,
+                         feature_id=FeatureID.CORE,
+                         feature_states=states)
 
         # HDC-spec does not require any mandatory properties, commands nor events for the Core feature, other than
         # what's already mandatory for any feature, which has been inherited from the FeatureProxyBase base class.

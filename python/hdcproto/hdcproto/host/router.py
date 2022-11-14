@@ -7,7 +7,7 @@ import logging
 import threading
 import typing
 
-from hdcproto.common import MessageTypeID, HdcError, is_valid_uint8
+from hdcproto.common import MessageTypeID, is_valid_uint8, HdcError
 from hdcproto.transport.base import TransportBase
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.router"

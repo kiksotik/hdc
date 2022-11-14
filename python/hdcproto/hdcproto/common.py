@@ -1,71 +1,10 @@
 from __future__ import annotations
 
 import enum
-import logging
 import struct
 import typing
 
 HDC_VERSION = "HDC 1.0.0-alpha.11"  # ToDo: How should we manage the HDC version?
-
-
-class HdcError(Exception):
-    error_message: str
-
-    def __init__(self, error_message: str):
-        self.error_message = error_message
-
-
-class HdcDataTypeError(HdcError):
-    pass
-
-
-class HdcCommandError(HdcError):
-    """Exception class raised whenever a device replies with an error-code to a request for executing a command."""
-    cmd_reply_message: bytes | None
-    error_code: int
-    error_name: str
-
-    def __init__(self,
-                 feature_id: int,
-                 command_id: int,
-                 error_code: int,
-                 error_name: str,
-                 error_message: str | None = None):
-        self.feature_id = feature_id
-        self.command_id = command_id
-        self.error_code = error_code
-        self.error_name = error_name
-        if error_message is None:
-            error_message = ""
-        self.error_message = error_message
-
-        self.cmd_reply_message = bytes([MessageTypeID.COMMAND,
-                                        self.feature_id,
-                                        self.command_id,
-                                        self.error_code]) + HdcDataType.UTF8.value_to_bytes(self.error_message)
-
-    @classmethod
-    def from_reply(cls, cmd_reply_message: bytes, known_errors: dict[int, str], proxy_logger: logging.Logger):
-        """Factory as used by proxies on the host side"""
-        feature_id = cmd_reply_message[1]
-        command_id = cmd_reply_message[2]
-        error_code = cmd_reply_message[3]
-        error_message = cmd_reply_message[3:].decode(encoding="utf-8", errors="strict")  # Might be empty
-        try:
-            error_name = known_errors[error_code]
-        except KeyError:
-            error_name = f"CommandErrorCode=0x{error_code:02X}"  # Fallback to numeric value
-            proxy_logger.warning(f"Unknown CommandErrorCode=0x{error_code:02X}.")
-
-        result = cls(
-            feature_id=feature_id,
-            command_id=command_id,
-            error_code=error_code,
-            error_name=error_name,
-            error_message=error_message)
-        assert cmd_reply_message == result.cmd_reply_message  # Sanity check
-
-        return result
 
 
 @enum.unique
@@ -105,40 +44,16 @@ class CmdID(enum.IntEnum):
 
 
 @enum.unique
-class CommandErrorCode(enum.IntEnum):
-    """Reserved IDs and names of error codes used in replies to Commands as defined by HDC-spec"""
+class ExcID(enum.IntEnum):
+    """Reserved IDs and names of exception IDs used in replies to failed Commands as defined by HDC-spec"""
     NO_ERROR = 0x00
-    UNKNOWN_FEATURE = 0xF0
-    UNKNOWN_COMMAND = 0xF1
-    UNKNOWN_PROPERTY = 0xF2
-    UNKNOWN_EVENT = 0xF3
-    INCORRECT_COMMAND_ARGUMENTS = 0xF4
-    COMMAND_NOT_ALLOWED_NOW = 0xF5
-    COMMAND_FAILED = 0xF6
-    INVALID_PROPERTY_VALUE = 0xF7
-    PROPERTY_IS_READ_ONLY = 0xF8
-
-    def __str__(self):
-        if self == CommandErrorCode.NO_ERROR:
-            return "No error"
-        elif self == CommandErrorCode.UNKNOWN_FEATURE:
-            return "Unknown feature"
-        elif self == CommandErrorCode.UNKNOWN_COMMAND:
-            return "Unknown command"
-        elif self == CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS:
-            return "Incorrect command arguments"
-        elif self == CommandErrorCode.COMMAND_NOT_ALLOWED_NOW:
-            return "Command not allowed now"
-        elif self == CommandErrorCode.COMMAND_FAILED:
-            return "Command failed"
-        elif self == CommandErrorCode.UNKNOWN_PROPERTY:
-            return "Unknown property"
-        elif self == CommandErrorCode.INVALID_PROPERTY_VALUE:
-            return "Invalid property value"
-        elif self == CommandErrorCode.PROPERTY_IS_READ_ONLY:
-            return "Property is read-only"
-        elif self == CommandErrorCode.UNKNOWN_EVENT:
-            return "Unknown event"
+    COMMAND_FAILED = 0xF0
+    UNKNOWN_FEATURE = 0xF1
+    UNKNOWN_COMMAND = 0xF2
+    INVALID_ARGS = 0xF3
+    NOT_NOW = 0xF4
+    UNKNOWN_PROPERTY = 0xF5
+    RO_PROPERTY = 0xF6
 
     @staticmethod
     def is_custom(command_error_code: int):
@@ -354,7 +269,7 @@ class HdcDataType(enum.IntEnum):
     @staticmethod
     def parse_command_reply_msg(reply_message: bytes,
                                 expected_data_types: HdcDataType | list[HdcDataType] | None) -> typing.Any:
-        raw_payload = reply_message[4:]  # Strip 4 leading bytes: MsgID + FeatureID + CmdID + CommandErrorCode
+        raw_payload = reply_message[4:]  # Strip 4 leading bytes: MsgID + FeatureID + CmdID + ExcID
         return HdcDataType.parse_payload(raw_payload=raw_payload, expected_data_types=expected_data_types)
 
     @staticmethod
@@ -376,3 +291,93 @@ class PropID(enum.IntEnum):
     """Reserved IDs of mandatory Properties required by HDC-spec"""
     LOG_EVT_THRESHOLD = 0xF0
     FEAT_STATE = 0xF1
+
+
+class HdcError(Exception):
+    exception_message: str | None
+
+    def __init__(self, exception_message: str | None = None):
+        self.exception_message = exception_message
+
+
+class HdcDataTypeError(HdcError):
+    pass
+
+
+class HdcCmdException(HdcError):
+    """Exception class raised by Commands and re-raised by their proxies."""
+    exception_id: int
+    exception_name: str
+
+    def __init__(self,
+                 exception_id: int | enum.IntEnum,
+                 exception_name: str | None = None,
+                 exception_message: str | None = None):
+        super().__init__(exception_message=exception_message)
+
+        if not is_valid_uint8(exception_id):
+            raise ValueError(f"exception_id value of {exception_id} is beyond valid range from 0x00 to 0xFF")
+
+        if exception_name is None:
+            if isinstance(exception_id, enum.IntEnum):
+                exception_name = exception_id.name
+            else:
+                # Fallback far very lazy callers
+                exception_name = f"EXCEPTION_0x{exception_id:02X}"
+
+        if not isinstance(exception_name, str) or len(exception_name) < 1:  # ToDo: Validate name with RegEx
+            raise ValueError("Invalid exception_name")
+
+        self.exception_id = int(exception_id)
+        self.exception_name = exception_name
+
+        self.error_message = exception_message
+
+
+# noinspection PyPep8Naming
+class HdcCmdExc_CommandFailed(HdcCmdException):
+    def __init__(self, exception_message: str | None = None):
+        super().__init__(exception_id=ExcID.COMMAND_FAILED,
+                         exception_message=exception_message)
+
+
+# noinspection PyPep8Naming
+class HdcCmdExc_UnknownFeature(HdcCmdException):
+    def __init__(self, exception_message: str | None = None):
+        super().__init__(exception_id=ExcID.UNKNOWN_FEATURE,
+                         exception_message=exception_message)
+
+
+# noinspection PyPep8Naming
+class HdcCmdExc_UnknownCommand(HdcCmdException):
+    def __init__(self, exception_message: str | None = None):
+        super().__init__(exception_id=ExcID.UNKNOWN_COMMAND,
+                         exception_message=exception_message)
+
+
+# noinspection PyPep8Naming
+class HdcCmdExc_InvalidArgs(HdcCmdException):
+    def __init__(self, exception_message: str | None = None):
+        super().__init__(exception_id=ExcID.INVALID_ARGS,
+                         exception_message=exception_message)
+
+
+# noinspection PyPep8Naming
+class HdcCmdExc_NotNow(HdcCmdException):
+    def __init__(self, exception_message: str | None = None):
+        super().__init__(exception_id=ExcID.NOT_NOW,
+                         exception_message=exception_message)
+
+
+# noinspection PyPep8Naming
+class HdcCmdExc_UnknownProperty(HdcCmdException):
+    def __init__(self, exception_message: str | None = None):
+        super().__init__(exception_id=ExcID.UNKNOWN_PROPERTY,
+                         exception_message=exception_message)
+
+
+# noinspection PyPep8Naming
+class HdcCmdExc_RoProperty(HdcCmdException):
+    def __init__(self, exception_message: str | None = None):
+        super().__init__(exception_id=ExcID.RO_PROPERTY,
+                         exception_message=exception_message)

@@ -11,8 +11,9 @@ import semver
 import hdcproto.device
 import hdcproto.device.router
 import hdcproto.transport.serialport
-from hdcproto.common import (is_valid_uint8, CommandErrorCode, HdcDataType, HdcCommandError,
-                             MessageTypeID, FeatureID, CmdID, EvtID, PropID, HdcDataTypeError)
+from hdcproto.common import (is_valid_uint8, ExcID, HdcDataType, MessageTypeID, FeatureID, CmdID, EvtID, PropID,
+                             HdcDataTypeError, HdcCmdException, HdcCmdExc_CommandFailed, HdcCmdExc_InvalidArgs,
+                             HdcCmdExc_UnknownProperty)
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.descriptor"
 
@@ -303,39 +304,16 @@ class CommandDescriptorBase:
             command_raises = list()
         self.command_raises = dict()
         for error_enum in command_raises:
-            if not isinstance(error_enum, CommandErrorCode) and CommandErrorCode.is_custom(int(error_enum)):
+            if not isinstance(error_enum, ExcID) and ExcID.is_custom(int(error_enum)):
                 raise ValueError(f"Mustn't override meaning of predefined or reserved "
-                                 f"CommandErrorCode 0x{error_enum:02X}")
-            self.command_raises[int(error_enum)] = str(error_enum)
+                                 f"Exception-id=0x{error_enum:02X}")
+            self.command_raises[int(error_enum)] = error_enum.name
 
         self.command_description = command_description
 
         self.msg_prefix = bytes([int(MessageTypeID.COMMAND),
                                  self.feature_descriptor.feature_id,
                                  self.command_id])
-
-    def build_cmd_error(self,
-                        error_code: enum.IntEnum,
-                        error_message: str | None = None) -> HdcCommandError:
-        """
-        Either for any of the predefined CommandErrorCode, or for custom CommandErrorCodes as defined for each Command.
-
-        Both usages allow for an optional message, which should only be used to supply any additional context, but
-        should not merely duplicate what the CommandErrorCode's name is already expressing.
-        """
-        if not isinstance(error_code, CommandErrorCode) and CommandErrorCode.is_custom(int(error_code)):
-            raise ValueError(f"Mustn't override meaning of predefined or reserved "
-                             f"CommandErrorCode 0x{error_code:02X}")
-        if error_code not in self.command_raises:
-            raise ValueError(f"Mustn't reply with any CommandErrorCode not declared in the Command-descriptor")
-
-        return HdcCommandError(
-            feature_id=self.feature_descriptor.feature_id,
-            command_id=self.command_id,
-            error_code=error_code,
-            error_name=self.command_raises[error_code],
-            error_message=error_message
-        )
 
     @property
     def router(self) -> hdcproto.device.router.MessageRouter:
@@ -424,19 +402,22 @@ class TypedCommandDescriptor(CommandDescriptorBase):
                 request_message=request_message,
                 expected_data_types=[arg_type for arg_type, arg_name in self.command_arguments])
         except HdcDataTypeError as e:
-            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS, error_message=str(e))
+            raise HdcCmdExc_InvalidArgs(exception_message=str(e))
 
         try:
             return_values = self.command_implementation(*parsed_arguments)
-        except HdcCommandError:
+        except HdcCmdException as e:
+            if e.exception_id not in self.command_raises:
+                self.logger.warning(f"Raising HDC-exception.id=0x{e.exception_id:02X}, although "
+                                    f"it has not been registered for {self.__class__.__name__}")
             raise
         except ValueError as e:
-            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS, error_message=str(e))
+            raise HdcCmdExc_InvalidArgs(exception_message=str(e))
         except Exception as e:
-            raise self.build_cmd_error(error_code=CommandErrorCode.COMMAND_FAILED, error_message=str(e))
+            raise HdcCmdExc_CommandFailed(exception_message=str(e))
         else:
             reply = bytearray(self.msg_prefix)
-            reply.append(CommandErrorCode.NO_ERROR)
+            reply.append(ExcID.NO_ERROR)
 
         if return_values is None:
             return_values = tuple()
@@ -475,9 +456,9 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
                          # Signature uses 'var' to express that data-type depends on requested property
                          command_description="(UINT8 PropertyID) -> var Value",
                          command_request_handler=self._command_request_handler,
-                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
-                                         CommandErrorCode.UNKNOWN_PROPERTY,
-                                         CommandErrorCode.COMMAND_FAILED])
+                         command_raises=[ExcID.INVALID_ARGS,
+                                         ExcID.UNKNOWN_PROPERTY,
+                                         ExcID.COMMAND_FAILED])
 
     def _command_request_handler(self, request_message: bytes) -> None:
         """
@@ -485,19 +466,19 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
         variable data-types, depending on the requested PropertyID.
         """
         if len(request_message) != 4:  # MsgID + FeatID + CmdID + PropID
-            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS)
+            raise HdcCmdExc_InvalidArgs(exception_message="Missing PropID argument")
         property_id = request_message[3]
 
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
         if prop_descr is None:
-            raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
+            raise HdcCmdExc_UnknownProperty()
 
         prop_type = prop_descr.property_type
         prop_value = prop_descr.property_getter()
         value_as_bytes = prop_type.value_to_bytes(prop_value)
 
         reply = bytearray(self.msg_prefix)
-        reply.append(CommandErrorCode.NO_ERROR)
+        reply.append(ExcID.NO_ERROR)
         reply.extend(value_as_bytes)
 
         reply = bytes(reply)
@@ -516,10 +497,9 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
                          command_description="(UINT8 PropertyID, var NewValue) -> var ActualNewValue\\n"
                                              "Returned value might differ from NewValue argument, "
                                              "i.e. because of trimming to valid range or discretization.",
-                         command_raises=[CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS,
-                                         CommandErrorCode.UNKNOWN_PROPERTY,
-                                         CommandErrorCode.PROPERTY_IS_READ_ONLY,
-                                         CommandErrorCode.INVALID_PROPERTY_VALUE])
+                         command_raises=[ExcID.INVALID_ARGS,
+                                         ExcID.UNKNOWN_PROPERTY,
+                                         ExcID.RO_PROPERTY])
 
     def _command_request_handler(self, request_message: bytes) -> None:
         """
@@ -528,28 +508,28 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
         """
 
         if len(request_message) < 4:  # MsgID + FeatID + CmdID + PropID + var NewValue
-            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS)
+            raise HdcCmdExc_InvalidArgs(exception_message="Missing PropID and NewValue arguments")
         property_id = request_message[3]
 
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
         if prop_descr is None:
-            raise self.build_cmd_error(CommandErrorCode.UNKNOWN_PROPERTY)
+            raise HdcCmdExc_UnknownProperty()
 
         prop_type = prop_descr.property_type
         if len(request_message) != 4 + prop_type.size():  # MsgID + FeatID + CmdID + PropID + var NewValue
-            raise self.build_cmd_error(error_code=CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS)
+            raise HdcCmdExc_InvalidArgs(exception_message="Incorrect NewValue argument")
 
         new_value_as_bytes = request_message[4:]
         try:
             new_value = prop_type.bytes_to_value(new_value_as_bytes)
             actual_new_value = prop_descr.property_setter(new_value)
         except (HdcDataTypeError, ValueError) as e:
-            raise self.build_cmd_error(CommandErrorCode.INVALID_PROPERTY_VALUE, error_message=str(e))
+            raise HdcCmdExc_InvalidArgs(exception_message=str(e))
 
         actual_new_value_as_bytes = prop_type.value_to_bytes(actual_new_value)
 
         reply = bytearray(self.msg_prefix)
-        reply.append(CommandErrorCode.NO_ERROR)
+        reply.append(ExcID.NO_ERROR)
         reply.extend(actual_new_value_as_bytes)
 
         reply = bytes(reply)
@@ -709,6 +689,7 @@ class HdcLoggingHandler(logging.Handler):
         self.log_event_descriptor = log_event_descriptor
 
     def emit(self, record):
+        # noinspection PyBroadException
         try:
             msg = self.format(record)
             self.log_event_descriptor.emit(record.levelno, msg)

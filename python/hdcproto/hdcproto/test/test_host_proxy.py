@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import enum
 import unittest
 
-from hdcproto.common import CommandErrorCode, MessageTypeID, MetaID
+from hdcproto.common import ExcID, MessageTypeID, MetaID, HdcCmdExc_CommandFailed, PropID, HdcDataType, HdcCmdException
 from hdcproto.host.proxy import (DeviceProxyBase, FeatureProxyBase, VoidWithoutArgsCommandProxy,
                                  PropertyProxy_RW_INT32, EventProxyBase)
 from hdcproto.transport.mock import MockTransport
@@ -116,59 +117,142 @@ class TestMessages(unittest.TestCase):
         self.assertEqual(mocked_idl_json, received_idl_json)
 
 
-class TestCommandErrorCodeRegistration(unittest.TestCase):
+class TestExceptionRegistration(unittest.TestCase):
     def setUp(self) -> None:
         my_device = TestableDeviceProxy()
         self.some_command_proxy = my_device.core.cmd_get_property_value
 
     def test_predefined_code_which_is_not_yet_registered(self):
-        code_not_yet_registered = CommandErrorCode.UNKNOWN_EVENT
+        code_not_yet_registered = ExcID.RO_PROPERTY
         try:
-            self.some_command_proxy.register_error(code_not_yet_registered)
+            self.some_command_proxy.register_exception(code_not_yet_registered)
         except ValueError:
-            self.fail("Failed to register predefined CommandErrorCode!")
+            self.fail("Failed to register predefined Exception.id")
 
     def test_predefined_code_which_is_already_registered(self):
-        code_already_registered = CommandErrorCode.UNKNOWN_PROPERTY
+        code_already_registered = ExcID.UNKNOWN_PROPERTY
         with self.assertRaises(ValueError):
-            self.some_command_proxy.register_error(code_already_registered)
+            self.some_command_proxy.register_exception(code_already_registered)
 
     def test_custom_code_which_is_available(self):
         code_not_predefined_by_hdc = 0xDD
         name = "My custom error name"
         try:
-            self.some_command_proxy.register_error(code_not_predefined_by_hdc, error_name=name)
+            self.some_command_proxy.register_exception(code_not_predefined_by_hdc, exception_name=name)
         except ValueError:
-            self.fail("Failed to register custom CommandErrorCode!")
-        self.assertEqual(self.some_command_proxy.known_command_error_codes[code_not_predefined_by_hdc], name)
+            self.fail("Failed to register custom Exception.id")
+        self.assertEqual(self.some_command_proxy.known_exceptions[code_not_predefined_by_hdc], name)
 
     def test_custom_code_which_is_available_but_name_is_missing(self):
         code_not_predefined_by_hdc = 0xDD
-        with self.assertRaises(ValueError):
-            self.some_command_proxy.register_error(code_not_predefined_by_hdc, error_name=None)
+        self.some_command_proxy.register_exception(code_not_predefined_by_hdc, exception_name=None)
+        registry_value = self.some_command_proxy.known_exceptions[code_not_predefined_by_hdc]
+        self.assertEqual(registry_value, f"Exception_0x{code_not_predefined_by_hdc:02X}")
 
     def test_custom_code_which_is_available_but_name_is_empty(self):
         code_not_predefined_by_hdc = 0xDD
         with self.assertRaises(ValueError):
-            self.some_command_proxy.register_error(code_not_predefined_by_hdc, error_name="")
+            self.some_command_proxy.register_exception(code_not_predefined_by_hdc, exception_name="")
 
     def test_custom_code_which_is_not_available(self):
-        code_predefined_by_hdc = int(CommandErrorCode.UNKNOWN_FEATURE)
+        code_predefined_by_hdc = int(ExcID.UNKNOWN_FEATURE)
         name = "My custom error name"
         with self.assertRaises(ValueError):
-            self.some_command_proxy.register_error(code_predefined_by_hdc, error_name=name)
+            self.some_command_proxy.register_exception(code_predefined_by_hdc, exception_name=name)
 
     def test_custom_code_which_is_below_valid_range(self):
         code_negative = -1
         name = "My custom error name"
         with self.assertRaises(ValueError):
-            self.some_command_proxy.register_error(code_negative, error_name=name)
+            self.some_command_proxy.register_exception(code_negative, exception_name=name)
 
     def test_custom_code_which_is_beyond_valid_range(self):
         code_too_big = 256
         name = "My custom error name"
         with self.assertRaises(ValueError):
-            self.some_command_proxy.register_error(code_too_big, error_name=name)
+            self.some_command_proxy.register_exception(code_too_big, exception_name=name)
+
+
+class TestExceptionHandling(unittest.TestCase):
+    def setUp(self) -> None:
+        self.my_proxy = TestableDeviceProxy()
+        self.some_command_proxy = self.my_proxy.core.cmd_get_property_value
+        self.my_proxy.connect()
+        self.conn_mock: MockTransport = self.my_proxy.router.transport
+
+    def test_raises_predefined_exception(self):
+        predefined_exc_id = ExcID.COMMAND_FAILED
+        mocked_exc_text = "Terrible!"
+        self.assertTrue(predefined_exc_id in self.some_command_proxy.known_exceptions)
+
+        def reply_mocking(req: bytes) -> bytes | None:
+            if req[:3] == self.some_command_proxy.msg_prefix:
+                return self.some_command_proxy.msg_prefix + bytes([predefined_exc_id]) + mocked_exc_text.encode()
+
+        self.conn_mock.reply_mocking = reply_mocking
+
+        with self.assertRaises(HdcCmdExc_CommandFailed) as cm:
+            self.some_command_proxy(property_id=PropID.LOG_EVT_THRESHOLD,
+                                    property_data_type=HdcDataType.UINT8)
+
+        raised_exception = cm.exception
+        self.assertEqual(mocked_exc_text, raised_exception.exception_message)
+
+    def test_raises_custom_exception(self):
+        custom_exc_id = 0x42
+        custom_exc_name = "MY_EXCEPTION"
+        mocked_exc_text = "Terrible!"
+
+        class MyCustomException(HdcCmdException):
+            def __init__(self, exception_message):
+                super().__init__(exception_id=custom_exc_id,
+                                 exception_name=custom_exc_name,
+                                 exception_message=exception_message)
+
+        self.some_command_proxy.register_exception(MyCustomException)
+
+        def reply_mocking(req: bytes) -> bytes | None:
+            if req[:3] == self.some_command_proxy.msg_prefix:
+                return self.some_command_proxy.msg_prefix + bytes([custom_exc_id]) + mocked_exc_text.encode()
+
+        self.conn_mock.reply_mocking = reply_mocking
+
+        with self.assertRaises(MyCustomException) as cm:
+            self.some_command_proxy(property_id=PropID.LOG_EVT_THRESHOLD,
+                                    property_data_type=HdcDataType.UINT8)
+
+        raised_exception = cm.exception
+        self.assertEqual(custom_exc_id, raised_exception.exception_id)
+        self.assertEqual(custom_exc_name, raised_exception.exception_name)
+        self.assertEqual(mocked_exc_text, raised_exception.exception_message)
+
+    def test_raises_enum_exception(self):
+        mocked_exc_text = "Terrible!"
+
+        class MyCustomExceptions(enum.IntEnum):
+            MY_FIRST_EXCEPTION = 0x01
+            MY_SECOND_EXCEPTION = 0x02
+            MY_THIRD_EXCEPTION = 0x03
+
+        self.some_command_proxy.register_exception(MyCustomExceptions.MY_SECOND_EXCEPTION)
+
+        def reply_mocking(req: bytes) -> bytes | None:
+            if req[:3] == self.some_command_proxy.msg_prefix:
+                return self.some_command_proxy.msg_prefix \
+                       + bytes([MyCustomExceptions.MY_SECOND_EXCEPTION]) \
+                       + mocked_exc_text.encode()
+
+        self.conn_mock.reply_mocking = reply_mocking
+
+        with self.assertRaises(HdcCmdException) as cm:
+            self.some_command_proxy(property_id=PropID.LOG_EVT_THRESHOLD,
+                                    property_data_type=HdcDataType.UINT8)
+
+        raised_exception = cm.exception
+        self.assertEqual(raised_exception.__class__, HdcCmdException)
+        self.assertEqual(MyCustomExceptions.MY_SECOND_EXCEPTION, raised_exception.exception_id)
+        self.assertEqual(MyCustomExceptions.MY_SECOND_EXCEPTION.name, raised_exception.exception_name)
+        self.assertEqual(mocked_exc_text, raised_exception.exception_message)
 
 
 class TestIdValidation(unittest.TestCase):

@@ -504,7 +504,7 @@ void HDC_Cmd_GetPropertyValue(
 {
   uint8_t CommandID = pRequestMessage[2];
   if (CommandID==HDC_CommandID_GetPropertyValue && Size != 4)  // Skip validation whenever called from HDC_Cmd_SetPropertyValue()
-    return HDC_CmdReply_Error(HDC_CommandErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
+    return HDC_CmdReply_Error(HDC_CommandErrorCode_INVALID_ARGS, pRequestMessage);
 
   assert_param(pRequestMessage[0] == HDC_MessageTypeID_Command);
   assert_param(CommandID == HDC_CommandID_GetPropertyValue || CommandID == HDC_CommandID_SetPropertyValue);  // This may have been called via HDC_Cmd_SetPropertyValue()
@@ -594,7 +594,7 @@ void HDC_Cmd_SetPropertyValue(
     return HDC_CmdReply_Error(HDC_CommandErrorCode_UNKNOWN_PROPERTY, pRequestMessage);
 
   if (property->PropertyIsReadonly)
-    return HDC_CmdReply_Error(HDC_CommandErrorCode_PROPERTY_IS_READONLY, pRequestMessage);
+    return HDC_CmdReply_Error(HDC_CommandErrorCode_RO_PROPERTY, pRequestMessage);
 
   // Validate size of received value
   uint8_t receivedValueSize = Size - 4;
@@ -609,7 +609,7 @@ void HDC_Cmd_SetPropertyValue(
 
     // Check for buffer overflow
     if (receivedValueSize >= property->ValueSize)  // Comparing with greater-or-equal to reserve one byte for the zero-terminator!
-      return HDC_CmdReply_Error(HDC_CommandErrorCode_INVALID_PROPERTY_VALUE, pRequestMessage);
+      return HDC_CmdReply_Error(HDC_CommandErrorCode_INVALID_ARGS, pRequestMessage);
 
     // Otherwise it's legal to receive a shorter value :-)
     // Note how empty values are legal, too.
@@ -621,7 +621,7 @@ void HDC_Cmd_SetPropertyValue(
         : lowerNibble;
 
     if (receivedValueSize != expectedValueSize)
-      return HDC_CmdReply_Error(HDC_CommandErrorCode_INVALID_PROPERTY_VALUE, pRequestMessage);
+      return HDC_CmdReply_Error(HDC_CommandErrorCode_INVALID_ARGS, pRequestMessage);
   }
 
   if (property->SetPropertyValue != NULL)

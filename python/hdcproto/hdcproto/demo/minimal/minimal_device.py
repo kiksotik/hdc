@@ -3,7 +3,7 @@ import logging
 
 from pynput import keyboard
 
-from hdcproto.common import HdcDataType, is_valid_uint8, CommandErrorCode
+from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs
 from hdcproto.device.descriptor import (DeviceDescriptorBase, CoreFeatureDescriptorBase,
                                         TypedCommandDescriptor, PropertyDescriptorBase,
                                         FeatureDescriptorBase, TypedEventDescriptor)
@@ -109,7 +109,8 @@ class MinimalCoreDescriptor:
 
     def led_blinking_rate_setter(self, new_rate: int) -> int:
         if new_rate < 0 or new_rate > 20:
-            raise self.hdc.cmd_set_property_value.build_cmd_error(CommandErrorCode.INVALID_PROPERTY_VALUE)
+            raise HdcCmdExc_InvalidArgs(exception_message=f"led_blinking_rate of {new_rate} is invalid, because "
+                                                          f"it's beyond valid range [0..20]")
         self.led_blinking_rate = new_rate
         return self.led_blinking_rate
 

@@ -13,8 +13,10 @@ from datetime import datetime
 import semver
 
 import hdcproto.host.router
-from hdcproto.common import (HdcError, MessageTypeID, FeatureID, CmdID, CommandErrorCode, EvtID, PropID, HdcDataType,
-                             is_valid_uint8, HdcCommandError, MetaID)
+from hdcproto.common import (MessageTypeID, FeatureID, CmdID, ExcID, EvtID, PropID, HdcDataType,
+                             is_valid_uint8, MetaID, HdcError, HdcCmdException, HdcCmdExc_CommandFailed,
+                             HdcCmdExc_UnknownProperty, HdcCmdExc_RoProperty, HdcCmdExc_UnknownFeature,
+                             HdcCmdExc_UnknownCommand, HdcCmdExc_InvalidArgs, HdcCmdExc_NotNow)
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.proxy"
 
@@ -25,7 +27,7 @@ class CommandProxyBase:
     feature_proxy: FeatureProxyBase
     command_id: int
     default_timeout: float
-    known_command_error_codes: dict[int, str]
+    known_exceptions: dict[int, str | typing.Type[HdcCmdException]]
     msg_prefix: bytes
 
     def __init__(self,
@@ -46,49 +48,64 @@ class CommandProxyBase:
         self.feature_proxy = feature_proxy
         self.command_id = command_id
         self.default_timeout = default_timeout
-        self.known_command_error_codes = dict()
+
+        # Register exceptions raised by all commands
+        self.known_exceptions = dict()
+        self.register_exception(HdcCmdExc_CommandFailed)
+        self.register_exception(HdcCmdExc_UnknownFeature)
+        self.register_exception(HdcCmdExc_UnknownCommand)
+        self.register_exception(HdcCmdExc_InvalidArgs)
+        self.register_exception(HdcCmdExc_NotNow)
 
         self.msg_prefix = bytes([int(MessageTypeID.COMMAND),
                                  self.feature_proxy.feature_id,
                                  self.command_id])
 
-        # Register mandatory error codes
-        self.register_error(CommandErrorCode.NO_ERROR)
-        self.register_error(CommandErrorCode.UNKNOWN_FEATURE)
-        self.register_error(CommandErrorCode.UNKNOWN_COMMAND)
-        self.register_error(CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS)
-        self.register_error(CommandErrorCode.COMMAND_NOT_ALLOWED_NOW)
-        self.register_error(CommandErrorCode.COMMAND_FAILED)
-
     @property
     def router(self) -> hdcproto.host.router.MessageRouter:
         return self.feature_proxy.device_proxy.router
 
-    def register_error(self, code: int | CommandErrorCode, error_name: str | None = None) -> None:
-        if isinstance(code, CommandErrorCode):
-            code = int(code)
-            error_name = str(code)
-        else:
+    def register_exception(self,
+                           id_or_exception_class: int | enum.IntEnum | typing.Type[HdcCmdException],
+                           exception_name: str | None = None) -> None:
+
+        registry_value: str | typing.Type[HdcCmdException]
+
+        if isinstance(id_or_exception_class, type) and issubclass(id_or_exception_class, HdcCmdException):
+            if exception_name is not None:
+                raise ValueError("exception_name not needed")
+            dummy_exception = id_or_exception_class(exception_message=None)
+            exception_id = dummy_exception.exception_id
+            registry_value = id_or_exception_class  # Register the class, not an instance!
+        elif isinstance(id_or_exception_class, enum.IntEnum):
+            if exception_name is not None:
+                raise ValueError("exception_name not needed")
+            exception_id: int = int(id_or_exception_class)
+            registry_value = id_or_exception_class.name  # Register IntEnum name
+        elif isinstance(id_or_exception_class, int):
+            # Assume it's an application specific exception.
             # Disallow overriding CommandErrorCodes whose meaning is already predefined and thus reserved by HDC-spec
-            try:
-                code_as_defined_by_hdc_spec = CommandErrorCode(code)
-            except ValueError:
-                pass  # Meaning this code is *not* defined by HDC-spec, thus it's available for custom use.
-            else:
-                raise ValueError(f"Failed to register CommandErrorCode 0x{code:02X}:'{error_name}', because that it's "
-                                 f"already defined by HDC-spec to mean '{code_as_defined_by_hdc_spec}'")
-            if not isinstance(error_name, str) or len(error_name) < 1:
-                raise ValueError("Custom error codes must be assigned a human readable name")
+            exception_id: int = int(id_or_exception_class)
+            if not ExcID.is_custom(exception_id):
+                raise ValueError(f"Exception.id=0x{exception_id:02X} is not available "
+                                 f"for application-specific exceptions")
 
-        code = int(code)
+            if exception_name is None:
+                exception_name = f"Exception_0x{exception_id:02X}"  # Fallback for lazy developers.
+            registry_value = exception_name
+        else:
+            raise TypeError("id_or_exception should be an int, IntEnum or an HdcCmdException")
 
-        if not is_valid_uint8(code):
-            raise ValueError(f"CommandErrorCode of {code} is beyond valid range from 0x00 to 0xFF")
+        if isinstance(registry_value, str) and len(registry_value) < 1:  # Todo: Validate name with RegEx
+            raise ValueError("Invalid exception name")
 
-        if code in self.known_command_error_codes:
-            raise ValueError(f'Already registered CommandErrorCode 0x{code:02X} '
-                             f'as "{self.known_command_error_codes[code]}"')
-        self.known_command_error_codes[code] = error_name
+        if not is_valid_uint8(exception_id):
+            raise ValueError(f"Exception.id=0x{id_or_exception_class:02X} is beyond valid range from 0x00 to 0xFF")
+
+        if exception_id in self.known_exceptions:
+            raise ValueError(f'Already registered Exception.id=0x{exception_id:02X} '
+                             f'as "{self.known_exceptions[exception_id]}"')
+        self.known_exceptions[exception_id] = registry_value
 
     def _send_request_and_get_reply(self, request_message: bytes, timeout: float) -> bytes:
 
@@ -104,11 +121,27 @@ class CommandProxyBase:
             raise HdcError(f"Expected a reply size of 4 or more bytes, "
                            f"but received {len(reply_message)}")
 
-        error_code = reply_message[3]
-        if error_code == CommandErrorCode.NO_ERROR:
+        exception_id = reply_message[3]
+        if exception_id == ExcID.NO_ERROR:
             return reply_message
 
-        raise HdcCommandError.from_reply(reply_message, self.known_command_error_codes, self.logger)
+        # ... else it's an HDC-exception. Translate message into a native exception:
+        exception_message = reply_message[4:].decode(encoding="utf-8", errors="strict")  # Might be empty
+
+        try:
+            exception_class_or_name: str | typing.Type[HdcCmdException] = self.known_exceptions[exception_id]
+        except KeyError:
+            exception_class_or_name = f"Exception_0x{exception_id:02X}"  # Fallback to numeric value
+
+        if isinstance(exception_class_or_name, type) and issubclass(exception_class_or_name, Exception):
+            exception_class_or_name: typing.Type[Exception]
+            exception = exception_class_or_name(exception_message)
+        else:
+            exception = HdcCmdException(exception_id=exception_id,
+                                        exception_name=str(exception_class_or_name),
+                                        exception_message=exception_message)
+
+        raise exception
 
     def _call_cmd(self,
                   cmd_args: list[tuple[HdcDataType, bool | int | float | str | bytes]] | None,
@@ -158,7 +191,7 @@ class GetPropertyValueCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.GET_PROP_VALUE)
-        self.register_error(CommandErrorCode.UNKNOWN_PROPERTY)
+        self.register_exception(HdcCmdExc_UnknownProperty)
 
     def __call__(self,
                  property_id: int,
@@ -178,9 +211,8 @@ class SetPropertyValueCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
         super().__init__(feature_proxy, command_id=CmdID.SET_PROP_VALUE)
-        self.register_error(CommandErrorCode.UNKNOWN_PROPERTY)
-        self.register_error(CommandErrorCode.INVALID_PROPERTY_VALUE)
-        self.register_error(CommandErrorCode.PROPERTY_IS_READ_ONLY)
+        self.register_exception(HdcCmdExc_UnknownProperty)
+        self.register_exception(HdcCmdExc_RoProperty)
 
     def __call__(self,
                  property_id: int,
@@ -1006,8 +1038,6 @@ class DeviceProxyBase:
 
         version_string = reply_string[len(expected_prefix):]
         return semver.VersionInfo.parse(version_string)  # Raises ValueError
-
-
 
     def get_max_req_msg_size(self, timeout: float = 0.2) -> int:
         """Returns the maximum size of a request that the device can cope with."""

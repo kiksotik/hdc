@@ -3,7 +3,7 @@ import json
 import logging
 import unittest
 
-from hdcproto.common import (MessageTypeID, FeatureID, EvtID, CmdID, PropID, CommandErrorCode, MetaID, HDC_VERSION)
+from hdcproto.common import (MessageTypeID, FeatureID, EvtID, CmdID, PropID, ExcID, MetaID, HDC_VERSION)
 from hdcproto.device.descriptor import DeviceDescriptorBase, CoreFeatureDescriptorBase
 from hdcproto.transport.mock import MockTransport
 
@@ -123,7 +123,7 @@ class TestCommands(unittest.TestCase):
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE,
-                                CmdID.GET_PROP_VALUE, CommandErrorCode.NO_ERROR, logging.WARNING])
+                                CmdID.GET_PROP_VALUE, ExcID.NO_ERROR, logging.WARNING])
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_set_property_value(self):
@@ -133,7 +133,7 @@ class TestCommands(unittest.TestCase):
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE,
-                                CmdID.SET_PROP_VALUE, CommandErrorCode.NO_ERROR, logging.INFO])
+                                CmdID.SET_PROP_VALUE, ExcID.NO_ERROR, logging.INFO])
         self.assertSequenceEqual(expected_reply, received_reply)
         self.assertEqual(self.my_device.core.log_event_threshold, logging.INFO)
 
@@ -150,7 +150,7 @@ class TestCommandErrors(unittest.TestCase):
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes(
-            [MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, CommandErrorCode.UNKNOWN_FEATURE])
+            [MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, ExcID.UNKNOWN_FEATURE])
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_unknown_command(self):
@@ -159,7 +159,7 @@ class TestCommandErrors(unittest.TestCase):
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes(
-            [MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, CommandErrorCode.UNKNOWN_COMMAND])
+            [MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, ExcID.UNKNOWN_COMMAND])
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_missing_command_arguments(self):
@@ -167,7 +167,7 @@ class TestCommandErrors(unittest.TestCase):
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
-                                CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS])
+                                ExcID.INVALID_ARGS])
 
         self.assertSequenceEqual(expected_reply, received_reply[:4])
 
@@ -178,7 +178,7 @@ class TestCommandErrors(unittest.TestCase):
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
-                                CommandErrorCode.INCORRECT_COMMAND_ARGUMENTS])
+                                ExcID.INVALID_ARGS])
 
         self.assertSequenceEqual(expected_reply, received_reply[:4])
 

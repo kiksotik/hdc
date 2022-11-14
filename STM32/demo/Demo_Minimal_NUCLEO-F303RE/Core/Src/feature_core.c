@@ -21,7 +21,7 @@ void Core_HDC_Cmd_Reset(const HDC_Feature_Descriptor_t *hHDC_Feature,
                         const uint8_t* pRequestMessage,
                         const uint8_t Size) {
   if (Size != 3)  // MessageType ; FeatureID ; CommandID
-    return HDC_CmdReply_Error(HDC_CommandErrorCode_INCORRECT_COMMAND_ARGUMENTS, pRequestMessage);
+    return HDC_CmdReply_Error(HDC_CommandErrorCode_INVALID_ARGS, pRequestMessage);
 
   // Send a void reply before actually resetting the system.
   // Otherwise the HDC-host will timeout while awaiting it.

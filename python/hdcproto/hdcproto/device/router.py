@@ -6,7 +6,8 @@ from __future__ import annotations
 import logging
 import typing
 
-from hdcproto.common import MessageTypeID, is_valid_uint8, CommandErrorCode, HDC_VERSION, HdcCommandError, MetaID
+from hdcproto.common import MessageTypeID, is_valid_uint8, ExcID, HDC_VERSION, MetaID, \
+    HdcDataType, HdcCmdException
 from hdcproto.transport.base import TransportBase
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.router"
@@ -242,18 +243,20 @@ class MessageRouter:
             logger.info("Routing COMMAND request message to its handler.")
             try:
                 return self.command_request_handlers[key](request_message)
-            except HdcCommandError as e:
-                return self.send_reply_for_pending_request(e.cmd_reply_message)
+            except HdcCmdException as e:  # Translate it into a command-error-reply
+                cmd_reply_message = bytes([MessageTypeID.COMMAND, feature_id, command_id, e.exception_id]) \
+                                    + HdcDataType.UTF8.value_to_bytes(e.exception_message)
+                return self.send_reply_for_pending_request(cmd_reply_message)
 
         # ... else, there's no handler for this command
         error_reply = bytearray(request_message[:3])  # Header: MsgTypeID + FeatureID + CmdID
         is_known_feature = any(ids[0] == feature_id for ids in self.command_request_handlers.keys())
         if is_known_feature:
-            command_error_code = CommandErrorCode.UNKNOWN_COMMAND
+            command_error_code = ExcID.UNKNOWN_COMMAND
             logger.warning(f"Failed to route COMMAND request message, because CommandID=0x{command_id:02X} is unknown "
                            f"for FeatureID=0x{feature_id:02X}.")
         else:
-            command_error_code = CommandErrorCode.UNKNOWN_FEATURE
+            command_error_code = ExcID.UNKNOWN_FEATURE
             logger.warning(f"Failed to route COMMAND request message, because FeatureID=0x{feature_id:02X} is unknown.")
         error_reply.append(command_error_code)
         error_reply = bytes(error_reply)

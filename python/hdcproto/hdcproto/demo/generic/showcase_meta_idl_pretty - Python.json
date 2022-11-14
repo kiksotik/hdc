@@ -41,16 +41,16 @@
                     "doc": "(UINT8 PropertyID) -> var Value",
                     "raises": [
                         {
-                            "id": 244,
-                            "name": "Incorrect command arguments"
+                            "id": 243,
+                            "name": "INVALID_ARGS"
                         },
                         {
-                            "id": 242,
-                            "name": "Unknown property"
+                            "id": 245,
+                            "name": "UNKNOWN_PROPERTY"
                         },
                         {
-                            "id": 246,
-                            "name": "Command failed"
+                            "id": 240,
+                            "name": "COMMAND_FAILED"
                         }
                     ]
                 },
@@ -60,20 +60,16 @@
                     "doc": "(UINT8 PropertyID, var NewValue) -> var ActualNewValue\\nReturned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization.",
                     "raises": [
                         {
-                            "id": 244,
-                            "name": "Incorrect command arguments"
+                            "id": 243,
+                            "name": "INVALID_ARGS"
                         },
                         {
-                            "id": 242,
-                            "name": "Unknown property"
+                            "id": 245,
+                            "name": "UNKNOWN_PROPERTY"
                         },
                         {
-                            "id": 248,
-                            "name": "Property is read-only"
-                        },
-                        {
-                            "id": 247,
-                            "name": "Invalid property value"
+                            "id": 246,
+                            "name": "RO_PROPERTY"
                         }
                     ]
                 }

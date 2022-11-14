@@ -66,8 +66,10 @@ explains motivation and architectural rationale.
 - Commands
   - Those are essentially *Remote Procedure Calls* of methods implemented on a ``feature``
     and can carry any number of arguments and reply with any number of return values.
-	HDC also standardizes how ``commands`` return error codes, such that proxy-classes can 
-	translate those into more comfortable exceptions thrown on the host side.
+
+- Exceptions
+  - A ``device`` can raise exceptions while executing a ``command`` and the HDC protocol 
+    will forward those to the ``host``.
 
 - Events
   - Raised at any moment by a ``feature`` and send almost immediately to the host.  

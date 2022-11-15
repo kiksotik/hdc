@@ -144,10 +144,10 @@ typedef enum {
   //       0x0_ --> Unsigned integer number
   //       0x1_ --> Signed integer number
   //       0x2_ --> Floating point number
+  //       0xA_ --> UTF-8 encoded string
+  //                (Always variable size: 0xAF)
   //       0xB_ --> Binary data
   //                (Either variable size 0xBF, or boolean 0xB1)
-  //       0xF_ --> UTF-8 encoded string
-  //                (Always variable size: 0xFF)
   //
   // Lower Nibble: Size of DataType, given in number of bytes
   //               i.e. 0x14 --> INT32, whose size is 4 bytes
@@ -162,9 +162,9 @@ typedef enum {
   HDC_DataTypeID_INT32 = 0x14,
   HDC_DataTypeID_FLOAT = 0x24,
   HDC_DataTypeID_DOUBLE = 0x28,
+  HDC_DataTypeID_UTF8 = 0xAF,
   HDC_DataTypeID_BOOL = 0xB1,
   HDC_DataTypeID_BLOB = 0xBF,
-  HDC_DataTypeID_UTF8 = 0xFF
 } HDC_DataTypeID_t;
 
 

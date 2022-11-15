@@ -84,10 +84,10 @@ class HdcDataType(enum.IntEnum):
           0x0_ --> Unsigned integer number
           0x1_ --> Signed integer number
           0x2_ --> Floating point number
+          0xA_ --> UTF-8 encoded string
+                   (Always variable size: 0xFF)
           0xB_ --> Binary data
                    (Either variable size 0xBF, or boolean 0xB1)
-          0xF_ --> UTF-8 encoded string
-                   (Always variable size: 0xFF)
 
     Lower Nibble: Size of HdcDataType, given in number of bytes
                   i.e. 0x14 --> INT32, whose size is 4 bytes
@@ -103,9 +103,9 @@ class HdcDataType(enum.IntEnum):
     INT32 = 0x14
     FLOAT = 0x24
     DOUBLE = 0x28
+    UTF8 = 0xAF
     BOOL = 0xB1
     BLOB = 0xBF
-    UTF8 = 0xFF
 
     def struct_format(self) -> str | None:
         if self == HdcDataType.BOOL:

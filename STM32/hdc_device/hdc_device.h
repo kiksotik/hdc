@@ -138,21 +138,20 @@ typedef enum {
 } HDC_CommandErrorCode_t;
 
 typedef enum {
-  // The ID values of each DataType can be interpreted as follows:
+  // The ID values (roughly) obey the following mnemonic system:
   //
   // Upper Nibble: Kind of DataType
   //       0x0_ --> Unsigned integer number
   //       0x1_ --> Signed integer number
   //       0x2_ --> Floating point number
-  //       0xA_ --> UTF-8 encoded string
-  //                (Always variable size: 0xAF)
-  //       0xB_ --> Binary data
-  //                (Either variable size 0xBF, or boolean 0xB1)
+  //       0xA_ --> UTF-8 encoded string (Always variable size: 0xAF)
+  //       0xB_ --> Binary data (Either variable size 0xBF, or boolean 0xB1)
+  //       0xD_ --> DataType (Currently only 0xD1, encoding for DataType itself)
   //
-  // Lower Nibble: Size of DataType, given in number of bytes
+  // Lower Nibble: Size of the data type, given in number of bytes
   //               i.e. 0x14 --> INT32, whose size is 4 bytes
   //               (Exception to the rule: 0x_F denotes a variable size DataType)
-  //               (Special case 0xB1 --> BOOL, size is 1 byte, although only using 1 bit)
+  //               (Special case 0xB1 --> BOOL size is 1 byte, although only using 1 bit)
 
   HDC_DataTypeID_UINT8 = 0x01,
   HDC_DataTypeID_UINT16 = 0x02,
@@ -165,6 +164,7 @@ typedef enum {
   HDC_DataTypeID_UTF8 = 0xAF,
   HDC_DataTypeID_BOOL = 0xB1,
   HDC_DataTypeID_BLOB = 0xBF,
+  HDC_DataTypeID_DTYPE = 0xD1,
 } HDC_DataTypeID_t;
 
 

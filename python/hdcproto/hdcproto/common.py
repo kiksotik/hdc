@@ -78,21 +78,19 @@ class HdcDataType(enum.IntEnum):
     to parse arguments and return values of Commands.
     Also implements serialization and de-serialization from raw bytes.
 
-    The ID value of each HdcDataType can be interpreted as follows:
-
+    The ID values (roughly) obey the following mnemonic system:
     Upper Nibble: Kind of HdcDataType
           0x0_ --> Unsigned integer number
           0x1_ --> Signed integer number
           0x2_ --> Floating point number
-          0xA_ --> UTF-8 encoded string
-                   (Always variable size: 0xFF)
-          0xB_ --> Binary data
-                   (Either variable size 0xBF, or boolean 0xB1)
+          0xA_ --> UTF-8 encoded string (Always variable size: 0xFF)
+          0xB_ --> Binary data (Either variable size 0xBF, or boolean 0xB1)
+          0xD_ --> DataType (Currently only 0xD1, encoding for HdcDataType itself)
 
-    Lower Nibble: Size of HdcDataType, given in number of bytes
+    Lower Nibble: Size of the data type, given in number of bytes
                   i.e. 0x14 --> INT32, whose size is 4 bytes
                   (Exception to the rule: 0x_F denotes a variable size HdcDataType)
-                  (Special case 0xB1 --> BOOL, size is 1 byte, although only using 1 bit)
+                  (Special case 0xB1 --> BOOL size is 1 byte, although only using 1 bit)
     """
 
     UINT8 = 0x01
@@ -106,6 +104,7 @@ class HdcDataType(enum.IntEnum):
     UTF8 = 0xAF
     BOOL = 0xB1
     BLOB = 0xBF
+    DTYPE = 0xD1  # Yes, this is confusing, because it's self-referential: It's the data type ID of HdcDataType itself.
 
     def struct_format(self) -> str | None:
         if self == HdcDataType.BOOL:
@@ -130,6 +129,8 @@ class HdcDataType(enum.IntEnum):
             return None  # Meaning: Variable size
         if self == HdcDataType.UTF8:
             return None  # Meaning: Variable size
+        if self == HdcDataType.DTYPE:
+            return "B"  # Equivalent to a UINT8 value at the bytes level
 
     def size(self) -> int | None:
         """
@@ -142,7 +143,7 @@ class HdcDataType(enum.IntEnum):
 
         return struct.calcsize(fmt)
 
-    def value_to_bytes(self, value: int | float | str | bytes) -> bytes:
+    def value_to_bytes(self, value: int | float | str | bytes | HdcDataType) -> bytes:
 
         if isinstance(value, str):
             if self == HdcDataType.UTF8:
@@ -161,6 +162,13 @@ class HdcDataType(enum.IntEnum):
 
         if isinstance(value, bool):
             if self == HdcDataType.BOOL:
+                return struct.pack(fmt, value)
+            else:
+                raise HdcDataTypeError(f"Vale of type {value.__class__} is unsuitable "
+                                       f"for a property of type {self.name}")
+
+        if isinstance(value, HdcDataType):  # Check before int, because HdcDataType is also an int
+            if self == HdcDataType.DTYPE:
                 return struct.pack(fmt, value)
             else:
                 raise HdcDataTypeError(f"Vale of type {value.__class__} is unsuitable "
@@ -189,7 +197,7 @@ class HdcDataType(enum.IntEnum):
         raise HdcDataTypeError(f"Don't know how to convert value of type {value.__class__} "
                                f"into property of type {self.name}")
 
-    def bytes_to_value(self, value_as_bytes: bytes) -> int | float | str | bytes:
+    def bytes_to_value(self, value_as_bytes: bytes) -> int | float | str | bytes | HdcDataType:
 
         if self == HdcDataType.UTF8:
             return value_as_bytes.decode(encoding="utf-8", errors="strict")
@@ -211,7 +219,15 @@ class HdcDataType(enum.IntEnum):
                 f"Expected {expected_size} bytes, "
                 f"but attempted to convert {len(value_as_bytes)}")
 
-        return struct.unpack(fmt, value_as_bytes)[0]
+        value_as_python_type = struct.unpack(fmt, value_as_bytes)[0]
+
+        if self == HdcDataType.DTYPE:
+            try:
+                return HdcDataType(value_as_python_type)
+            except ValueError:
+                raise HdcDataTypeError(f"ID of 0x{value_as_python_type:02X} is not a valid HdcDataType")
+
+        return value_as_python_type
 
     @staticmethod
     def parse_payload(raw_payload: bytes,

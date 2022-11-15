@@ -144,7 +144,7 @@ class CommandProxyBase:
         raise exception
 
     def _call_cmd(self,
-                  cmd_args: list[tuple[HdcDataType, bool | int | float | str | bytes]] | None,
+                  cmd_args: list[tuple[HdcDataType, bool | int | float | str | bytes | HdcDataType]] | None,
                   return_types: HdcDataType | list[HdcDataType] | None,
                   timeout: float | None = None) -> typing.Any:
         request_message = bytearray(self.msg_prefix)
@@ -217,8 +217,8 @@ class SetPropertyValueCommandProxy(CommandProxyBase):
     def __call__(self,
                  property_id: int,
                  property_data_type: HdcDataType,
-                 new_value: bool | int | float | str | bytes,
-                 timeout: float | None = None) -> bool | int | float | str | bytes:
+                 new_value: bool | int | float | str | bytes | HdcDataType,
+                 timeout: float | None = None) -> bool | int | float | str | bytes | HdcDataType:
         if not is_valid_uint8(property_id):
             raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
 
@@ -373,7 +373,7 @@ class PropertyProxyBase:
     is_readonly: bool
     default_freshness: float
     default_timeout: float
-    _cached_value: bool | int | float | str | bytes | None
+    _cached_value: bool | int | float | str | bytes | HdcDataType | None
     _timestamp_of_cached_value: float
 
     def __init__(self,
@@ -406,14 +406,14 @@ class PropertyProxyBase:
         self._cached_value = None
         self._timestamp_of_cached_value = 0.0
 
-    def update_cached_value(self, new_value: bool | int | float | str | bytes):
+    def update_cached_value(self, new_value: bool | int | float | str | bytes | HdcDataType):
         self._cached_value = new_value
         self._timestamp_of_cached_value = time.perf_counter()
 
     def _get(self,
              freshness: float | None = None,
              timeout: float | None = None
-             ) -> bool | int | float | str | bytes:
+             ) -> bool | int | float | str | bytes | HdcDataType:
 
         if freshness is None:
             freshness = self.default_freshness
@@ -438,9 +438,9 @@ class PropertyProxyBase:
         return self._cached_value
 
     def _set(self,
-             new_value: bool | int | float | str | bytes,
+             new_value: bool | int | float | str | bytes | HdcDataType,
              timeout: float | None = None
-             ) -> bool | int | float | str | bytes:
+             ) -> bool | int | float | str | bytes | HdcDataType:
 
         self.logger.info(f"Setting PropertyID=0x{self.property_id:02X} to a value of {new_value}")
 
@@ -808,6 +808,39 @@ class PropertyProxy_RW_BLOB(PropertyProxyBase):
         return self._get(freshness=freshness, timeout=timeout)
 
     def set(self, new_value: bytes, timeout: float | None = None) -> bytes:
+        return self._set(new_value=new_value, timeout=timeout)
+
+
+# noinspection PyPep8Naming
+class PropertyProxy_RO_DTYPE(PropertyProxyBase):
+    """Yes, this is confusing: It's a proxy for a property whose *value* is a HdcDataType"""
+
+    def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
+                 default_freshness: float = 0.0,
+                 default_timeout: float = DEFAULT_REPLY_TIMEOUT):
+        super().__init__(feature_proxy, property_id, HdcDataType.DTYPE, is_readonly=True,
+                         default_freshness=default_freshness,
+                         default_timeout=default_timeout)
+
+    def get(self, freshness: float | None = None, timeout: float | None = None) -> HdcDataType:
+        return self._get(freshness=freshness, timeout=timeout)
+
+
+# noinspection PyPep8Naming
+class PropertyProxy_RW_DTYPE(PropertyProxyBase):
+    """Yes, this is confusing: It's a proxy for a property whose *value* is a HdcDataType"""
+
+    def __init__(self, feature_proxy: FeatureProxyBase, property_id: int,
+                 default_freshness: float = 0.0,
+                 default_timeout: float = DEFAULT_REPLY_TIMEOUT):
+        super().__init__(feature_proxy, property_id, HdcDataType.DTYPE, is_readonly=False,
+                         default_freshness=default_freshness,
+                         default_timeout=default_timeout)
+
+    def get(self, freshness: float | None = None, timeout: float | None = None) -> HdcDataType:
+        return self._get(freshness=freshness, timeout=timeout)
+
+    def set(self, new_value: HdcDataType, timeout: float | None = None) -> HdcDataType:
         return self._set(new_value=new_value, timeout=timeout)
 
 

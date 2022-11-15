@@ -150,9 +150,10 @@ const char* HDC_GetDataTypeName(const HDC_DataTypeID_t data_type_id){
     case HDC_DataTypeID_BOOL: return "BOOL";
     case HDC_DataTypeID_BLOB: return "BLOB";
     case HDC_DataTypeID_UTF8: return "UTF8";
+    case HDC_DataTypeID_DTYPE: return "DTYPE";
     default:
       Error_Handler();
-      return "UNKNOWN!";
+      return "UNKNOWN!";  // Usually unreachable
   }
 }
 
@@ -493,6 +494,10 @@ void HDC_CmdReply_StringValue(const char* value, const uint8_t* pRequestMessage)
   HDC_CmdReply_BlobValue((uint8_t*)value, strlen(value), pRequestMessage);
 }
 
+void HDC_CmdReply_DTypeValue(const HDC_DataTypeID_t value, const uint8_t* pRequestMessage) {
+  HDC_CmdReply_BlobValue((uint8_t*)&value, 1, pRequestMessage);
+}
+
 
 /////////////////////////////////////////////////
 // Request Handlers for mandatory Commands
@@ -567,6 +572,10 @@ void HDC_Cmd_GetPropertyValue(
         (uint8_t *)property->pValue,
         property->ValueSize,
         pRequestMessage);
+
+  case HDC_DataTypeID_DTYPE:
+    return HDC_CmdReply_DTypeValue(*(HDC_DataTypeID_t*)property->pValue, pRequestMessage);
+
   default:
     Error_Handler();  // ToDo: Complain about unknown property-data-type
   }

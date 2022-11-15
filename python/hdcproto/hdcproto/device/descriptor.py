@@ -723,9 +723,9 @@ class PropertyDescriptorBase:
     property_name: str
     property_description: str
     property_type: HdcDataType
-    property_implementation: int | float | str | bytes | None
-    property_getter: typing.Callable[[None], int | float | str | bytes]
-    property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes] | None
+    property_implementation: int | float | str | bytes | HdcDataType | None
+    property_getter: typing.Callable[[None], int | float | str | bytes | HdcDataType]
+    property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes | HdcDataType] | None
 
     def __init__(self,
                  feature_descriptor: FeatureDescriptorBase,
@@ -733,8 +733,9 @@ class PropertyDescriptorBase:
                  property_name: str,
                  property_description: str | None,
                  property_type: HdcDataType,
-                 property_getter: typing.Callable[[], int | float | str | bytes],
-                 property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes] | None
+                 property_getter: typing.Callable[[], int | float | str | bytes | HdcDataType],
+                 property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes | HdcDataType]
+                                  | None
                  ):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)

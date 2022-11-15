@@ -85,14 +85,14 @@ class HdcDataType(enum.IntEnum):
           0x1_ --> Signed integer number
           0x2_ --> Floating point number
           0xB_ --> Binary data
-                   (Either variable size 0xBF, or boolean 0xB0)
+                   (Either variable size 0xBF, or boolean 0xB1)
           0xF_ --> UTF-8 encoded string
                    (Always variable size: 0xFF)
 
     Lower Nibble: Size of HdcDataType, given in number of bytes
                   i.e. 0x14 --> INT32, whose size is 4 bytes
                   (Exception to the rule: 0x_F denotes a variable size HdcDataType)
-                  (Exception to the rule: 0xB0 --> BOOL, whose size is 1 bytes)
+                  (Special case 0xB1 --> BOOL, size is 1 byte, although only using 1 bit)
     """
 
     UINT8 = 0x01
@@ -103,7 +103,7 @@ class HdcDataType(enum.IntEnum):
     INT32 = 0x14
     FLOAT = 0x24
     DOUBLE = 0x28
-    BOOL = 0xB0
+    BOOL = 0xB1
     BLOB = 0xBF
     UTF8 = 0xFF
 

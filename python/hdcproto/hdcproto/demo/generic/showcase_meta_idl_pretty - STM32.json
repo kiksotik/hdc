@@ -59,16 +59,42 @@
                 {
                     "id": 240,
                     "name": "GetPropertyValue",
-                    "doc": "(UINT8 PropertyID) -> var Value",
-                    "args": [],
-                    "returns": []
+                    "doc": "(UINT8 PropertyID) -> BLOB",
+                    "args": [
+                        {
+                            "dtype": "UINT8",
+                            "name": "PropertyID"
+                        }
+                    ],
+                    "returns": [
+                        {
+                            "dtype": "BLOB",
+                            "doc": "Actual data-type depends on property"
+                        }
+                    ]
                 },
                 {
                     "id": 241,
                     "name": "SetPropertyValue",
-                    "doc": "(UINT8 PropertyID, var NewValue) -> var ActualNewValue\nReturned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization.",
-                    "args": [],
-                    "returns": []
+                    "doc": "(UINT8 PropertyID, BLOB NewValue) -> BLOB ActualNewValue\nReturned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization.",
+                    "args": [
+                        {
+                            "dtype": "UINT8",
+                            "name": "PropertyID"
+                        },
+                        {
+                            "dtype": "BLOB",
+                            "name": "NewValue",
+                            "doc": "Actual data-type depends on property"
+                        }
+                    ],
+                    "returns": [
+                        {
+                            "dtype": "BLOB",
+                            "name": "ActualNewValue",
+                            "doc": "May differ from NewValue!"
+                        }
+                    ]
                 }
             ],
             "events": [

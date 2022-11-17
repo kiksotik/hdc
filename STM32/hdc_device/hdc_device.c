@@ -660,15 +660,20 @@ const HDC_Descriptor_Command_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
     .CommandID = HDC_CommandID_GetPropertyValue,
     .CommandName = "GetPropertyValue",
     .CommandHandler = &HDC_Cmd_GetPropertyValue,
-    .CommandDescription = "(UINT8 PropertyID) -> var Value"
+    .CommandDescription = "(UINT8 PropertyID) -> BLOB",
+    .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="PropertyID"},
+    .ret1 = &(HDC_Descriptor_Ret_t) {.dtype=HDC_DataTypeID_BLOB, .doc="Actual data-type depends on property"}
   },
 
   &(HDC_Descriptor_Command_t){
     .CommandID = HDC_CommandID_SetPropertyValue,
     .CommandName = "SetPropertyValue",
     .CommandHandler = &HDC_Cmd_SetPropertyValue,
-    .CommandDescription = "(UINT8 PropertyID, var NewValue) -> var ActualNewValue\\n"
-        "Returned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization."
+    .CommandDescription = "(UINT8 PropertyID, BLOB NewValue) -> BLOB ActualNewValue\\n"
+        "Returned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization.",
+    .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="PropertyID"},
+    .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_BLOB, .name="NewValue", .doc="Actual data-type depends on property"},
+    .ret1 = &(HDC_Descriptor_Ret_t) {.dtype=HDC_DataTypeID_BLOB, .name="ActualNewValue", .doc="May differ from NewValue!"},
   },
 };
 

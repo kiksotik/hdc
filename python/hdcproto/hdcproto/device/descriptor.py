@@ -97,16 +97,22 @@ class CommandDescriptorBase:
     command_id: int
     command_name: str
     command_description: str
-    command_request_handler: typing.Callable[[bytes], None]
+    command_implementation: typing.Callable[[typing.Any], typing.Any]
+    command_arguments: tuple[ArgD, ...]  # Typed strictly! For other uses, resort to CommandDescriptorBase, instead.
+    command_returns: tuple[RetD, ...]  # Typed strictly! For other uses, resort to CommandDescriptorBase, instead.
     command_raises: dict[int, str]
+
+    _command_request_handler: typing.Callable[[bytes], None]
     msg_prefix: bytes
 
     def __init__(self,
                  feature_descriptor: FeatureDescriptorBase,
                  command_id: int,
                  command_name: str,
+                 command_implementation: typing.Callable[[typing.Any], typing.Any],
                  command_description: str | None,
-                 command_request_handler: typing.Callable[[bytes], None],
+                 command_arguments: tuple[ArgD, ...] | None,
+                 command_returns: RetD | tuple[RetD, ...] | None,
                  command_raises: list[enum.IntEnum] | None):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
@@ -134,7 +140,7 @@ class CommandDescriptorBase:
         feature_descriptor.router.register_command_request_handler(
             feature_id=feature_descriptor.feature_id,
             command_id=command_id,
-            command_request_handler=command_request_handler)
+            command_request_handler=self._command_request_handler)
 
         self.command_id = command_id
 
@@ -152,52 +158,6 @@ class CommandDescriptorBase:
             self.command_raises[int(error_enum)] = error_enum.name
 
         self.command_description = command_description
-
-        self.msg_prefix = bytes([int(MessageTypeID.COMMAND),
-                                 self.feature_descriptor.feature_id,
-                                 self.command_id])
-
-    @property
-    def router(self) -> hdcproto.device.router.MessageRouter:
-        return self.feature_descriptor.device_descriptor.router
-
-    def to_idl_dict(self) -> dict:
-        return dict(
-            id=self.command_id,
-            name=self.command_name,
-            doc=self.command_description,
-            raises=[
-                dict(id=error_id, name=error_name)
-                for error_id, error_name in self.command_raises.items()
-            ]
-        )
-
-
-class TypedCommandDescriptor(CommandDescriptorBase):
-    """
-    Descriptor which also takes care to parse arguments and reply in a type-safe manner.
-    Will also inject documentation of command-signature into the docstring of this command.
-    """
-    command_implementation: typing.Callable[[typing.Any], typing.Any]
-    command_arguments: tuple[ArgD, ...]  # Typed strictly! For other uses, resort to CommandDescriptorBase, instead.
-    command_returns: tuple[RetD, ...]  # Typed strictly! For other uses, resort to CommandDescriptorBase, instead.
-
-    def __init__(self,
-                 feature_descriptor: FeatureDescriptorBase,
-                 command_id: int,
-                 command_name: str,
-                 command_description: str | None,
-                 command_implementation: typing.Callable[[typing.Any], typing.Any],
-                 command_arguments: tuple[ArgD, ...] | None,
-                 command_returns: RetD | tuple[RetD, ...] | None,
-                 command_raises: list[enum.IntEnum] | None):
-
-        super().__init__(feature_descriptor=feature_descriptor,
-                         command_id=command_id,
-                         command_name=command_name,
-                         command_description=command_description,
-                         command_request_handler=self._command_request_handler,
-                         command_raises=command_raises)
 
         if not command_arguments:
             # Meaning "Has no args".
@@ -258,6 +218,14 @@ class TypedCommandDescriptor(CommandDescriptorBase):
             else:
                 self.command_description = cmd_signature
 
+        self.msg_prefix = bytes([int(MessageTypeID.COMMAND),
+                                 self.feature_descriptor.feature_id,
+                                 self.command_id])
+
+    @property
+    def router(self) -> hdcproto.device.router.MessageRouter:
+        return self.feature_descriptor.device_descriptor.router
+
     def _command_request_handler(self, request_message: bytes) -> None:
         try:
             if self.command_arguments is None:
@@ -302,26 +270,21 @@ class TypedCommandDescriptor(CommandDescriptorBase):
         self.router.send_reply_for_pending_request(reply)
 
     def to_idl_dict(self) -> dict:
-        d = super().to_idl_dict()
-        d["args"] = [
-            arg.to_idl_dict()
-            for arg in self.command_arguments
-        ] if self.command_arguments is not None else None
-        if isinstance(self.command_returns, RetD):
-            d["returns"] = self.command_returns.to_idl_dict()
-        else:
-            d["returns"] = [
-                ret.to_idl_dict()
-                for ret in self.command_returns
-            ] if self.command_returns is not None else None
-
-        # Move less interesting attribute to the bottom.
-        # Yes, this is very unorthodox. ;-)
-        # ToDo: Implement attribute sorting to aid readability of raw JSON-IDL
-        tmp = d["raises"]
-        del(d["raises"])
-        d["raises"] = tmp
-        return d
+        return dict(
+            id=self.command_id,
+            name=self.command_name,
+            doc=self.command_description,
+            args =[arg.to_idl_dict()
+                   for arg in self.command_arguments
+                   ] if self.command_arguments is not None else None,
+            returns=[ret.to_idl_dict()
+                     for ret in self.command_returns
+                    ] if self.command_returns is not None else None,
+            raises=[
+                dict(id=error_id, name=error_name)
+                for error_id, error_name in self.command_raises.items()
+            ]
+        )
 
 
 class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
@@ -329,22 +292,20 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
         super().__init__(feature_descriptor,
                          command_id=CmdID.GET_PROP_VALUE,
                          command_name="GetPropertyValue",
-                         # Signature uses 'var' to express that data-type depends on requested property
-                         command_description="(UINT8 PropertyID) -> var Value",
-                         command_request_handler=self._command_request_handler,
+                         command_implementation=self._command_implementation,
+                         command_description="", # ToDo: Fix optionality of descriptor attributes #25
+                         command_arguments=(ArgD(HdcDataType.UINT8, name="PropertyID"),),
+                         # Returns 'BLOB', because data-type depends on requested property
+                         command_returns=(RetD(HdcDataType.BLOB, doc="Actual data-type depends on property"),),
                          command_raises=[ExcID.INVALID_ARGS,
                                          ExcID.UNKNOWN_PROPERTY,
                                          ExcID.COMMAND_FAILED])
 
-    def _command_request_handler(self, request_message: bytes) -> None:
+    def _command_implementation(self, property_id: int) -> bytes:
         """
-        Custom request handler, because GetPropertyValue-command returns
-        variable data-types, depending on the requested PropertyID.
+        Returns variable data-type, depending on the requested PropertyID.
+        Therefore, returning a serialized result as BLOB.
         """
-        if len(request_message) != 4:  # MsgID + FeatID + CmdID + PropID
-            raise HdcCmdExc_InvalidArgs(exception_message="Missing PropID argument")
-        property_id = request_message[3]
-
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
         if prop_descr is None:
             raise HdcCmdExc_UnknownProperty()
@@ -353,14 +314,9 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
         prop_value = prop_descr.property_getter()
         value_as_bytes = prop_type.value_to_bytes(prop_value)
 
-        reply = bytearray(self.msg_prefix)
-        reply.append(ExcID.NO_ERROR)
-        reply.extend(value_as_bytes)
-
-        reply = bytes(reply)
         self.logger.info(f"Replying with {self.command_name}('{prop_descr.property_name}') "
                          f"-> {repr(prop_value)}")
-        self.router.send_reply_for_pending_request(reply)
+        return value_as_bytes
 
 
 class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
@@ -368,34 +324,28 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
         super().__init__(feature_descriptor,
                          command_id=CmdID.SET_PROP_VALUE,
                          command_name="SetPropertyValue",
-                         command_request_handler=self._command_request_handler,
-                         # Signature uses 'var' to express that data-type depends on requested property
-                         command_description="(UINT8 PropertyID, var NewValue) -> var ActualNewValue\\n"
-                                             "Returned value might differ from NewValue argument, "
+                         command_implementation=self._command_implementation,
+                         command_description="Returned value might differ from NewValue argument, "
                                              "i.e. because of trimming to valid range or discretization.",
+                         # Signature uses 'BLOB', because data-type depends on requested property
+                         command_arguments=(ArgD(HdcDataType.UINT8, "PropertyID"),
+                                            ArgD(HdcDataType.BLOB, "NewValue", "Actual data-type depends on property")),
+                         command_returns=(RetD(HdcDataType.BLOB, "ActualNewValue", "May differ from NewValue!"),),
                          command_raises=[ExcID.INVALID_ARGS,
                                          ExcID.UNKNOWN_PROPERTY,
                                          ExcID.RO_PROPERTY])
 
-    def _command_request_handler(self, request_message: bytes) -> None:
+    def _command_implementation(self, property_id: int, new_value_as_bytes: bytes) -> bytes:
         """
-        Custom request handler, because GetPropertyValue-command returns
-        variable data-types, depending on the requested PropertyID.
+        Receives and returns variable data-type, depending on the requested PropertyID.
+        Therefore, de-serializing argument from bytes and returning a serialized result as BLOB.
         """
-
-        if len(request_message) < 4:  # MsgID + FeatID + CmdID + PropID + var NewValue
-            raise HdcCmdExc_InvalidArgs(exception_message="Missing PropID and NewValue arguments")
-        property_id = request_message[3]
 
         prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
         if prop_descr is None:
             raise HdcCmdExc_UnknownProperty()
 
         prop_type = prop_descr.property_type
-        if len(request_message) != 4 + prop_type.size():  # MsgID + FeatID + CmdID + PropID + var NewValue
-            raise HdcCmdExc_InvalidArgs(exception_message="Incorrect NewValue argument")
-
-        new_value_as_bytes = request_message[4:]
         try:
             new_value = prop_type.bytes_to_value(new_value_as_bytes)
             actual_new_value = prop_descr.property_setter(new_value)
@@ -404,17 +354,11 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
 
         actual_new_value_as_bytes = prop_type.value_to_bytes(actual_new_value)
 
-        reply = bytearray(self.msg_prefix)
-        reply.append(ExcID.NO_ERROR)
-        reply.extend(actual_new_value_as_bytes)
-
-        reply = bytes(reply)
-
         self.logger.log(level=logging.INFO if new_value == actual_new_value else logging.WARNING,
                         msg=f"Replying with {self.command_name}('{prop_descr.property_name}', {repr(new_value)}) "
                             f"-> {repr(actual_new_value)}")
 
-        self.router.send_reply_for_pending_request(reply)
+        return actual_new_value_as_bytes
 
 
 class EventDescriptorBase:

@@ -6,7 +6,7 @@ from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, HdcCmdException
 from hdcproto.device.descriptor import (DeviceDescriptorBase, CoreFeatureDescriptorBase,
-                                        TypedCommandDescriptor, PropertyDescriptorBase,
+                                        CommandDescriptorBase, PropertyDescriptorBase,
                                         FeatureDescriptorBase, TypedEventDescriptor, ArgD, RetD)
 
 
@@ -47,7 +47,7 @@ class MinimalCoreDescriptor:
 
         # Commands
         # Commands
-        self.cmd_reset = TypedCommandDescriptor(
+        self.cmd_reset = CommandDescriptorBase(
             feature_descriptor=self.hdc,
             command_id=0x01,
             command_name="Reset",
@@ -58,7 +58,7 @@ class MinimalCoreDescriptor:
             command_raises=None
         )
 
-        self.cmd_divide = TypedCommandDescriptor(
+        self.cmd_divide = CommandDescriptorBase(
             feature_descriptor=self.hdc,
             command_id=0x02,
             command_name="Divide",

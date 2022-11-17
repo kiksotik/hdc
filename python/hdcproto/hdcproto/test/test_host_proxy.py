@@ -5,7 +5,7 @@ import unittest
 
 from hdcproto.common import ExcID, MessageTypeID, MetaID, HdcCmdExc_CommandFailed, PropID, HdcDataType, HdcCmdException
 from hdcproto.host.proxy import (DeviceProxyBase, FeatureProxyBase, VoidWithoutArgsCommandProxy,
-                                 PropertyProxy_RW_INT32, EventProxyBase)
+                                 PropertyProxy_RW_INT32, EventProxyBase, CoreFeatureProxyBase)
 from hdcproto.transport.mock import MockTransport
 
 
@@ -120,6 +120,7 @@ class TestMessages(unittest.TestCase):
 class TestExceptionRegistration(unittest.TestCase):
     def setUp(self) -> None:
         my_device = TestableDeviceProxy()
+        my_device.core = CoreFeatureProxyBase(my_device)
         self.some_command_proxy = my_device.core.cmd_get_property_value
 
     def test_predefined_code_which_is_not_yet_registered(self):
@@ -176,6 +177,7 @@ class TestExceptionRegistration(unittest.TestCase):
 class TestExceptionHandling(unittest.TestCase):
     def setUp(self) -> None:
         self.my_proxy = TestableDeviceProxy()
+        self.my_proxy.core = CoreFeatureProxyBase(self.my_proxy)
         self.some_command_proxy = self.my_proxy.core.cmd_get_property_value
         self.my_proxy.connect()
         self.conn_mock: MockTransport = self.my_proxy.router.transport
@@ -274,6 +276,7 @@ class TestIdValidation(unittest.TestCase):
 
     def test_validation_of_command_id(self):
         my_device = TestableDeviceProxy()
+        my_device.core = CoreFeatureProxyBase(my_device)
 
         with self.assertRaises(ValueError):
             VoidWithoutArgsCommandProxy(my_device.core, command_id=-1)
@@ -290,6 +293,7 @@ class TestIdValidation(unittest.TestCase):
 
     def test_validation_of_property_id(self):
         my_device = TestableDeviceProxy()
+        my_device.core = CoreFeatureProxyBase(my_device)
 
         with self.assertRaises(ValueError):
             PropertyProxy_RW_INT32(my_device.core, property_id=-1)
@@ -306,6 +310,7 @@ class TestIdValidation(unittest.TestCase):
 
     def test_validation_of_event_id(self):
         my_device = TestableDeviceProxy()
+        my_device.core = CoreFeatureProxyBase(my_device)
 
         with self.assertRaises(ValueError):
             EventProxyBase(my_device.core, event_id=-1)

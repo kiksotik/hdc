@@ -28,12 +28,34 @@
             ],
             "commands": [
                 {
-                    "id": 193,
+                    "id": 1,
                     "name": "Reset",
                     "doc": "(VOID) -> VOID\nReinitializes the whole device.",
-                    "raises": [],
                     "args": [],
-                    "returns": []
+                    "returns": [],
+                    "raises": []
+                },
+                {
+                    "id": 2,
+                    "name": "Divide",
+                    "doc": "(FLOAT numerator, FLOAT denominator) -> DOUBLE\nDivides numerator by denominator.",
+                    "args": [
+                        {
+                            "dtype": "FLOAT",
+                            "name": "numerator"
+                        },
+                        {
+                            "dtype": "FLOAT",
+                            "name": "denominator",
+                            "doc": "Beware of the zero!"
+                        }
+                    ],
+                    "returns": [
+                        {
+                            "dtype": "DOUBLE"
+                        }
+                    ],
+                    "raises": []
                 },
                 {
                     "id": 240,
@@ -125,42 +147,42 @@
                 {
                     "id": 16,
                     "name": "uC_DEVID",
-                    "type": "UINT32",
+                    "dtype": "UINT32",
                     "ro": true,
                     "doc": "32bit Device-ID of STM32 microcontroller."
                 },
                 {
                     "id": 17,
                     "name": "uC_REVID",
-                    "type": "UINT32",
+                    "dtype": "UINT32",
                     "ro": true,
                     "doc": "32bit Revision-ID of STM32 microcontroller."
                 },
                 {
                     "id": 18,
                     "name": "uC_UID",
-                    "type": "BLOB",
+                    "dtype": "BLOB",
                     "ro": true,
                     "doc": "96bit unique-ID of STM32 microcontroller."
                 },
                 {
                     "id": 19,
                     "name": "LedBlinkingRate",
-                    "type": "UINT8",
+                    "dtype": "UINT8",
                     "ro": false,
                     "doc": "Blinking frequency of the LED given in Herz."
                 },
                 {
                     "id": 240,
                     "name": "LogEventThreshold",
-                    "type": "UINT8",
+                    "dtype": "UINT8",
                     "ro": false,
                     "doc": "Suppresses LogEvents with lower log-levels."
                 },
                 {
                     "id": 241,
                     "name": "FeatureState",
-                    "type": "UINT8",
+                    "dtype": "UINT8",
                     "ro": true,
                     "doc": "Current feature-state"
                 }

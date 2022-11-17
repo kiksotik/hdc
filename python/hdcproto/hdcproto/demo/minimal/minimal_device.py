@@ -1,12 +1,13 @@
 import enum
 import logging
+import time
 
 from pynput import keyboard
 
-from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs
+from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, HdcCmdException
 from hdcproto.device.descriptor import (DeviceDescriptorBase, CoreFeatureDescriptorBase,
                                         TypedCommandDescriptor, PropertyDescriptorBase,
-                                        FeatureDescriptorBase, TypedEventDescriptor)
+                                        FeatureDescriptorBase, TypedEventDescriptor, ArgD, RetD)
 
 
 class MinimalDeviceDescriptor(DeviceDescriptorBase):
@@ -29,6 +30,11 @@ class MinimalDeviceDescriptor(DeviceDescriptorBase):
             pass
 
 
+class MyDivZeroError(HdcCmdException):
+    def __init__(self):
+        super().__init__(exception_id=0x01, exception_name="DivisionByZero")
+
+
 class MinimalCoreDescriptor:
     def __init__(self, device_descriptor: DeviceDescriptorBase):
         # We could "inherit" from CoreFeatureDescriptor, but we choose "composition", instead, because
@@ -40,14 +46,27 @@ class MinimalCoreDescriptor:
         self.led_blinking_rate = 5
 
         # Commands
+        # Commands
         self.cmd_reset = TypedCommandDescriptor(
             feature_descriptor=self.hdc,
-            command_id=0xC1,
+            command_id=0x01,
             command_name="Reset",
             command_description="Reinitializes the whole device.",  # Human-readable docstring
             command_implementation=self.reset,
             command_arguments=None,
             command_returns=None,
+            command_raises=None
+        )
+
+        self.cmd_divide = TypedCommandDescriptor(
+            feature_descriptor=self.hdc,
+            command_id=0x02,
+            command_name="Divide",
+            command_description="Divides numerator by denominator.",  # Human-readable docstring
+            command_implementation=self.divide,
+            command_arguments=(ArgD(HdcDataType.FLOAT, "numerator"),
+                               ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")),
+            command_returns=RetD(HdcDataType.DOUBLE),
             command_raises=None
         )
 
@@ -106,6 +125,20 @@ class MinimalCoreDescriptor:
     def reset(self) -> None:
         # ToDo: Would be interesting to experiment with restarting this script and see how the connection behaves.
         self.hdc.hdc_logger.warning("Just pretending to be restarting the device.")
+        self.hdc.feature_state_transition(new_feature_state_id=self.States.OFF)
+        time.sleep(0.2)
+        self.hdc.feature_state_transition(new_feature_state_id=self.States.INIT)
+        time.sleep(0.2)
+        self.hdc.feature_state_transition(new_feature_state_id=self.States.READY)
+
+    def divide(self, numerator: float, denominator: float) -> float:
+        """The actual implementation of the command"""
+        if denominator == 0:
+            raise MyDivZeroError()
+
+        self.hdc.hdc_logger.debug(f"Dividing {numerator} by {denominator}.")
+
+        return numerator / denominator
 
     def led_blinking_rate_setter(self, new_rate: int) -> int:
         if new_rate < 0 or new_rate > 20:

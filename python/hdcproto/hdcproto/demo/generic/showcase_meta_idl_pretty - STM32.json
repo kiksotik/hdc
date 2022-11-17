@@ -28,19 +28,38 @@
             ],
             "commands": [
                 {
-                    "id": 193,
+                    "id": 1,
                     "name": "Reset",
-                    "doc": "(VOID) -> VOID\nReinitializes the whole device."
+                    "doc": "(VOID) -> VOID\nReinitializes the whole device.",
+                    "args": []
+                },
+                {
+                    "id": 2,
+                    "name": "Divide",
+                    "doc": "(FLOAT numerator, FLOAT denominator) -> DOUBLE\nDivides numerator by denominator.",
+                    "args": [
+                        {
+                            "dtype": "FLOAT",
+                            "name": "numerator"
+                        },
+                        {
+                            "dtype": "FLOAT",
+                            "name": "denominator",
+                            "doc": "Beware of the zero!"
+                        }
+                    ]
                 },
                 {
                     "id": 240,
                     "name": "GetPropertyValue",
-                    "doc": "(UINT8 PropertyID) -> var Value"
+                    "doc": "(UINT8 PropertyID) -> var Value",
+                    "args": []
                 },
                 {
                     "id": 241,
                     "name": "SetPropertyValue",
-                    "doc": "(UINT8 PropertyID, var NewValue) -> var ActualNewValue\nReturned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization."
+                    "doc": "(UINT8 PropertyID, var NewValue) -> var ActualNewValue\nReturned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization.",
+                    "args": []
                 }
             ],
             "events": [
@@ -64,21 +83,21 @@
                 {
                     "id": 16,
                     "name": "uC_DEVID",
-                    "type": "UINT32",
+                    "dtype": "UINT32",
                     "ro": true,
                     "doc": "32bit Device-ID of STM32 microcontroller."
                 },
                 {
                     "id": 17,
                     "name": "uC_REVID",
-                    "type": "UINT32",
+                    "dtype": "UINT32",
                     "ro": true,
                     "doc": "32bit Revision-ID of STM32 microcontroller."
                 },
                 {
                     "id": 18,
                     "name": "uC_UID",
-                    "type": "BLOB",
+                    "dtype": "BLOB",
                     "size": 12,
                     "ro": true,
                     "doc": "96bit unique-ID of STM32 microcontroller."
@@ -86,21 +105,21 @@
                 {
                     "id": 19,
                     "name": "LedBlinkingRate",
-                    "type": "UINT8",
+                    "dtype": "UINT8",
                     "ro": false,
                     "doc": "Blinking frequency of the LED given in Herz."
                 },
                 {
                     "id": 240,
                     "name": "LogEventThreshold",
-                    "type": "UINT8",
+                    "dtype": "UINT8",
                     "ro": false,
                     "doc": "Suppresses LogEvents with lower log-levels."
                 },
                 {
                     "id": 241,
                     "name": "FeatureState",
-                    "type": "UINT8",
+                    "dtype": "UINT8",
                     "ro": true,
                     "doc": "Current feature-state"
                 }

@@ -244,8 +244,9 @@ class MessageRouter:
             try:
                 return self.command_request_handlers[key](request_message)
             except HdcCmdException as e:  # Translate it into a command-error-reply
-                cmd_reply_message = bytes([MessageTypeID.COMMAND, feature_id, command_id, e.exception_id]) \
-                                    + HdcDataType.UTF8.value_to_bytes(e.exception_message)
+                cmd_reply_message = bytes([MessageTypeID.COMMAND, feature_id, command_id, e.exception_id])
+                if e.exception_message:
+                    cmd_reply_message += HdcDataType.UTF8.value_to_bytes(e.exception_message)
                 return self.send_reply_for_pending_request(cmd_reply_message)
 
         # ... else, there's no handler for this command

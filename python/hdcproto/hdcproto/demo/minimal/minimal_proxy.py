@@ -5,39 +5,37 @@ Device can be::
     - A NUCLEO prototype board running any of the Demo_Minimal STM32 firmware examples.
     - A Python process running the minimal_device.py example.
 """
+from __future__ import annotations
+
 import enum
 from datetime import datetime
 
-from hdcproto.common import HdcDataType
-from hdcproto.host.proxy import (DeviceProxyBase, CoreFeatureProxyBase, VoidWithoutArgsCommandProxy, EventProxyBase,
-                                 PropertyProxy_RO_UINT32, PropertyProxy_RO_BLOB, PropertyProxy_RW_UINT8)
+from hdcproto.common import HdcDataType, HdcCmdException
+from hdcproto.host.proxy import (DeviceProxyBase, CoreFeatureProxyBase, EventProxyBase,
+                                 PropertyProxy_RO_UINT32, PropertyProxy_RO_BLOB, PropertyProxy_RW_UINT8,
+                                 CommandProxyBase, FeatureProxyBase, VoidWithoutArgsCommandProxy)
 
 
-class MinimalCore:
+class MinimalCore(CoreFeatureProxyBase):
 
     def __init__(self, device_proxy: DeviceProxyBase):
-        # We could "inherit" from CoreFeatureProxyBase, but we choose "composition", instead, because
-        # it allows us to separate more cleanly our custom proxies from those defined in CoreFeatureProxyBase.
-        # This is for example useful to keep the autocompletion list short and readable while coding.
-        self.hdc = CoreFeatureProxyBase(
-            device_proxy=device_proxy,
-
+        super().__init__(
+            device_proxy,
             # Registration of states allows DeviceProxyBase to resolve names and produce more readable logs
-            states=MinimalCore.FeatureStateEnum
-        )
+            states=MinimalCore.FeatureStateEnum)
 
         # Commands
-        # ToDo: A reset command handler is responsible to evict any cached values/states on the proxies!
-        self.cmd_reset = VoidWithoutArgsCommandProxy(self.hdc, command_id=0xC1, default_timeout=1.23)
+        self.cmd_reset = VoidWithoutArgsCommandProxy(self, command_id=0x01)  # A simple command with void signature
+        self.cmd_division = self.DivisionCommandProxy(self)  # Command with custom signature
 
         # Events
-        self.evt_button = EventProxyBase(self.hdc, event_id=0x01, payload_parser=self.ButtonEventPayload)
+        self.evt_button = EventProxyBase(self, event_id=0x01, payload_parser=self.ButtonEventPayload)
 
         # Properties
-        self.prop_microcontroller_devid = PropertyProxy_RO_UINT32(self.hdc, property_id=0x010)
-        self.prop_microcontroller_revid = PropertyProxy_RO_UINT32(self.hdc, property_id=0x11)
-        self.prop_microcontroller_uid = PropertyProxy_RO_BLOB(self.hdc, property_id=0x12)
-        self.prop_led_blinking_rate = PropertyProxy_RW_UINT8(self.hdc, property_id=0x13)
+        self.prop_microcontroller_devid = PropertyProxy_RO_UINT32(self, property_id=0x010)
+        self.prop_microcontroller_revid = PropertyProxy_RO_UINT32(self, property_id=0x11)
+        self.prop_microcontroller_uid = PropertyProxy_RO_BLOB(self, property_id=0x12)
+        self.prop_led_blinking_rate = PropertyProxy_RW_UINT8(self, property_id=0x13)
 
     class FeatureStateEnum(enum.IntEnum):
         """Custom states of the Core-feature of the Demo_Minimal firmware."""
@@ -45,6 +43,21 @@ class MinimalCore:
         INITIALIZING = 1
         READY = 2
         ERROR = 0xFF
+
+    class DivisionCommandProxy(CommandProxyBase):
+        def __init__(self, feature_proxy: FeatureProxyBase):
+            super().__init__(feature_proxy, command_id=0x02)
+            self.register_exception(MyDivZeroError)
+
+        def __call__(self,
+                     numerator: float,
+                     denominator: float,
+                     timeout: float | None = None) -> float:
+            return super()._call_cmd(
+                cmd_args=[(HdcDataType.FLOAT, float(numerator)),
+                          (HdcDataType.FLOAT, float(denominator))],
+                return_types=HdcDataType.DOUBLE,
+                timeout=timeout)
 
     class ButtonEventPayload:
         """Used by the self.evt_button proxy to parse raw event messages into custom event payload objects."""
@@ -65,10 +78,17 @@ class MinimalCore:
             )
 
 
+class MyDivZeroError(HdcCmdException):
+    def __init__(self,
+                 exception_message: str | None = None):
+        super().__init__(exception_id=0x01,
+                         exception_name="DivisionByZero",
+                         exception_message=exception_message)
+
+
 class MinimalDevice(DeviceProxyBase):
-    # Note how this class *inherits* from DeviceProxyBase, but it could also choose to use it for "composition"
     core: MinimalCore
 
     def __init__(self, connection_url: str):
-        super().__init__(connection_url=connection_url,
-                         core_feature_proxy_class=MinimalCore)  # Use a more specific core feature class
+        super().__init__(connection_url=connection_url)
+        self.core = MinimalCore(self)  # This device only has a Core feature.

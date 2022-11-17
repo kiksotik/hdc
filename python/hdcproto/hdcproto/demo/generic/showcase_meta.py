@@ -14,7 +14,7 @@ from hdcproto.host.proxy import DeviceProxyBase
 
 def showcase_meta():
     ###################
-    # SSetup logging
+    # Setup logging
     hdc_root_logger = logging.getLogger()
     log_handler = logging.StreamHandler()
     log_handler.setFormatter(logging.Formatter('%(asctime)s.%(msecs)03d - %(levelname)7s - %(name)s - %(message)s',

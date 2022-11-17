@@ -192,11 +192,23 @@ typedef enum {
 
 //////////////////////////////
 // Protocol stuff descriptors
+
+typedef struct {
+  HDC_DataTypeID_t dtype;
+  char* name;
+  char* doc;
+} HDC_Arg_Descriptor_t;
+
+
 typedef struct {
   uint8_t CommandID;
   char* CommandName;
   HDC_CommandHandler_t CommandHandler;
   char* CommandDescription;
+  const HDC_Arg_Descriptor_t *arg1;
+  const HDC_Arg_Descriptor_t *arg2;
+  const HDC_Arg_Descriptor_t *arg3;
+  const HDC_Arg_Descriptor_t *arg4;
 } HDC_Command_Descriptor_t;
 
 

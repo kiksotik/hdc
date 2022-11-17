@@ -15,6 +15,10 @@ typedef enum {
   Core_State_Error = 0xFF
 } Core_State_t;
 
+typedef enum {
+  Core_CmdError_DivByZero = 0x01
+} Core_CmdError_t;
+
 ///////////////////////////////
 // API of the Feature
 void Core_Init(UART_HandleTypeDef *huart);

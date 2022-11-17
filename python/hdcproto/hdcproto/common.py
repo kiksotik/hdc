@@ -347,8 +347,6 @@ class HdcCmdException(HdcError):
         self.exception_id = int(exception_id)
         self.exception_name = exception_name
 
-        self.error_message = exception_message
-
 
 # noinspection PyPep8Naming
 class HdcCmdExc_CommandFailed(HdcCmdException):

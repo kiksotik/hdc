@@ -4,7 +4,7 @@ Showcases how a HDC-host can communicate with a HDC-device which is running the 
 import logging
 import time
 
-from minimal_proxy import MinimalDevice, MinimalCore
+from minimal_proxy import MinimalDevice, MinimalCore, MyDivZeroError
 
 
 def showcase_minimal():
@@ -28,7 +28,8 @@ def showcase_minimal():
 
     #################################################
     # Connect to HDC-device at a specific serial port
-    dev = MinimalDevice(connection_url="COM10")  # Note how this implements all HDC specifics of a given device type
+    # dev = MinimalDevice(connection_url="COM10")  # Note how this implements all HDC specifics of a given device type
+    dev = MinimalDevice(connection_url="socket://localhost:55555")
     dev.router.connect()  # Will fail if your device is connected at a different port.
 
     ######################################################################################
@@ -55,20 +56,33 @@ def showcase_minimal():
     # Example of how the host requests the device to execute a command
     # This is essentially a "remote procedure call".
     # Resetting the device will raise some StateTransition-events.
-    # ToDo: A more instructive example with arguments and return value.
     demo_logger.info("_____________________________")
     demo_logger.info("Resetting the Core-feature...")
+    dev.core.evt_state_transition.logger.setLevel(logging.INFO)  # Note the very granular logging capabilities
     dev.core.cmd_reset()  # Blocks until it receives reply from HDC-device or the default timeout elapses.
     time.sleep(0.5)  # Allow for some time for the actual firmware reset to happen.
 
-    ################################################################################################
-    # Example of how "composition" keeps stuff defined in CoreFeatureProxyBase separate in self.hdc
-    demo_logger.info("_____________________________________")
-    demo_logger.info("Obtain some mandatory property values...")
-    demo_logger.info(f"       LogEventThreshold: {dev.core.hdc.prop_log_event_threshold.get_value_name()}")
+    ##################################################################
+    # Example of a command with arguments an return value
+    demo_logger.info("_____________________________")
+    result = dev.core.cmd_division(numerator=10, denominator=3)
+    demo_logger.info(f"Dividing 10 by 3 returns {result}")
+
+    ##################################################################
+    # Example of receiving an exception raised by the device
+    demo_logger.info("_____________________________")
+    try:
+        result = dev.core.cmd_division(numerator=10, denominator=0)
+    except MyDivZeroError:
+        demo_logger.info("Caught a custom exception raised by the device and handled in this proxy")
+    else:
+        raise RuntimeError("Did not expect not to fail!")
 
     ##################################################################
     # Example of how the host gets property values
+    demo_logger.info("_____________________________________")
+    demo_logger.info("Obtain some mandatory property values...")
+    demo_logger.info(f"       LogEventThreshold: {dev.core.prop_log_event_threshold.get_value_name()}")
     demo_logger.info("_____________________________________")
     demo_logger.info("Obtain some custom property values...")
     demo_logger.info(f"   Microcontroller REVID: 0x{dev.core.prop_microcontroller_revid.get():08x}")
@@ -95,6 +109,10 @@ def showcase_minimal():
             # Example of how the host sets property values
             new_led_blinking_rate = 5 if most_recent_button_event.button_state else 20
             dev.core.prop_led_blinking_rate.set(new_led_blinking_rate)
+
+            ##############################################
+            # Example of how the host sets property values
+
     finally:
         dev.router.close()
 

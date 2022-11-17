@@ -184,7 +184,7 @@ class VoidWithoutArgsCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy, command_id=command_id, default_timeout=default_timeout)
 
     def __call__(self, timeout: float | None = None):
-        return super()._call_cmd(cmd_args=None, return_types=None, timeout=timeout)
+        return super()._call_cmd(cmd_args=[], return_types=[], timeout=timeout)
 
 
 class GetPropertyValueCommandProxy(CommandProxyBase):
@@ -1020,16 +1020,12 @@ class DeviceProxyBase:
     core: CoreFeatureProxyBase
 
     def __init__(self,
-                 connection_url: str | None,
-                 core_feature_proxy_class: typing.Type[CoreFeatureProxyBase] = CoreFeatureProxyBase):
+                 connection_url: str | None):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy"
         self.logger = logger.getChild(self.__class__.__name__)
 
         self.router = hdcproto.host.router.MessageRouter(connection_url=connection_url)
-
-        # The Core feature is quite essential for basic HDC operation, thus this constructor enforces it
-        self.core = core_feature_proxy_class(self)
 
     @property
     def is_connected(self):

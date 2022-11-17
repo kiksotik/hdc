@@ -16,7 +16,7 @@ HDC_Feature_Descriptor_t Core_HDC_Feature;
 ///////////////
 // HDC Commands
 
-// Example of an HDC-command handler
+// Example of an HDC-command handler without any arguments nor any return value
 void Core_HDC_Cmd_Reset(const HDC_Feature_Descriptor_t *hHDC_Feature,
                         const uint8_t* pRequestMessage,
                         const uint8_t Size) {
@@ -32,12 +32,31 @@ void Core_HDC_Cmd_Reset(const HDC_Feature_Descriptor_t *hHDC_Feature,
   NVIC_SystemReset();  // Reset microcontroller via software interrupt.
 }
 
+// Example of an HDC-command handler with two arguments and one return value
+void Core_HDC_Cmd_Divide(const HDC_Feature_Descriptor_t *hHDC_Feature,
+                         const uint8_t* pRequestMessage,
+                         const uint8_t Size) {
+  if (Size != 11)  // MessageType ; FeatureID ; CommandID ; FLOAT ; FLOAT
+    return HDC_CmdReply_Error(HDC_CommandErrorCode_INVALID_ARGS, pRequestMessage);
+
+  // ToDo: HDC-library should provide more comfortable ways to parse arguments than this:
+  float numerator   = *((float*)pRequestMessage + 3);
+  float denominator = *((float*)pRequestMessage + 7);
+
+  if (denominator == 0.0f)
+    return HDC_CmdReply_Error(Core_CmdError_DivByZero, pRequestMessage);
+
+  double result = numerator / denominator;
+
+  return HDC_CmdReply_DoubleValue(result, pRequestMessage);
+}
+
 // Example of an HDC-command descriptor.
 // Note how it is defined directly in the array initialization.
 const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
 
   &(HDC_Command_Descriptor_t) {
-    .CommandID = 0xC1,       // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
+    .CommandID = 0x01,       // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .CommandName = "Reset",  // Name of the corresponding, automatically generated API-method in a proxy-class.
     .CommandHandler = &Core_HDC_Cmd_Reset,  // Function pointer to the handler defined above.
     .CommandDescription =
@@ -45,7 +64,19 @@ const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
         "Reinitializes the whole device."   // Human readable docstring
   },
 
-  // Note how hdc_device driver takes care of all mandatory HDC-commands (GetPropertyName, GetPropertyValue, ...)
+
+  &(HDC_Command_Descriptor_t) {
+    .CommandID = 0x02,        // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
+    .CommandName = "Divide",  // Name of the corresponding, automatically generated API-method in a proxy-class.
+    .CommandHandler = &Core_HDC_Cmd_Divide,  // Function pointer to the handler defined above.
+    .arg1 = &(HDC_Arg_Descriptor_t) {.dtype=HDC_DataTypeID_FLOAT, .name="numerator"},
+    .arg2 = &(HDC_Arg_Descriptor_t) {.dtype=HDC_DataTypeID_FLOAT, .name="denominator", .doc="Beware of the zero!"},
+    .CommandDescription =
+        "(FLOAT numerator, FLOAT denominator) -> DOUBLE\\n"
+        "Divides numerator by denominator."    // Human readable docstring
+  },
+
+  // Note how hdc_device driver takes care of all mandatory HDC-commands (GetPropertyValue, SetPropertyValue, ...)
  };
 
 
@@ -147,7 +178,7 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
     .PropertyDescription = "Blinking frequency of the LED given in Herz."
   },
 
-  // Note how hdc_device driver takes care of all mandatory HDC properties (FeatureName, FeatureDescription, ...)
+  // Note how hdc_device driver takes care of all mandatory HDC properties (LogEventThreshold, FeatureState, ...)
 };
 
 

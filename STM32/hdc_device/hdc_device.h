@@ -225,6 +225,10 @@ typedef struct {
   uint8_t EventID;
   char* EventName;
   char* EventDescription;
+  const HDC_Descriptor_Arg_t *arg1;
+  const HDC_Descriptor_Arg_t *arg2;
+  const HDC_Descriptor_Arg_t *arg3;
+  const HDC_Descriptor_Arg_t *arg4;
 } HDC_Descriptor_Event_t;
 
 

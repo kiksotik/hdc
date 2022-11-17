@@ -685,7 +685,9 @@ const HDC_Descriptor_Event_t HDC_Event_Log = {
   .EventName = "Log",
   .EventDescription =
       "(UINT8 LogLevel, UTF8 LogMsg)\\n"
-      "Software logging. LogLevels are the same as defined in python's logging module."
+      "Forwards software event log to the host.",
+  .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="LogLevel", .doc="Same as in Python"},
+  .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UTF8, .name="LogMsg"},
 };
 
 const HDC_Descriptor_Event_t HDC_Event_FeatureStateTransition = {
@@ -693,7 +695,9 @@ const HDC_Descriptor_Event_t HDC_Event_FeatureStateTransition = {
   .EventName = "FeatureStateTransition",
   .EventDescription =
       "(UINT8 PreviousStateID , UINT8 CurrentStateID)\\n"
-      "Notifies host about transitions of this feature's state-machine."
+      "Notifies host about transitions of this feature's state-machine.",
+  .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="PreviousStateID"},
+  .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="CurrentStateID"},
 };
 
 const HDC_Descriptor_Event_t *HDC_MandatoryEvents[NUM_MANDATORY_EVENTS] = {
@@ -1042,9 +1046,18 @@ void HDC_JSON_Command(const HDC_Descriptor_Command_t *d, bool* prepend_comma) {
 
 void HDC_JSON_Event(const HDC_Descriptor_Event_t *d, bool* prepend_comma) {
   HDC_JSON_Object_start(prepend_comma);
+
   HDC_JSON_Attr_int("id", d->EventID, prepend_comma);
   HDC_JSON_Attr_str("name", d->EventName, prepend_comma);
   HDC_JSON_Attr_str("doc", d->EventDescription, prepend_comma);
+
+  HDC_JSON_Attr_array_start("args", prepend_comma);
+  HDC_JSON_Arg(d->arg1, prepend_comma);
+  HDC_JSON_Arg(d->arg2, prepend_comma);
+  HDC_JSON_Arg(d->arg3, prepend_comma);
+  HDC_JSON_Arg(d->arg4, prepend_comma);
+  HDC_JSON_Array_end(prepend_comma);
+
   HDC_JSON_Object_end(prepend_comma);
 }
 

@@ -91,7 +91,9 @@ HDC_Descriptor_Event_t Core_HDC_Event_Button = {
       .EventID = 0x01,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
       .EventName = "ButtonEvent",  // Name of the corresponding, automatically generated event handler in a proxy-class.
       .EventDescription = "(UINT8 ButtonID, UINT8 ButtonState)\\n"
-                          "Showcases implementation of a custom HDC-event: Notify host about the button being pressed on the device."
+                          "Notify host about the button being pressed on the device.",
+      .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="ButtonID"},
+      .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="ButtonState"},
 };
 
 const HDC_Descriptor_Event_t *Core_HDC_Events[] = {

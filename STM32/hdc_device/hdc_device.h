@@ -66,11 +66,11 @@
 
 // Forward declaration of HDC structs and their typedefs,
 // which we need in the following function-pointer typedefs
-struct HDC_Feature_struct;
-typedef struct HDC_Feature_struct HDC_Feature_Descriptor_t;
+struct HDC_Descriptor_Feature_struct;
+typedef struct HDC_Descriptor_Feature_struct HDC_Descriptor_Feature_t;
 
-struct HDC_Property_struct;
-typedef struct HDC_Property_struct HDC_Property_Descriptor_t;
+struct HDC_Descriptor_Property_struct;
+typedef struct HDC_Descriptor_Property_struct HDC_Descriptor_Property_t;
 
 // Improve readability of function-pointer types
 typedef bool (*HDC_MessageHandler_t)(
@@ -78,19 +78,19 @@ typedef bool (*HDC_MessageHandler_t)(
     const uint8_t Size);
 
 typedef void (*HDC_CommandHandler_t)(
-    const HDC_Feature_Descriptor_t *hHDC_Feature,
+    const HDC_Descriptor_Feature_t *hHDC_Feature,
     const uint8_t* pRequestMessage,
     const uint8_t Size);
 
 typedef void (*HDC_PropertyValueGetter_t)(
-    const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const HDC_Property_Descriptor_t *hHDC_Property,
+    const HDC_Descriptor_Feature_t *hHDC_Feature,
+    const HDC_Descriptor_Property_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize);
 
 typedef void (*HDC_PropertyValueSetter_t)(
-    HDC_Feature_Descriptor_t *hHDC_Feature,
-    const HDC_Property_Descriptor_t *hHDC_Property,
+    HDC_Descriptor_Feature_t *hHDC_Feature,
+    const HDC_Descriptor_Property_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize);
 
@@ -197,7 +197,7 @@ typedef struct {
   HDC_DataTypeID_t dtype;
   char* name;
   char* doc;
-} HDC_Arg_Descriptor_t;
+} HDC_Descriptor_Arg_t;
 
 
 typedef struct {
@@ -205,21 +205,21 @@ typedef struct {
   char* CommandName;
   HDC_CommandHandler_t CommandHandler;
   char* CommandDescription;
-  const HDC_Arg_Descriptor_t *arg1;
-  const HDC_Arg_Descriptor_t *arg2;
-  const HDC_Arg_Descriptor_t *arg3;
-  const HDC_Arg_Descriptor_t *arg4;
-} HDC_Command_Descriptor_t;
+  const HDC_Descriptor_Arg_t *arg1;
+  const HDC_Descriptor_Arg_t *arg2;
+  const HDC_Descriptor_Arg_t *arg3;
+  const HDC_Descriptor_Arg_t *arg4;
+} HDC_Descriptor_Command_t;
 
 
 typedef struct {
   uint8_t EventID;
   char* EventName;
   char* EventDescription;
-} HDC_Event_Descriptor_t;
+} HDC_Descriptor_Event_t;
 
 
-typedef struct HDC_Property_struct {
+typedef struct HDC_Descriptor_Property_struct {
   uint8_t PropertyID;
   char* PropertyName;
   HDC_DataTypeID_t PropertyDataType;
@@ -229,31 +229,31 @@ typedef struct HDC_Property_struct {
   void *pValue;
   size_t ValueSize; // Only required for PropertyDataType=HDC_DataTypeID_BLOB, will otherwise be overridden by size of PropertyDataType
   char* PropertyDescription;
-} HDC_Property_Descriptor_t;
+} HDC_Descriptor_Property_t;
 
 typedef struct {
   uint8_t id;
   char* name;
   char* doc;
-} HDC_State_Descriptor_t;
+} HDC_Descriptor_State_t;
 
-typedef struct HDC_Feature_struct {
+typedef struct HDC_Descriptor_Feature_struct {
   uint8_t FeatureID;
   char* FeatureName;
   char* FeatureClassName;
   char* FeatureClassVersion;
   char* FeatureDescription;
 
-  const HDC_State_Descriptor_t** States;
+  const HDC_Descriptor_State_t** States;
   uint8_t NumStates;
 
-  const HDC_Command_Descriptor_t** Commands;
+  const HDC_Descriptor_Command_t** Commands;
   uint8_t NumCommands;
 
-  const HDC_Event_Descriptor_t** Events;
+  const HDC_Descriptor_Event_t** Events;
   uint8_t NumEvents;
 
-  const HDC_Property_Descriptor_t** Properties;
+  const HDC_Descriptor_Property_t** Properties;
   uint8_t NumProperties;
 
   // Optional pointer to the API handle of a feature.
@@ -269,7 +269,7 @@ typedef struct HDC_Feature_struct {
   uint8_t FeatureState;
 
 
-} HDC_Feature_Descriptor_t;
+} HDC_Descriptor_Feature_t;
 
 
 ///////////////////////////////////////
@@ -284,7 +284,7 @@ void HDC_TxCpltCallback(UART_HandleTypeDef *huart);  // Must be called from HAL_
 
 void HDC_Init(
     UART_HandleTypeDef *huart,
-    HDC_Feature_Descriptor_t **HDC_Features,
+    HDC_Descriptor_Feature_t **HDC_Features,
     uint8_t NumFeatures);
 
 uint32_t HDC_Work();
@@ -345,7 +345,7 @@ void HDC_CmdReply_StringValue(const char* value, const uint8_t* pMsgHeader);
 // Raising of events
 
 void HDC_EvtMsg(
-    const HDC_Feature_Descriptor_t *hHdcFeature,
+    const HDC_Descriptor_Feature_t *hHdcFeature,
     const uint8_t EventID,
     const uint8_t* pEvtPayloadPrefix,
     const size_t EvtPayloadPrefixSize,
@@ -353,7 +353,7 @@ void HDC_EvtMsg(
     const size_t EvtPayloadSuffixSize);
 
 void HDC_EvtMsg_Log(
-    const HDC_Feature_Descriptor_t *hHdcFeature,
+    const HDC_Descriptor_Feature_t *hHdcFeature,
     HDC_EventLogLevel_t logLevel,
     char* logText);
 
@@ -362,7 +362,7 @@ void HDC_EvtMsg_Log(
 // FeatureState
 
 void HDC_FeatureStateTransition(
-    HDC_Feature_Descriptor_t *hHDC_Feature,
+    HDC_Descriptor_Feature_t *hHDC_Feature,
     uint8_t newState);
 
 

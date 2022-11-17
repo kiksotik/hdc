@@ -31,9 +31,9 @@ extern void Error_Handler(void);
 
 /////////////////////////
 // Forward declarations
-const HDC_Command_Descriptor_t *HDC_MandatoryCommands[];
-const HDC_Event_Descriptor_t *HDC_MandatoryEvents[];
-const HDC_Property_Descriptor_t *HDC_MandatoryProperties[];
+const HDC_Descriptor_Command_t *HDC_MandatoryCommands[];
+const HDC_Descriptor_Event_t *HDC_MandatoryEvents[];
+const HDC_Descriptor_Property_t *HDC_MandatoryProperties[];
 
 /////////////////////////////////
 // Handle of the HDC singleton
@@ -41,7 +41,7 @@ struct HDC_struct {
 
   // Configuration
   UART_HandleTypeDef* huart;
-  HDC_Feature_Descriptor_t** Features;
+  HDC_Descriptor_Feature_t** Features;
   uint8_t NumFeatures;
   HDC_MessageHandler_t CustomMsgRouter;
 
@@ -94,7 +94,7 @@ void HDC_TxCpltCallback(UART_HandleTypeDef *huart) {
 
 ////////////////////////////////////////////
 // Utility methods
-HDC_Feature_Descriptor_t* HDC_GetFeature(const uint8_t featureID) {
+HDC_Descriptor_Feature_t* HDC_GetFeature(const uint8_t featureID) {
   for (uint8_t i=0 ; i < hHDC.NumFeatures; i++) {
     if (hHDC.Features[i]->FeatureID == featureID)
       return hHDC.Features[i];
@@ -102,7 +102,7 @@ HDC_Feature_Descriptor_t* HDC_GetFeature(const uint8_t featureID) {
   return NULL;
 }
 
-const HDC_Command_Descriptor_t* HDC_GetCommand(const HDC_Feature_Descriptor_t *feature, const uint8_t commandID) {
+const HDC_Descriptor_Command_t* HDC_GetCommand(const HDC_Descriptor_Feature_t *feature, const uint8_t commandID) {
   for (uint8_t i=0; i< feature->NumCommands;i++)
     if (feature->Commands[i]->CommandID == commandID)
       return feature->Commands[i];
@@ -113,7 +113,7 @@ const HDC_Command_Descriptor_t* HDC_GetCommand(const HDC_Feature_Descriptor_t *f
   return NULL;
 }
 
-const HDC_Event_Descriptor_t* HDC_GetEvent(const HDC_Feature_Descriptor_t *feature, const uint8_t eventID) {
+const HDC_Descriptor_Event_t* HDC_GetEvent(const HDC_Descriptor_Feature_t *feature, const uint8_t eventID) {
   for (uint8_t i = 0; i < feature->NumEvents; i++)
     if (feature->Events[i]->EventID == eventID)
       return feature->Events[i];
@@ -124,7 +124,7 @@ const HDC_Event_Descriptor_t* HDC_GetEvent(const HDC_Feature_Descriptor_t *featu
   return NULL;
 }
 
-const HDC_Property_Descriptor_t* HDC_GetProperty(const HDC_Feature_Descriptor_t *hHDC_Feature, const uint8_t propertyID) {
+const HDC_Descriptor_Property_t* HDC_GetProperty(const HDC_Descriptor_Feature_t *hHDC_Feature, const uint8_t propertyID) {
 
   for (uint8_t i=0 ; i < hHDC_Feature->NumProperties ; i++)
     if (hHDC_Feature->Properties[i]->PropertyID == propertyID)
@@ -503,7 +503,7 @@ void HDC_CmdReply_DTypeValue(const HDC_DataTypeID_t value, const uint8_t* pReque
 // Request Handlers for mandatory Commands
 
 void HDC_Cmd_GetPropertyValue(
-    const HDC_Feature_Descriptor_t *hHDC_Feature,
+    const HDC_Descriptor_Feature_t *hHDC_Feature,
     const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
@@ -517,12 +517,12 @@ void HDC_Cmd_GetPropertyValue(
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t PropertyID = pRequestMessage[3];
 
-  const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
+  const HDC_Descriptor_Feature_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
     return HDC_CmdReply_Error(HDC_CommandErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
-  const HDC_Property_Descriptor_t* property = HDC_GetProperty(feature, PropertyID);
+  const HDC_Descriptor_Property_t* property = HDC_GetProperty(feature, PropertyID);
 
   if (property == NULL)
     return HDC_CmdReply_Error(HDC_CommandErrorCode_UNKNOWN_PROPERTY, pRequestMessage);
@@ -582,7 +582,7 @@ void HDC_Cmd_GetPropertyValue(
 }
 
 void HDC_Cmd_SetPropertyValue(
-    const HDC_Feature_Descriptor_t *hHDC_Feature,
+    const HDC_Descriptor_Feature_t *hHDC_Feature,
     const uint8_t* pRequestMessage,
     const uint8_t Size)
 {
@@ -592,12 +592,12 @@ void HDC_Cmd_SetPropertyValue(
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t PropertyID = pRequestMessage[3];
 
-  HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
+  HDC_Descriptor_Feature_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
     return HDC_CmdReply_Error(HDC_CommandErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
-  const HDC_Property_Descriptor_t *property = HDC_GetProperty(feature, PropertyID);
+  const HDC_Descriptor_Property_t *property = HDC_GetProperty(feature, PropertyID);
 
   if (property == NULL)
     return HDC_CmdReply_Error(HDC_CommandErrorCode_UNKNOWN_PROPERTY, pRequestMessage);
@@ -654,16 +654,16 @@ void HDC_Cmd_SetPropertyValue(
 ///////////////////////////////////////////
 // Descriptors of mandatory Commands
 
-const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = {
+const HDC_Descriptor_Command_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = {
 
-  &(HDC_Command_Descriptor_t){
+  &(HDC_Descriptor_Command_t){
     .CommandID = HDC_CommandID_GetPropertyValue,
     .CommandName = "GetPropertyValue",
     .CommandHandler = &HDC_Cmd_GetPropertyValue,
     .CommandDescription = "(UINT8 PropertyID) -> var Value"
   },
 
-  &(HDC_Command_Descriptor_t){
+  &(HDC_Descriptor_Command_t){
     .CommandID = HDC_CommandID_SetPropertyValue,
     .CommandName = "SetPropertyValue",
     .CommandHandler = &HDC_Cmd_SetPropertyValue,
@@ -675,7 +675,7 @@ const HDC_Command_Descriptor_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
 /////////////////////
 // Event descriptors
 
-const HDC_Event_Descriptor_t HDC_Event_Log = {
+const HDC_Descriptor_Event_t HDC_Event_Log = {
   .EventID = HDC_EventID_Log,
   .EventName = "Log",
   .EventDescription =
@@ -683,7 +683,7 @@ const HDC_Event_Descriptor_t HDC_Event_Log = {
       "Software logging. LogLevels are the same as defined in python's logging module."
 };
 
-const HDC_Event_Descriptor_t HDC_Event_FeatureStateTransition = {
+const HDC_Descriptor_Event_t HDC_Event_FeatureStateTransition = {
   .EventID = HDC_EventID_FeatureStateTransition,
   .EventName = "FeatureStateTransition",
   .EventDescription =
@@ -691,7 +691,7 @@ const HDC_Event_Descriptor_t HDC_Event_FeatureStateTransition = {
       "Notifies host about transitions of this feature's state-machine."
 };
 
-const HDC_Event_Descriptor_t *HDC_MandatoryEvents[NUM_MANDATORY_EVENTS] = {
+const HDC_Descriptor_Event_t *HDC_MandatoryEvents[NUM_MANDATORY_EVENTS] = {
     &HDC_Event_Log,
     &HDC_Event_FeatureStateTransition
 };
@@ -700,7 +700,7 @@ const HDC_Event_Descriptor_t *HDC_MandatoryEvents[NUM_MANDATORY_EVENTS] = {
 //////////////////////////////
 // Event API
 
-void HDC_EvtMsg(const HDC_Feature_Descriptor_t *hHDC_Feature,
+void HDC_EvtMsg(const HDC_Descriptor_Feature_t *hHDC_Feature,
                      const uint8_t EventID,
                      const uint8_t* pEvtPayloadPrefix,
                      const size_t EvtPayloadPrefixSize,
@@ -724,7 +724,7 @@ void HDC_EvtMsg(const HDC_Feature_Descriptor_t *hHDC_Feature,
 }
 
 void HDC_EvtMsg_Log(
-    const HDC_Feature_Descriptor_t *hHDC_Feature,
+    const HDC_Descriptor_Feature_t *hHDC_Feature,
     HDC_EventLogLevel_t logLevel,
     char* logText) {
 
@@ -752,7 +752,7 @@ void HDC_EvtMsg_Log(
 /*
  * Updates the FeatureState property value and raises a FeatureStateTransition-event
  */
-void HDC_FeatureStateTransition(HDC_Feature_Descriptor_t *hHDC_Feature, uint8_t newState) {
+void HDC_FeatureStateTransition(HDC_Descriptor_Feature_t *hHDC_Feature, uint8_t newState) {
   if (hHDC_Feature == NULL)
     // Default to Core-Feature, which by convention is the first array item.
     hHDC_Feature = hHDC.Features[0];
@@ -780,8 +780,8 @@ void HDC_FeatureStateTransition(HDC_Feature_Descriptor_t *hHDC_Feature, uint8_t 
 // Getters and setters for mandatory Properties
 
 void HDC_Property_LogEventThreshold_get(
-    const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const HDC_Property_Descriptor_t *hHDC_Property,
+    const HDC_Descriptor_Feature_t *hHDC_Feature,
+    const HDC_Descriptor_Property_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {
@@ -789,8 +789,8 @@ void HDC_Property_LogEventThreshold_get(
 }
 
 void HDC_Property_LogEventThreshold_set(
-    HDC_Feature_Descriptor_t *hHDC_Feature,
-    const HDC_Property_Descriptor_t *hHDC_Property,
+    HDC_Descriptor_Feature_t *hHDC_Feature,
+    const HDC_Descriptor_Property_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {
@@ -808,8 +808,8 @@ void HDC_Property_LogEventThreshold_set(
 }
 
 void HDC_Property_FeatureState_get(
-    const HDC_Feature_Descriptor_t *hHDC_Feature,
-    const HDC_Property_Descriptor_t *hHDC_Property,
+    const HDC_Descriptor_Feature_t *hHDC_Feature,
+    const HDC_Descriptor_Property_t *hHDC_Property,
     const uint8_t* pRequestMessage,
     const uint8_t RequestMessageSize)
 {
@@ -820,9 +820,9 @@ void HDC_Property_FeatureState_get(
 //////////////////////////////////////
 // Descriptors of mandatory Properties
 
-const HDC_Property_Descriptor_t *HDC_MandatoryProperties[NUM_MANDATORY_PROPERTIES] = {
+const HDC_Descriptor_Property_t *HDC_MandatoryProperties[NUM_MANDATORY_PROPERTIES] = {
 
-  &(HDC_Property_Descriptor_t ) {
+  &(HDC_Descriptor_Property_t ) {
     .PropertyID = HDC_PropertyID_LogEventThreshold,
     .PropertyName = "LogEventThreshold",
     .PropertyDataType = HDC_DataTypeID_UINT8,
@@ -832,7 +832,7 @@ const HDC_Property_Descriptor_t *HDC_MandatoryProperties[NUM_MANDATORY_PROPERTIE
     .PropertyDescription = "Suppresses LogEvents with lower log-levels."
   },
 
-  &(HDC_Property_Descriptor_t ) {
+  &(HDC_Descriptor_Property_t ) {
     .PropertyID = HDC_PropertyID_FeatureState,
     .PropertyName = "FeatureState",
     .PropertyDataType = HDC_DataTypeID_UINT8,
@@ -878,12 +878,12 @@ void HDC_MsgReply_Command(
   uint8_t FeatureID = pRequestMessage[1];
   uint8_t CommandID = pRequestMessage[2];
 
-  const HDC_Feature_Descriptor_t* feature = HDC_GetFeature(FeatureID);
+  const HDC_Descriptor_Feature_t* feature = HDC_GetFeature(FeatureID);
 
   if (feature == NULL)
     return HDC_CmdReply_Error(HDC_CommandErrorCode_UNKNOWN_FEATURE, pRequestMessage);
 
-  const HDC_Command_Descriptor_t* command = HDC_GetCommand(feature, CommandID);
+  const HDC_Descriptor_Command_t* command = HDC_GetCommand(feature, CommandID);
 
   if (command == NULL)
     return HDC_CmdReply_Error(HDC_CommandErrorCode_UNKNOWN_COMMAND, pRequestMessage);
@@ -959,7 +959,7 @@ void HDC_JSON_Attr_bool(const char* key, const bool value) {
     HDC_Compose_Packets_From_Stream((uint8_t*)"false", 5);
 }
 
-void HDC_JSON_State(const HDC_State_Descriptor_t *d) {
+void HDC_JSON_State(const HDC_Descriptor_State_t *d) {
   HDC_JSON_Object_start();
 
   HDC_JSON_Attr_int("id", d->id);
@@ -973,7 +973,7 @@ void HDC_JSON_State(const HDC_State_Descriptor_t *d) {
   HDC_JSON_Object_end();
 }
 
-void HDC_JSON_Arg(const HDC_Arg_Descriptor_t *d) {
+void HDC_JSON_Arg(const HDC_Descriptor_Arg_t *d) {
   HDC_JSON_Object_start();
 
   HDC_JSON_Attr_str("dtype", HDC_GetDataTypeName(d->dtype));
@@ -987,7 +987,7 @@ void HDC_JSON_Arg(const HDC_Arg_Descriptor_t *d) {
   HDC_JSON_Object_end();
 }
 
-void HDC_JSON_Command(const HDC_Command_Descriptor_t *d) {
+void HDC_JSON_Command(const HDC_Descriptor_Command_t *d) {
   HDC_JSON_Object_start();
 
   HDC_JSON_Attr_int("id", d->CommandID);
@@ -1010,7 +1010,7 @@ void HDC_JSON_Command(const HDC_Command_Descriptor_t *d) {
   HDC_JSON_Object_end();
 }
 
-void HDC_JSON_Event(const HDC_Event_Descriptor_t *d) {
+void HDC_JSON_Event(const HDC_Descriptor_Event_t *d) {
   HDC_JSON_Object_start();
 
   HDC_JSON_Attr_int("id", d->EventID);
@@ -1022,7 +1022,7 @@ void HDC_JSON_Event(const HDC_Event_Descriptor_t *d) {
   HDC_JSON_Object_end();
 }
 
-void HDC_JSON_Property(const HDC_Property_Descriptor_t *d) {
+void HDC_JSON_Property(const HDC_Descriptor_Property_t *d) {
   HDC_JSON_Object_start();
 
   HDC_JSON_Attr_int("id", d->PropertyID);
@@ -1042,7 +1042,7 @@ void HDC_JSON_Property(const HDC_Property_Descriptor_t *d) {
   HDC_JSON_Object_end();
 }
 
-void HDC_JSON_Feature(const HDC_Feature_Descriptor_t *d) {
+void HDC_JSON_Feature(const HDC_Descriptor_Feature_t *d) {
   HDC_JSON_Object_start();
   HDC_JSON_Attr_int("id", d->FeatureID);
   HDC_JSON_Comma();
@@ -1426,7 +1426,7 @@ uint32_t HDC_Work() {
 
 void HDC_Init_WithCustomMsgRouting(
     UART_HandleTypeDef *huart,
-    HDC_Feature_Descriptor_t **HDC_Features,
+    HDC_Descriptor_Feature_t **HDC_Features,
     uint8_t NumFeatures,
     HDC_MessageHandler_t CustomMsgRouter) {
 
@@ -1460,7 +1460,7 @@ void HDC_Init_WithCustomMsgRouting(
 
 void HDC_Init(
     UART_HandleTypeDef *huart,
-    HDC_Feature_Descriptor_t **HDC_Features,
+    HDC_Descriptor_Feature_t **HDC_Features,
     uint8_t NumFeatures) {
 
  HDC_Init_WithCustomMsgRouting(

@@ -8,7 +8,7 @@
 /////////////////////////
 // Forward declarations
 
-HDC_Feature_Descriptor_t Core_HDC_Feature;
+HDC_Descriptor_Feature_t Core_HDC_Feature;
 
 ////////////////////////////////////////
 // HDC Stuff
@@ -17,7 +17,7 @@ HDC_Feature_Descriptor_t Core_HDC_Feature;
 // HDC Commands
 
 // Example of an HDC-command handler without any arguments nor any return value
-void Core_HDC_Cmd_Reset(const HDC_Feature_Descriptor_t *hHDC_Feature,
+void Core_HDC_Cmd_Reset(const HDC_Descriptor_Feature_t *hHDC_Feature,
                         const uint8_t* pRequestMessage,
                         const uint8_t Size) {
   if (Size != 3)  // MessageType ; FeatureID ; CommandID
@@ -33,7 +33,7 @@ void Core_HDC_Cmd_Reset(const HDC_Feature_Descriptor_t *hHDC_Feature,
 }
 
 // Example of an HDC-command handler with two arguments and one return value
-void Core_HDC_Cmd_Divide(const HDC_Feature_Descriptor_t *hHDC_Feature,
+void Core_HDC_Cmd_Divide(const HDC_Descriptor_Feature_t *hHDC_Feature,
                          const uint8_t* pRequestMessage,
                          const uint8_t Size) {
   if (Size != 11)  // MessageType ; FeatureID ; CommandID ; FLOAT ; FLOAT
@@ -53,9 +53,9 @@ void Core_HDC_Cmd_Divide(const HDC_Feature_Descriptor_t *hHDC_Feature,
 
 // Example of an HDC-command descriptor.
 // Note how it is defined directly in the array initialization.
-const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
+const HDC_Descriptor_Command_t *Core_HDC_Commands[] = {
 
-  &(HDC_Command_Descriptor_t) {
+  &(HDC_Descriptor_Command_t) {
     .CommandID = 0x01,       // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .CommandName = "Reset",  // Name of the corresponding, automatically generated API-method in a proxy-class.
     .CommandHandler = &Core_HDC_Cmd_Reset,  // Function pointer to the handler defined above.
@@ -65,12 +65,12 @@ const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
   },
 
 
-  &(HDC_Command_Descriptor_t) {
+  &(HDC_Descriptor_Command_t) {
     .CommandID = 0x02,        // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .CommandName = "Divide",  // Name of the corresponding, automatically generated API-method in a proxy-class.
     .CommandHandler = &Core_HDC_Cmd_Divide,  // Function pointer to the handler defined above.
-    .arg1 = &(HDC_Arg_Descriptor_t) {.dtype=HDC_DataTypeID_FLOAT, .name="numerator"},
-    .arg2 = &(HDC_Arg_Descriptor_t) {.dtype=HDC_DataTypeID_FLOAT, .name="denominator", .doc="Beware of the zero!"},
+    .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_FLOAT, .name="numerator"},
+    .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_FLOAT, .name="denominator", .doc="Beware of the zero!"},
     .CommandDescription =
         "(FLOAT numerator, FLOAT denominator) -> DOUBLE\\n"
         "Divides numerator by denominator."    // Human readable docstring
@@ -86,14 +86,14 @@ const HDC_Command_Descriptor_t *Core_HDC_Commands[] = {
 // Example of an HDC-event descriptor
 // Note how it's convenient to define it as a proper variable, so that
 // the Core_HDC_Raise_Event_Button() method below can access the EventID it defines.
-HDC_Event_Descriptor_t Core_HDC_Event_Button = {
+HDC_Descriptor_Event_t Core_HDC_Event_Button = {
       .EventID = 0x01,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
       .EventName = "ButtonEvent",  // Name of the corresponding, automatically generated event handler in a proxy-class.
       .EventDescription = "(UINT8 ButtonID, UINT8 ButtonState)\\n"
                           "Showcases implementation of a custom HDC-event: Notify host about the button being pressed on the device."
 };
 
-const HDC_Event_Descriptor_t *Core_HDC_Events[] = {
+const HDC_Descriptor_Event_t *Core_HDC_Events[] = {
   &Core_HDC_Event_Button,
   // Note how hdc_device driver takes care of all mandatory HDC-events (Log, FeatureStateTransition, ...)
 };
@@ -115,8 +115,8 @@ void Core_HDC_Raise_Event_Button(uint8_t ButtonID, uint8_t ButtonState) {
 // HDC Properties
 
 // Example of getters for HDC-properties
-void Core_HDC_Property_uC_DEVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature,
-                                    const HDC_Property_Descriptor_t *hHDC_Property,
+void Core_HDC_Property_uC_DEVID_get(const HDC_Descriptor_Feature_t *hHDC_Feature,
+                                    const HDC_Descriptor_Property_t *hHDC_Property,
                                     const uint8_t* pRequestMessage,
                                     const uint8_t RequestMessageSize)
 {
@@ -124,8 +124,8 @@ void Core_HDC_Property_uC_DEVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature
   HDC_CmdReply_UInt32Value(devid, pRequestMessage);
 }
 
-void Core_HDC_Property_uC_REVID_get(const HDC_Feature_Descriptor_t *hHDC_Feature,
-                                    const HDC_Property_Descriptor_t *hHDC_Property,
+void Core_HDC_Property_uC_REVID_get(const HDC_Descriptor_Feature_t *hHDC_Feature,
+                                    const HDC_Descriptor_Property_t *hHDC_Property,
                                     const uint8_t* pRequestMessage,
                                     const uint8_t RequestMessageSize)
 {
@@ -138,9 +138,9 @@ uint8_t led_blinking_rate = 5;
 
 // Example of HDC-property descriptors.
 // Note how some descriptor attributes can simply be omitted.
-const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
+const HDC_Descriptor_Property_t *Core_HDC_Properties[] = {
 
-  &(HDC_Property_Descriptor_t ) {
+  &(HDC_Descriptor_Property_t ) {
     .PropertyID = 0x10,          // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .PropertyName = "uC_DEVID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataTypeID_UINT32,
@@ -149,7 +149,7 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
     .PropertyDescription = "32bit Device-ID of STM32 microcontroller."
   },
 
-  &(HDC_Property_Descriptor_t ) {
+  &(HDC_Descriptor_Property_t ) {
     .PropertyID = 0x11,          // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .PropertyName = "uC_REVID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataTypeID_UINT32,
@@ -158,7 +158,7 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
     .PropertyDescription = "32bit Revision-ID of STM32 microcontroller."
   },
 
-  &(HDC_Property_Descriptor_t ) {
+  &(HDC_Descriptor_Property_t ) {
     .PropertyID = 0x12,        // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .PropertyName = "uC_UID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataTypeID_BLOB,
@@ -168,7 +168,7 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
     .PropertyDescription = "96bit unique-ID of STM32 microcontroller."
   },
 
-  &(HDC_Property_Descriptor_t ) {
+  &(HDC_Descriptor_Property_t ) {
     .PropertyID = 0x13,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .PropertyName = "LedBlinkingRate",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataTypeID_UINT8,
@@ -184,20 +184,20 @@ const HDC_Property_Descriptor_t *Core_HDC_Properties[] = {
 
 // Example of state descriptors.
 // Note how some descriptor attributes can simply be omitted.
-const HDC_State_Descriptor_t *Core_HDC_States[] = {
-  &(HDC_State_Descriptor_t ) {
+const HDC_Descriptor_State_t *Core_HDC_States[] = {
+  &(HDC_Descriptor_State_t ) {
     .id = Core_State_Off,
     .name = "OFF"
   },
-  &(HDC_State_Descriptor_t ) {
+  &(HDC_Descriptor_State_t ) {
     .id = Core_State_Initializing,
     .name = "INIT"
   },
-  &(HDC_State_Descriptor_t ) {
+  &(HDC_Descriptor_State_t ) {
     .id = Core_State_Ready,
     .name = "READY"
   },
-  &(HDC_State_Descriptor_t ) {
+  &(HDC_Descriptor_State_t ) {
     .id = Core_State_Error,
     .name = "ERROR"
   },
@@ -209,7 +209,7 @@ const HDC_State_Descriptor_t *Core_HDC_States[] = {
 
 // Example of an HDC-feature descriptor.
 // In this case for the mandatory core-feature of this device.
-HDC_Feature_Descriptor_t Core_HDC_Feature = {
+HDC_Descriptor_Feature_t Core_HDC_Feature = {
   .FeatureID = HDC_FeatureID_Core,       // A FeatureID of 0x00 is what makes this the mandatory Core-Feature of this device.
   .FeatureName = "Core",                 // Name of this feature instance --> name of the proxy instance
   .FeatureClassName = "MinimalCore",     // Name of this feature's implementation
@@ -217,13 +217,13 @@ HDC_Feature_Descriptor_t Core_HDC_Feature = {
   .FeatureDescription = "STM32 C implementation of the 'Minimal' HDC-device demonstration",  // Docstring about this feature/device
   // Documentation of this feature's states and their human readable names. Syntax as for python dictionary initialization
   .States = Core_HDC_States,
-  .NumStates = sizeof(Core_HDC_States) / sizeof(HDC_State_Descriptor_t*),
+  .NumStates = sizeof(Core_HDC_States) / sizeof(HDC_Descriptor_State_t*),
   .Commands = Core_HDC_Commands,
-  .NumCommands = sizeof(Core_HDC_Commands) / sizeof(HDC_Command_Descriptor_t*),
+  .NumCommands = sizeof(Core_HDC_Commands) / sizeof(HDC_Descriptor_Command_t*),
   .Properties = Core_HDC_Properties,
-  .NumProperties = sizeof(Core_HDC_Properties) / sizeof(HDC_Property_Descriptor_t*),
+  .NumProperties = sizeof(Core_HDC_Properties) / sizeof(HDC_Descriptor_Property_t*),
   .Events = Core_HDC_Events,
-  .NumEvents = sizeof(Core_HDC_Events) / sizeof(HDC_Event_Descriptor_t*),
+  .NumEvents = sizeof(Core_HDC_Events) / sizeof(HDC_Descriptor_Event_t*),
   .hAPI = NULL,  // Optional pointer to whatever handle might be useful to access in contexts
                  // where only this descriptor is available, e.g within HDC-command handlers.
   // The following are variables for the mandatory FeatureState and Logging capabilities.
@@ -232,7 +232,7 @@ HDC_Feature_Descriptor_t Core_HDC_Feature = {
   .LogEventThreshold = HDC_EventLogLevel_INFO
 };
 
-HDC_Feature_Descriptor_t *Core_HDC_Features[] = {
+HDC_Descriptor_Feature_t *Core_HDC_Features[] = {
   &Core_HDC_Feature,
 
   // Demo_Minimal demo does not implement any other features, because
@@ -250,7 +250,7 @@ void Core_Init(UART_HandleTypeDef *huart) {
   // Note how the huart instance has been initialized by the auto-generated main.c code.
   HDC_Init(huart,
            Core_HDC_Features,
-           sizeof(Core_HDC_Features) / sizeof(HDC_Feature_Descriptor_t*));
+           sizeof(Core_HDC_Features) / sizeof(HDC_Descriptor_Feature_t*));
 
   // Note that HDC should obviously not be used before it's initialized! ;-)
 

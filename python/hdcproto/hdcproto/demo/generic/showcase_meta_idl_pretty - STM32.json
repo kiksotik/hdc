@@ -31,7 +31,8 @@
                     "id": 1,
                     "name": "Reset",
                     "doc": "(VOID) -> VOID\nReinitializes the whole device.",
-                    "args": []
+                    "args": [],
+                    "returns": []
                 },
                 {
                     "id": 2,
@@ -47,19 +48,27 @@
                             "name": "denominator",
                             "doc": "Beware of the zero!"
                         }
+                    ],
+                    "returns": [
+                        {
+                            "dtype": "DOUBLE",
+                            "doc": "Quotient of numerator/denominator"
+                        }
                     ]
                 },
                 {
                     "id": 240,
                     "name": "GetPropertyValue",
                     "doc": "(UINT8 PropertyID) -> var Value",
-                    "args": []
+                    "args": [],
+                    "returns": []
                 },
                 {
                     "id": 241,
                     "name": "SetPropertyValue",
                     "doc": "(UINT8 PropertyID, var NewValue) -> var ActualNewValue\nReturned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization.",
-                    "args": []
+                    "args": [],
+                    "returns": []
                 }
             ],
             "events": [

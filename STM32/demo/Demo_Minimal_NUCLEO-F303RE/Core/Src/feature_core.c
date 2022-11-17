@@ -71,6 +71,7 @@ const HDC_Descriptor_Command_t *Core_HDC_Commands[] = {
     .CommandHandler = &Core_HDC_Cmd_Divide,  // Function pointer to the handler defined above.
     .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_FLOAT, .name="numerator"},
     .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_FLOAT, .name="denominator", .doc="Beware of the zero!"},
+    .ret1 = &(HDC_Descriptor_Ret_t) {.dtype=HDC_DataTypeID_DOUBLE, .doc="Quotient of numerator/denominator"}, // Name of return values can be omitted
     .CommandDescription =
         "(FLOAT numerator, FLOAT denominator) -> DOUBLE\\n"
         "Divides numerator by denominator."    // Human readable docstring

@@ -66,7 +66,7 @@ class MinimalCoreDescriptor:
             command_implementation=self.divide,
             command_arguments=(ArgD(HdcDataType.FLOAT, "numerator"),
                                ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")),
-            command_returns=RetD(HdcDataType.DOUBLE),
+            command_returns=RetD(HdcDataType.DOUBLE, doc="Quotient of numerator/denominator"),  # May omit name
             command_raises=None
         )
 

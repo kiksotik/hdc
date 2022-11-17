@@ -987,6 +987,24 @@ void HDC_JSON_Arg(const HDC_Descriptor_Arg_t *d) {
   HDC_JSON_Object_end();
 }
 
+void HDC_JSON_Ret(const HDC_Descriptor_Ret_t *d) {
+  HDC_JSON_Object_start();
+
+  HDC_JSON_Attr_str("dtype", HDC_GetDataTypeName(d->dtype));
+  
+  if (d->name) {
+	  HDC_JSON_Comma();
+	  HDC_JSON_Attr_str("name", d->name);
+  }
+  
+  if (d->doc != NULL) {
+    HDC_JSON_Comma();
+    HDC_JSON_Attr_str("doc", d->doc);
+  }
+
+  HDC_JSON_Object_end();
+}
+
 void HDC_JSON_Command(const HDC_Descriptor_Command_t *d) {
   HDC_JSON_Object_start();
 
@@ -1004,6 +1022,17 @@ void HDC_JSON_Command(const HDC_Descriptor_Command_t *d) {
     if (d->arg2) { HDC_JSON_Comma(); HDC_JSON_Arg(d->arg2); }
     if (d->arg3) { HDC_JSON_Comma(); HDC_JSON_Arg(d->arg3); }
     if (d->arg4) { HDC_JSON_Comma(); HDC_JSON_Arg(d->arg4); }
+  }
+  HDC_JSON_Array_end();
+
+  HDC_JSON_Comma();
+  HDC_JSON_Key("returns");
+  HDC_JSON_Array_start();
+  if (d->ret1) {
+    HDC_JSON_Ret(d->ret1);
+    if (d->ret2) { HDC_JSON_Comma(); HDC_JSON_Ret(d->ret2); }
+    if (d->ret3) { HDC_JSON_Comma(); HDC_JSON_Ret(d->ret3); }
+    if (d->ret4) { HDC_JSON_Comma(); HDC_JSON_Ret(d->ret4); }
   }
   HDC_JSON_Array_end();
 

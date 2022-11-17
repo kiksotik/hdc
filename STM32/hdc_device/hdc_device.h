@@ -199,6 +199,11 @@ typedef struct {
   char* doc;
 } HDC_Descriptor_Arg_t;
 
+typedef struct {
+  HDC_DataTypeID_t dtype;
+  char* name;
+  char* doc;
+} HDC_Descriptor_Ret_t;
 
 typedef struct {
   uint8_t CommandID;
@@ -209,6 +214,10 @@ typedef struct {
   const HDC_Descriptor_Arg_t *arg2;
   const HDC_Descriptor_Arg_t *arg3;
   const HDC_Descriptor_Arg_t *arg4;
+  const HDC_Descriptor_Ret_t *ret1;
+  const HDC_Descriptor_Ret_t *ret2;
+  const HDC_Descriptor_Ret_t *ret3;
+  const HDC_Descriptor_Ret_t *ret4;
 } HDC_Descriptor_Command_t;
 
 

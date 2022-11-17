@@ -52,7 +52,8 @@
                     ],
                     "returns": [
                         {
-                            "dtype": "DOUBLE"
+                            "dtype": "DOUBLE",
+                            "doc": "Quotient of numerator/denominator"
                         }
                     ],
                     "raises": []

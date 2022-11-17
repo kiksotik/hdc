@@ -891,27 +891,11 @@ void HDC_MsgReply_Command(
   command->CommandHandler(feature, pRequestMessage, Size);
 }
 
-void HDC_JSON_Object_start(){
-  HDC_Compose_Packets_From_Stream((uint8_t*)"{", 1);
-}
-
-void HDC_JSON_Object_end(){
-  HDC_Compose_Packets_From_Stream((uint8_t*)"}", 1);
-}
-
-void HDC_JSON_Array_start(){
-  HDC_Compose_Packets_From_Stream((uint8_t*)"[", 1);
-}
-
-void HDC_JSON_Array_end(){
-  HDC_Compose_Packets_From_Stream((uint8_t*)"]", 1);
-}
-
-void HDC_JSON_Colon(){
+void HDC_JSON_Colon() {
   HDC_Compose_Packets_From_Stream((uint8_t*)":", 1);
 }
 
-void HDC_JSON_Comma(){
+void HDC_JSON_Comma() {
   HDC_Compose_Packets_From_Stream((uint8_t*)",", 1);
 }
 
@@ -932,237 +916,194 @@ void HDC_JSON_Key(const char* key) {
   HDC_JSON_Colon();
 }
 
-void HDC_JSON_Attr_str(const char* key, const char* value) {
+void HDC_JSON_Object_start(bool* prepend_comma) {
+  if (*prepend_comma) HDC_JSON_Comma();
+  HDC_Compose_Packets_From_Stream((uint8_t*)"{", 1);
+  *prepend_comma = false;  // First child-item should suppress its leading comma
+}
+
+void HDC_JSON_Object_end(bool* prepend_comma) {
+  HDC_Compose_Packets_From_Stream((uint8_t*)"}", 1);
+  *prepend_comma = true;  // Next sibling-item will need to prepend a comma
+}
+
+void HDC_JSON_Attr_array_start(const char* key, bool* prepend_comma) {
+  if (*prepend_comma) HDC_JSON_Comma();
+
+  HDC_JSON_Quoted(key);
+  HDC_JSON_Colon();
+  HDC_Compose_Packets_From_Stream((uint8_t*)"[", 1);
+  *prepend_comma = false;  // First child-item should suppress its leading comma
+}
+
+void HDC_JSON_Array_end(bool* prepend_comma) {
+  HDC_Compose_Packets_From_Stream((uint8_t*)"]", 1);
+  *prepend_comma = true;  // Next sibling-item will need to prepend a comma
+}
+
+void HDC_JSON_Attr_str(const char* key, const char* value, bool* prepend_comma) {
   if (value == NULL)
-    return;  // Simply omit the whole attribute. Do not use JSON "null" values.
+    // Simply omit the whole attribute.
+    // Do *not* use JSON "null" values!
+    return;
+
+  if (*prepend_comma) HDC_JSON_Comma();
+
   HDC_JSON_Quoted(key);
   HDC_JSON_Colon();
 
   // ToDo: Escape illicit characters contained in string values.
-  // But replacing a single character like '\n' with a two character string like "\\n" is not worth the trouble!!
-  // We should expect developers to take care of that themselves when populating the descriptors. Can be validated easier than fixed here!
+  // But replacing a single character like '\n' with a two character
+  // string like "\\n" is not worth the trouble!!
+  // We should expect developers to take care of that themselves when
+  // populating the descriptors. Can be validated easier than fixed here!
   HDC_JSON_Quoted(value);
+
+  *prepend_comma = true; // Next sibling-item will need to prepend a comma
 }
 
-void HDC_JSON_Attr_int(const char* key, const uint16_t value) {
+void HDC_JSON_Attr_int(const char* key, const uint16_t value, bool* prepend_comma) {
+  if (*prepend_comma) HDC_JSON_Comma();
   HDC_JSON_Quoted(key);
   HDC_JSON_Colon();
   HDC_JSON_Integer(value);
+  *prepend_comma = true; // Next sibling-item will need to prepend a comma
 }
 
-void HDC_JSON_Attr_bool(const char* key, const bool value) {
+void HDC_JSON_Attr_bool(const char* key, const bool value, bool* prepend_comma) {
+  if (*prepend_comma) HDC_JSON_Comma();
   HDC_JSON_Quoted(key);
   HDC_JSON_Colon();
   if (value)
     HDC_Compose_Packets_From_Stream((uint8_t*)"true", 4);
   else
     HDC_Compose_Packets_From_Stream((uint8_t*)"false", 5);
+
+  *prepend_comma = true; // Next sibling-item will need to prepend a comma
 }
 
-void HDC_JSON_State(const HDC_Descriptor_State_t *d) {
-  HDC_JSON_Object_start();
-
-  HDC_JSON_Attr_int("id", d->id);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("name", d->name);
-  if (d->doc != NULL) {
-    HDC_JSON_Comma();
-    HDC_JSON_Attr_str("doc", d->doc);
-  }
-
-  HDC_JSON_Object_end();
+void HDC_JSON_State(const HDC_Descriptor_State_t *d, bool* prepend_comma) {
+  HDC_JSON_Object_start(prepend_comma);
+  HDC_JSON_Attr_int("id", d->id, prepend_comma);
+  HDC_JSON_Attr_str("name", d->name, prepend_comma);
+  HDC_JSON_Attr_str("doc", d->doc, prepend_comma);
+  HDC_JSON_Object_end(prepend_comma);
 }
 
-void HDC_JSON_Arg(const HDC_Descriptor_Arg_t *d) {
-  HDC_JSON_Object_start();
+void HDC_JSON_Arg(const HDC_Descriptor_Arg_t *d, bool* prepend_comma) {
+  if (d == NULL)
+    return;  // Omit the whole object
 
-  HDC_JSON_Attr_str("dtype", HDC_GetDataTypeName(d->dtype));
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("name", d->name);
-  if (d->doc != NULL) {
-    HDC_JSON_Comma();
-    HDC_JSON_Attr_str("doc", d->doc);
-  }
-
-  HDC_JSON_Object_end();
+  HDC_JSON_Object_start(prepend_comma);
+  HDC_JSON_Attr_str("dtype", HDC_GetDataTypeName(d->dtype), prepend_comma);
+  HDC_JSON_Attr_str("name", d->name, prepend_comma);
+  HDC_JSON_Attr_str("doc", d->doc, prepend_comma);
+  HDC_JSON_Object_end(prepend_comma);
 }
 
-void HDC_JSON_Ret(const HDC_Descriptor_Ret_t *d) {
-  HDC_JSON_Object_start();
-
-  HDC_JSON_Attr_str("dtype", HDC_GetDataTypeName(d->dtype));
+void HDC_JSON_Ret(const HDC_Descriptor_Ret_t *d, bool* prepend_comma) {
+  if (d == NULL)
+    return;  // Omit the whole object
   
-  if (d->name) {
-	  HDC_JSON_Comma();
-	  HDC_JSON_Attr_str("name", d->name);
-  }
-  
-  if (d->doc != NULL) {
-    HDC_JSON_Comma();
-    HDC_JSON_Attr_str("doc", d->doc);
-  }
-
-  HDC_JSON_Object_end();
+  HDC_JSON_Object_start(prepend_comma);
+  HDC_JSON_Attr_str("dtype", HDC_GetDataTypeName(d->dtype), prepend_comma);
+  HDC_JSON_Attr_str("name", d->name, prepend_comma);
+  HDC_JSON_Attr_str("doc", d->doc, prepend_comma);
+  HDC_JSON_Object_end(prepend_comma);
 }
 
-void HDC_JSON_Command(const HDC_Descriptor_Command_t *d) {
-  HDC_JSON_Object_start();
+void HDC_JSON_Command(const HDC_Descriptor_Command_t *d, bool* prepend_comma) {
+  HDC_JSON_Object_start(prepend_comma);
+  HDC_JSON_Attr_int("id", d->CommandID, prepend_comma);
+  HDC_JSON_Attr_str("name", d->CommandName, prepend_comma);
+  HDC_JSON_Attr_str("doc", d->CommandDescription, prepend_comma);
 
-  HDC_JSON_Attr_int("id", d->CommandID);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("name", d->CommandName);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("doc", d->CommandDescription);
+  HDC_JSON_Attr_array_start("args", prepend_comma);
+  HDC_JSON_Arg(d->arg1, prepend_comma);
+  HDC_JSON_Arg(d->arg2, prepend_comma);
+  HDC_JSON_Arg(d->arg3, prepend_comma);
+  HDC_JSON_Arg(d->arg4, prepend_comma);
+  HDC_JSON_Array_end(prepend_comma);
 
-  HDC_JSON_Comma();
-  HDC_JSON_Key("args");
-  HDC_JSON_Array_start();
-  if (d->arg1) {
-    HDC_JSON_Arg(d->arg1);
-    if (d->arg2) { HDC_JSON_Comma(); HDC_JSON_Arg(d->arg2); }
-    if (d->arg3) { HDC_JSON_Comma(); HDC_JSON_Arg(d->arg3); }
-    if (d->arg4) { HDC_JSON_Comma(); HDC_JSON_Arg(d->arg4); }
-  }
-  HDC_JSON_Array_end();
+  HDC_JSON_Attr_array_start("returns", prepend_comma);
+  HDC_JSON_Ret(d->ret1, prepend_comma);
+  HDC_JSON_Ret(d->ret2, prepend_comma);
+  HDC_JSON_Ret(d->ret3, prepend_comma);
+  HDC_JSON_Ret(d->ret4, prepend_comma);
+  HDC_JSON_Array_end(prepend_comma);
 
-  HDC_JSON_Comma();
-  HDC_JSON_Key("returns");
-  HDC_JSON_Array_start();
-  if (d->ret1) {
-    HDC_JSON_Ret(d->ret1);
-    if (d->ret2) { HDC_JSON_Comma(); HDC_JSON_Ret(d->ret2); }
-    if (d->ret3) { HDC_JSON_Comma(); HDC_JSON_Ret(d->ret3); }
-    if (d->ret4) { HDC_JSON_Comma(); HDC_JSON_Ret(d->ret4); }
-  }
-  HDC_JSON_Array_end();
-
-  HDC_JSON_Object_end();
+  HDC_JSON_Object_end(prepend_comma);
 }
 
-void HDC_JSON_Event(const HDC_Descriptor_Event_t *d) {
-  HDC_JSON_Object_start();
-
-  HDC_JSON_Attr_int("id", d->EventID);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("name", d->EventName);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("doc", d->EventDescription);
-
-  HDC_JSON_Object_end();
+void HDC_JSON_Event(const HDC_Descriptor_Event_t *d, bool* prepend_comma) {
+  HDC_JSON_Object_start(prepend_comma);
+  HDC_JSON_Attr_int("id", d->EventID, prepend_comma);
+  HDC_JSON_Attr_str("name", d->EventName, prepend_comma);
+  HDC_JSON_Attr_str("doc", d->EventDescription, prepend_comma);
+  HDC_JSON_Object_end(prepend_comma);
 }
 
-void HDC_JSON_Property(const HDC_Descriptor_Property_t *d) {
-  HDC_JSON_Object_start();
-
-  HDC_JSON_Attr_int("id", d->PropertyID);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("name", d->PropertyName);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("dtype", HDC_GetDataTypeName(d->PropertyDataType));
-  if (d->ValueSize > 0 && (d->PropertyDataType == HDC_DataTypeID_BLOB || d->PropertyDataType == HDC_DataTypeID_UTF8)) {
-    HDC_JSON_Comma();
-    HDC_JSON_Attr_int("size", d->ValueSize);
-  }
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_bool("ro", d->PropertyIsReadonly);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("doc", d->PropertyDescription);
-
-  HDC_JSON_Object_end();
+void HDC_JSON_Property(const HDC_Descriptor_Property_t *d, bool* prepend_comma) {
+  HDC_JSON_Object_start(prepend_comma);
+  HDC_JSON_Attr_int("id", d->PropertyID, prepend_comma);
+  HDC_JSON_Attr_str("name", d->PropertyName, prepend_comma);
+  HDC_JSON_Attr_str("dtype", HDC_GetDataTypeName(d->PropertyDataType), prepend_comma);
+  if (d->ValueSize > 0 && (d->PropertyDataType == HDC_DataTypeID_BLOB || d->PropertyDataType == HDC_DataTypeID_UTF8))
+    HDC_JSON_Attr_int("size", d->ValueSize, prepend_comma);
+  HDC_JSON_Attr_bool("ro", d->PropertyIsReadonly, prepend_comma);
+  HDC_JSON_Attr_str("doc", d->PropertyDescription, prepend_comma);
+  HDC_JSON_Object_end(prepend_comma);
 }
 
-void HDC_JSON_Feature(const HDC_Descriptor_Feature_t *d) {
-  HDC_JSON_Object_start();
-  HDC_JSON_Attr_int("id", d->FeatureID);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("name", d->FeatureName);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("class", d->FeatureClassName);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("version", d->FeatureClassVersion);
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_str("doc", d->FeatureDescription);
+void HDC_JSON_Feature(const HDC_Descriptor_Feature_t *d, bool* prepend_comma) {
+  HDC_JSON_Object_start(prepend_comma);
+  HDC_JSON_Attr_int("id", d->FeatureID, prepend_comma);
+  HDC_JSON_Attr_str("name", d->FeatureName, prepend_comma);
+  HDC_JSON_Attr_str("class", d->FeatureClassName, prepend_comma);
+  HDC_JSON_Attr_str("version", d->FeatureClassVersion, prepend_comma);
+  HDC_JSON_Attr_str("doc", d->FeatureDescription, prepend_comma);
 
-  if (d->NumStates > 0) {
-    HDC_JSON_Comma();
-    HDC_JSON_Key("states");
-    HDC_JSON_Array_start();
-    for (uint8_t idxState=0; idxState < d->NumStates; idxState++) {
-      if (idxState != 0)
-         HDC_JSON_Comma();
-      HDC_JSON_State(d->States[idxState]);
-    }
-    HDC_JSON_Array_end();
-  }
+  HDC_JSON_Attr_array_start("states", prepend_comma);
+  for (uint8_t idxState=0; idxState < d->NumStates; idxState++)
+    HDC_JSON_State(d->States[idxState], prepend_comma);
+  HDC_JSON_Array_end(prepend_comma);
 
-  HDC_JSON_Comma();
-  HDC_JSON_Key("commands");
-  HDC_JSON_Array_start();
-  for (uint8_t idxCmd=0; idxCmd < d->NumCommands; idxCmd++) {
-    if (idxCmd != 0)
-       HDC_JSON_Comma();
-    HDC_JSON_Command(d->Commands[idxCmd]);
-  }
-  for (uint8_t idxCmd=0; idxCmd < NUM_MANDATORY_COMMANDS; idxCmd++) {
-    if (idxCmd != 0 || d->NumCommands != 0)
-       HDC_JSON_Comma();
-    HDC_JSON_Command(HDC_MandatoryCommands[idxCmd]);
-  }
-  HDC_JSON_Array_end();
+  HDC_JSON_Attr_array_start("commands", prepend_comma);
+  for (uint8_t idxCmd=0; idxCmd < d->NumCommands; idxCmd++)
+    HDC_JSON_Command(d->Commands[idxCmd], prepend_comma);
+  for (uint8_t idxCmd=0; idxCmd < NUM_MANDATORY_COMMANDS; idxCmd++)
+    HDC_JSON_Command(HDC_MandatoryCommands[idxCmd], prepend_comma);
+  HDC_JSON_Array_end(prepend_comma);
 
-  HDC_JSON_Comma();
-  HDC_JSON_Key("events");
-  HDC_JSON_Array_start();
-  for (uint8_t idxEvt=0; idxEvt < d->NumEvents; idxEvt++) {
-    if (idxEvt != 0)
-       HDC_JSON_Comma();
-    HDC_JSON_Event(d->Events[idxEvt]);
-  }
-  for (uint8_t idxEvt=0; idxEvt < NUM_MANDATORY_EVENTS; idxEvt++) {
-    if (idxEvt != 0 || d->NumEvents != 0)
-       HDC_JSON_Comma();
-    HDC_JSON_Event(HDC_MandatoryEvents[idxEvt]);
-  }
-  HDC_JSON_Array_end();
+  HDC_JSON_Attr_array_start("events", prepend_comma);
+  for (uint8_t idxEvt=0; idxEvt < d->NumEvents; idxEvt++)
+    HDC_JSON_Event(d->Events[idxEvt], prepend_comma);
+  for (uint8_t idxEvt=0; idxEvt < NUM_MANDATORY_EVENTS; idxEvt++)
+    HDC_JSON_Event(HDC_MandatoryEvents[idxEvt], prepend_comma);
+  HDC_JSON_Array_end(prepend_comma);
 
-  HDC_JSON_Comma();
-  HDC_JSON_Key("properties");
-  HDC_JSON_Array_start();
-  for (uint8_t idxProp=0; idxProp < d->NumProperties; idxProp++) {
-    if (idxProp != 0)
-       HDC_JSON_Comma();
-    HDC_JSON_Property(d->Properties[idxProp]);
-  }
-  for (uint8_t idxProp=0; idxProp < NUM_MANDATORY_PROPERTIES; idxProp++) {
-    if (idxProp != 0 || d->NumProperties != 0)
-       HDC_JSON_Comma();
-    HDC_JSON_Property(HDC_MandatoryProperties[idxProp]);
-  }
-  HDC_JSON_Array_end();
+  HDC_JSON_Attr_array_start("properties", prepend_comma);
+  for (uint8_t idxProp=0; idxProp < d->NumProperties; idxProp++)
+    HDC_JSON_Property(d->Properties[idxProp], prepend_comma);
+  for (uint8_t idxProp=0; idxProp < NUM_MANDATORY_PROPERTIES; idxProp++)
+    HDC_JSON_Property(HDC_MandatoryProperties[idxProp], prepend_comma);
+  HDC_JSON_Array_end(prepend_comma);
 
-  HDC_JSON_Object_end();
+  HDC_JSON_Object_end(prepend_comma);
 }
 
 
 void HDC_JSON_Device() {
-  HDC_JSON_Object_start();
+  bool prepend_comma = false;
+  HDC_JSON_Object_start(&prepend_comma);
+  HDC_JSON_Attr_str("version", HDC_VERSION_STRING, &prepend_comma);
+  HDC_JSON_Attr_int("MaxReq", HDC_MAX_REQ_MESSAGE_SIZE, &prepend_comma);
 
-  HDC_JSON_Attr_str("version", HDC_VERSION_STRING);
-
-  HDC_JSON_Comma();
-  HDC_JSON_Attr_int("MaxReq", HDC_MAX_REQ_MESSAGE_SIZE);
-
-  HDC_JSON_Comma();
-  HDC_JSON_Key("features");
-  HDC_JSON_Array_start();
-  for (uint8_t idxFeature=0; idxFeature < hHDC.NumFeatures; idxFeature++) {
-    if (idxFeature != 0)
-       HDC_JSON_Comma();
-    HDC_JSON_Feature(hHDC.Features[idxFeature]);
-  }
-  HDC_JSON_Array_end();
-
-  HDC_JSON_Object_end();
+  HDC_JSON_Attr_array_start("features", &prepend_comma);
+  for (uint8_t idxFeature=0; idxFeature < hHDC.NumFeatures; idxFeature++)
+    HDC_JSON_Feature(hHDC.Features[idxFeature], &prepend_comma);
+  HDC_JSON_Array_end(&prepend_comma);
+  HDC_JSON_Object_end(&prepend_comma);
 }
 
 void HDC_MsgReply_Meta_IdlJson(

@@ -98,9 +98,9 @@ class CommandDescriptorBase:
     command_name: str
     command_description: str
     command_implementation: typing.Callable[[typing.Any], typing.Any]
-    command_arguments: tuple[ArgD, ...]  # Typed strictly! For other uses, resort to CommandDescriptorBase, instead.
-    command_returns: tuple[RetD, ...]  # Typed strictly! For other uses, resort to CommandDescriptorBase, instead.
-    command_raises: dict[int, str]
+    command_arguments: tuple[ArgD, ...]  # ToDo: Argument optionality. #25
+    command_returns: tuple[RetD, ...]  # ToDo: Argument optionality. #25
+    command_raises: dict[int, str]  # ToDo: Argument optionality. #25
 
     _command_request_handler: typing.Callable[[bytes], None]
     msg_prefix: bytes
@@ -274,7 +274,7 @@ class CommandDescriptorBase:
             id=self.command_id,
             name=self.command_name,
             doc=self.command_description,
-            args =[arg.to_idl_dict()
+            args=[arg.to_idl_dict()
                    for arg in self.command_arguments
                    ] if self.command_arguments is not None else None,
             returns=[ret.to_idl_dict()
@@ -293,7 +293,7 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
                          command_id=CmdID.GET_PROP_VALUE,
                          command_name="GetPropertyValue",
                          command_implementation=self._command_implementation,
-                         command_description="", # ToDo: Fix optionality of descriptor attributes #25
+                         command_description="",  # ToDo: Argument optionality. #25
                          command_arguments=(ArgD(HdcDataType.UINT8, name="PropertyID"),),
                          # Returns 'BLOB', because data-type depends on requested property
                          command_returns=(RetD(HdcDataType.BLOB, doc="Actual data-type depends on property"),),
@@ -366,13 +366,15 @@ class EventDescriptorBase:
     event_id: int
     event_name: str
     event_description: str
+    event_arguments: tuple[ArgD, ...] | None
     msg_prefix: bytes
 
     def __init__(self,
                  feature_descriptor: FeatureDescriptorBase,
                  event_id: int,
                  event_name: str,
-                 event_description: str | None):
+                 event_description: str | None,
+                 event_arguments: tuple[ArgD, ...] | None):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor.MyFeatureDescriptor.MyEventDescriptor"
@@ -404,6 +406,22 @@ class EventDescriptorBase:
             event_description = ""
         self.event_description = event_description
 
+        if event_arguments is None:
+            event_arguments = None
+        if any(arg.dtype.size is None for arg in event_arguments[:-1]):
+            raise ValueError("Only last argument may be of a variable-size data-type")
+        self.event_arguments = event_arguments
+
+        description_already_contains_event_signature = event_description.startswith('(')
+        if not description_already_contains_event_signature:
+            evt_signature = "("
+            evt_signature += ', '.join(f"{arg.dtype.name} {arg.name}" for arg in self.event_arguments)
+            evt_signature += ")"
+            if event_description:
+                self.event_description = evt_signature + '\n' + event_description
+            else:
+                self.event_description = evt_signature
+
         self.msg_prefix = bytes([int(MessageTypeID.EVENT),
                                  self.feature_descriptor.feature_id,
                                  self.event_id])
@@ -412,7 +430,7 @@ class EventDescriptorBase:
     def router(self) -> hdcproto.device.router.MessageRouter:
         return self.feature_descriptor.device_descriptor.router
 
-    def _send_event_message(self, event_message: bytes) -> None:
+    def _send_event_message_raw(self, event_message: bytes) -> None:
         if not isinstance(event_message, (bytes, bytearray)):
             raise TypeError()
 
@@ -422,78 +440,39 @@ class EventDescriptorBase:
 
         self.router.send_event_message(event_message=event_message)
 
-    def to_idl_dict(self) -> dict:
-        return dict(
-            id=self.event_id,
-            name=self.event_name,
-            doc=self.event_description)
-
-
-class TypedEventDescriptor(EventDescriptorBase):
-    event_arguments: list[tuple[HdcDataType, str]] | None
-
-    def __init__(self,
-                 feature_descriptor: FeatureDescriptorBase,
-                 event_id: int,
-                 event_name: str,
-                 event_description: str | None,
-                 event_arguments: list[tuple[HdcDataType, str]] | None):
-
-        super().__init__(feature_descriptor=feature_descriptor,
-                         event_id=event_id,
-                         event_name=event_name,
-                         event_description=event_description)
-
-        if event_arguments is None:
-            event_arguments = list()
-        if any(arg_type.size is None for arg_type, arg_name in event_arguments[:-1]):
-            raise ValueError("Only last argument may be of a variable-size data-type")
-        self.event_arguments = event_arguments
-
-        description_already_contains_event_signature = event_description.startswith('(')
-        if not description_already_contains_event_signature:
-            evt_signature = "("
-            evt_signature += ', '.join(f"{arg_type.name} {arg_name}" for arg_type, arg_name in self.event_arguments)
-            evt_signature += ")"
-            if event_description:
-                self.event_description = evt_signature + '\n' + event_description
-            else:
-                self.event_description = evt_signature
-
     def _send_event_message(self, event_args: list[typing.Any] | None) -> None:
         event_message = bytearray(self.msg_prefix)
 
         if event_args is None:
-            event_args = list()
+            assert self.event_arguments is None
+        else:
+            assert len(event_args) == len(self.event_arguments)
 
-        assert len(event_args) == len(self.event_arguments)
-
-        for arg_value, (arg_type, arg_name) in zip(event_args, self.event_arguments):
-            arg_as_raw_bytes = arg_type.value_to_bytes(arg_value)
-            event_message.extend(arg_as_raw_bytes)
+            for arg_value, arg_descriptor in zip(event_args, self.event_arguments):
+                arg_as_raw_bytes = arg_descriptor.dtype.value_to_bytes(arg_value)
+                event_message.extend(arg_as_raw_bytes)
 
         event_message = bytes(event_message)
 
-        super()._send_event_message(event_message=event_message)
+        self._send_event_message_raw(event_message=event_message)
 
     def to_idl_dict(self) -> dict:
-        d = super().to_idl_dict()
-        d["args"] = [
-            dict(name=arg_name, type=arg_type.name)
-            for arg_type, arg_name in self.event_arguments
-        ]
-        return d
+        return dict(
+            id=self.event_id,
+            name=self.event_name,
+            doc=self.event_description,
+            args=[arg.to_idl_dict()
+                  for arg in self.event_arguments])
 
 
-class LogEventDescriptor(TypedEventDescriptor):
+class LogEventDescriptor(EventDescriptorBase):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
                          event_id=EvtID.LOG,
                          event_name="Log",
-                         event_description="Software logging. "
-                                           "LogLevels are the same as defined in python's logging module.",
-                         event_arguments=[(HdcDataType.UINT8, 'LogLevel'),
-                                          (HdcDataType.UTF8, 'LogMsg')])
+                         event_description="Forwards software event log to the host.",
+                         event_arguments=(ArgD(HdcDataType.UINT8, 'LogLevel', doc="Same as in Python"),
+                                          ArgD(HdcDataType.UTF8, 'LogMsg')))
 
     def emit(self, log_level: int, log_msg: str) -> None:
         if log_level >= self.feature_descriptor.log_event_threshold:
@@ -519,14 +498,14 @@ class HdcLoggingHandler(logging.Handler):
             self.handleError(record)
 
 
-class FeatureStateTransitionEventDescriptor(TypedEventDescriptor):
+class FeatureStateTransitionEventDescriptor(EventDescriptorBase):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor,
                          event_id=EvtID.FEATURE_STATE_TRANSITION,
                          event_name="FeatureStateTransition",
                          event_description="Notifies host about transitions of this feature's state-machine.",
-                         event_arguments=[(HdcDataType.UINT8, 'PreviousStateID'),
-                                          (HdcDataType.UINT8, 'CurrentStateID')])
+                         event_arguments=(ArgD(HdcDataType.UINT8, 'PreviousStateID'),
+                                          ArgD(HdcDataType.UINT8, 'CurrentStateID')))
 
     def emit(self, previous_state_id: int, current_state_id: int) -> None:
         if not is_valid_uint8(previous_state_id):

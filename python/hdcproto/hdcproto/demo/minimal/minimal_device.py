@@ -7,7 +7,7 @@ from pynput import keyboard
 from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, HdcCmdException
 from hdcproto.device.descriptor import (DeviceDescriptorBase, CoreFeatureDescriptorBase,
                                         CommandDescriptorBase, PropertyDescriptorBase,
-                                        FeatureDescriptorBase, TypedEventDescriptor, ArgD, RetD)
+                                        FeatureDescriptorBase, EventDescriptorBase, ArgD, RetD)
 
 
 class MinimalDeviceDescriptor(DeviceDescriptorBase):
@@ -148,15 +148,14 @@ class MinimalCoreDescriptor:
         return self.led_blinking_rate
 
 
-class ButtonEventDescriptor(TypedEventDescriptor):
+class ButtonEventDescriptor(EventDescriptorBase):
     def __init__(self, feature_descriptor: FeatureDescriptorBase):
         super().__init__(feature_descriptor=feature_descriptor,
                          event_id=0x01,
                          event_name="ButtonEvent",
-                         event_description="Showcases implementation of a custom HDC-event: "
-                                           "Notify host about the button being pressed on the device.",
-                         event_arguments=[(HdcDataType.UINT8, "ButtonID"),
-                                          (HdcDataType.UINT8, "ButtonState")])
+                         event_description="Notify host about the button being pressed on the device.",
+                         event_arguments=(ArgD(HdcDataType.UINT8, "ButtonID"),
+                                          ArgD(HdcDataType.UINT8, "ButtonState")))
 
     def emit(self, button_id: int, button_state: int):
         self._send_event_message([button_id, button_state])

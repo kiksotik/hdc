@@ -46,7 +46,7 @@ class MessageRouter:
 
     @property
     def is_connected(self) -> bool:
-        return self.transport is not None
+        return self.transport is not None and self.transport.is_connected
 
     def connect(self, connection_url: str | None = None):
         if connection_url is None and self.connection_url is None:
@@ -66,7 +66,7 @@ class MessageRouter:
         logger.debug("Connected")
 
     def close(self):
-        if not self.is_connected:
+        if self.transport is None:
             return
 
         logger.info(f"Closing connection via {self.transport}")
@@ -121,8 +121,9 @@ class MessageRouter:
     def send_event_message(self, event_message: bytes) -> None:
         assert event_message[0] == MessageTypeID.EVENT
 
-        if self.transport is None:
-            raise RuntimeError("Not connected")
+        if not self.is_connected:
+            logger.warning("Suppressing event message, because currently not connected!")
+            return
 
         logger.info("Sending EVENT message")
         self.transport.send_message(event_message)
@@ -131,8 +132,9 @@ class MessageRouter:
         """
         Will send a reply message and release the lock on reception of further requests.
         """
-        if self.transport is None:
-            raise RuntimeError("Not connected")
+        if not self.is_connected:
+            logger.error("Suppressing reply message, because currently not connected!")
+            return
 
         if self.pending_request_message is None:
             # Raise an exception, because Device implementation is to blame for this

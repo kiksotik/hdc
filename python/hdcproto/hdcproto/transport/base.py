@@ -20,6 +20,10 @@ class TransportBase:
         self.message_received_handler = message_received_handler
         self.connection_lost_handler = connection_lost_handler
 
+    @property
+    def is_connected(self) -> bool:
+        raise NotImplementedError()
+
     def connect(self) -> None:
         raise NotImplementedError()
 

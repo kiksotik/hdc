@@ -167,7 +167,7 @@ class CommandDescriptorBase:
             if any(not isinstance(arg, ArgD) for arg in command_arguments):
                 raise TypeError("command_arguments must be an iterable of ArgD objects")
 
-            if any(arg.dtype.size is None for arg in command_arguments[:-1]):
+            if any(arg.dtype.is_variable_size() for arg in command_arguments[:-1]):
                 raise ValueError("Only last argument may be of a variable-size data-type")
 
             self.command_arguments = tuple(command_arguments)
@@ -184,7 +184,7 @@ class CommandDescriptorBase:
             if any(not isinstance(ret, RetD) for ret in command_returns):
                 raise TypeError("command_returns must be an iterable of RetD objects")
 
-            if any(ret.dtype.size is None for ret in command_returns[:-1]):
+            if any(ret.dtype.is_variable_size() for ret in command_returns[:-1]):
                 raise ValueError("Only last return value may be of a variable-size data-type")
 
             self.command_returns = tuple(command_returns)
@@ -416,7 +416,7 @@ class EventDescriptorBase:
 
         if event_arguments is None:
             event_arguments = None
-        if any(arg.dtype.size is None for arg in event_arguments[:-1]):
+        if any(arg.dtype.is_variable_size() for arg in event_arguments[:-1]):
             raise ValueError("Only last argument may be of a variable-size data-type")
         self.event_arguments = event_arguments
 

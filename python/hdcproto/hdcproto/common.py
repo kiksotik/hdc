@@ -107,6 +107,7 @@ class HdcDataType(enum.IntEnum):
     DTYPE = 0xD1  # Yes, this is confusing, because it's self-referential: It's the data type ID of HdcDataType itself.
 
     def struct_format(self) -> str | None:
+        """Format character used to (de-)serialize this data type with the struct.pack() and struct.unpack() methods"""
         if self == HdcDataType.BOOL:
             return "?"
         if self == HdcDataType.UINT8:
@@ -126,9 +127,9 @@ class HdcDataType(enum.IntEnum):
         if self == HdcDataType.DOUBLE:
             return "<d"
         if self == HdcDataType.BLOB:
-            return None  # Meaning: Variable size
+            return None  # Meaning: Variable size. Inferred from the size of the received payload.
         if self == HdcDataType.UTF8:
-            return None  # Meaning: Variable size
+            return None  # Meaning: Variable size. Inferred from the size of the received payload.
         if self == HdcDataType.DTYPE:
             return "B"  # Equivalent to a UINT8 value at the bytes level
 
@@ -142,6 +143,9 @@ class HdcDataType(enum.IntEnum):
             return None
 
         return struct.calcsize(fmt)
+
+    def is_variable_size(self) -> bool:
+        return self.size() is None
 
     def value_to_bytes(self, value: int | float | str | bytes | HdcDataType) -> bytes:
 
@@ -250,18 +254,18 @@ class HdcDataType(enum.IntEnum):
         if any(not isinstance(t, HdcDataType) for t in expected_data_types):
             raise HdcDataTypeError("Only knows how to parse for HdcDataType. (Build-in python types are not supported)")
 
+        if any(dtype.is_variable_size() for dtype in expected_data_types[:-1]):
+            raise HdcDataTypeError("Variable size values (UTF8, BLOB) are only allowed as last item")
+
         return_values = list()
         for idx, return_data_type in enumerate(expected_data_types):
-            size = return_data_type.size()
-            if size is None:
-                # A size of None means it is variable length, which
-                # is only allowed as last of the expected values!
-                if idx != len(expected_data_types) - 1:
-                    raise HdcDataTypeError("Variable size values (UTF8, BLOB) are only allowed as last item")
-                else:
-                    size = len(raw_payload)  # Assume that the remainder of the payload is the actual value size
-            if size > len(raw_payload):
-                raise HdcDataTypeError("Payload is shorter than expected.")
+            if return_data_type.is_variable_size():
+                # A size of None means it is variable length,
+                size = len(raw_payload)  # Assume that the remainder of the payload is the actual value size
+            else:
+                size = return_data_type.size()
+                if size > len(raw_payload):
+                    raise HdcDataTypeError("Payload is shorter than expected.")
             return_value_as_bytes = raw_payload[:size]
             return_value = return_data_type.bytes_to_value(return_value_as_bytes)
             return_values.append(return_value)

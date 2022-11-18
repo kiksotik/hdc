@@ -22,7 +22,7 @@ class ArgD:
     """
     Argument descriptor
 
-    As used to describe the arguments that an HDC-Command takes.
+    As used to describe the arguments that an HDC-Command takes or that an HDC-Event carries.
     """
     dtype: HdcDataType
     name: str
@@ -85,22 +85,14 @@ class RetD:
 
 
 class CommandDescriptorBase:
-    """
-    Derive from this *only* if custom handling of
-    arguments and return values is required, i.e.:
-      - Variable data-types in arguments and/or reply, like SetPropertyValue()
-      - Variable number of arguments and/or reply items
-
-    Otherwise, you might be better off using the TypedCommandDescriptor class.
-    """
     feature_descriptor: FeatureDescriptorBase
     command_id: int
     command_name: str
     command_description: str
     command_implementation: typing.Callable[[typing.Any], typing.Any]
-    command_arguments: tuple[ArgD, ...]  # ToDo: Argument optionality. #25
-    command_returns: tuple[RetD, ...]  # ToDo: Argument optionality. #25
-    command_raises: dict[int, str]  # ToDo: Argument optionality. #25
+    command_arguments: tuple[ArgD, ...]  # ToDo: Attribute optionality. #25
+    command_returns: tuple[RetD, ...]  # ToDo: Attribute optionality. #25
+    command_raises: dict[int, str]  # ToDo: Attribute optionality. #25
 
     _command_request_handler: typing.Callable[[bytes], None]
     msg_prefix: bytes
@@ -275,11 +267,11 @@ class CommandDescriptorBase:
             name=self.command_name,
             doc=self.command_description,
             args=[arg.to_idl_dict()
-                   for arg in self.command_arguments
-                   ] if self.command_arguments is not None else None,
+                  for arg in self.command_arguments
+                  ] if self.command_arguments is not None else None,
             returns=[ret.to_idl_dict()
                      for ret in self.command_returns
-                    ] if self.command_returns is not None else None,
+                     ] if self.command_returns is not None else None,
             raises=[
                 dict(id=error_id, name=error_name)
                 for error_id, error_name in self.command_raises.items()
@@ -293,7 +285,7 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
                          command_id=CmdID.GET_PROP_VALUE,
                          command_name="GetPropertyValue",
                          command_implementation=self._command_implementation,
-                         command_description="",  # ToDo: Argument optionality. #25
+                         command_description="",  # ToDo: Attribute optionality. #25
                          command_arguments=(ArgD(HdcDataType.UINT8, name="PropertyID"),),
                          # Returns 'BLOB', because data-type depends on requested property
                          command_returns=(RetD(HdcDataType.BLOB, doc="Actual data-type depends on property"),),

@@ -82,7 +82,7 @@ class MyDivZeroError(HdcCmdException):
     def __init__(self,
                  exception_message: str | None = None):
         super().__init__(exception_id=0x01,
-                         exception_name="DivisionByZero",
+                         exception_name="MyDivZero",
                          exception_message=exception_message)
 
 

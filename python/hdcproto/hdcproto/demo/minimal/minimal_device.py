@@ -32,7 +32,7 @@ class MinimalDeviceDescriptor(DeviceDescriptorBase):
 
 class MyDivZeroError(HdcCmdException):
     def __init__(self):
-        super().__init__(exception_id=0x01, exception_name="DivisionByZero")
+        super().__init__(exception_id=0x01, exception_name="MyDivZero")
 
 
 class MinimalCoreDescriptor:
@@ -104,7 +104,6 @@ class MinimalCoreDescriptor:
             property_setter=None
         )
 
-        # ToDo: We could use the following property
         self.prop_led_blinking_rate = PropertyDescriptorBase(
             feature_descriptor=self.hdc,
             property_id=0x13,

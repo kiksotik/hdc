@@ -37,7 +37,8 @@ class TestConnection(unittest.TestCase):
 
         self.assertFalse(my_device.is_connected)
         log_text = "Hello there!"
-        with self.assertRaises(RuntimeError):
+        import hdcproto.device.router
+        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING) as log:
             my_device.core.evt_log.emit(logging.ERROR, log_text)
 
         my_device.connect(connection_url="mock://")
@@ -60,7 +61,8 @@ class TestConnection(unittest.TestCase):
 
         self.assertFalse(my_device.is_connected)
         log_text = "Hello there!"
-        with self.assertRaises(RuntimeError):
+        import hdcproto.device.router
+        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING) as log:
             my_device.core.evt_log.emit(logging.ERROR, log_text)
 
         with my_device:

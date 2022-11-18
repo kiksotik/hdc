@@ -18,12 +18,11 @@ class MockTransport(TransportBase):
     Might also be used to relay messages into other kinds of transports that may need to be fed with a spoon.
         e.g. https://datatracker.ietf.org/doc/html/rfc1149
     """
-    connection_url: str
-    is_connected: bool
     outbound_messages: deque[bytes] | None
     inbound_messages: deque[bytes] | None
     reply_mocking: typing.Callable[[bytes], bytes] | None
     _writing_lock: threading.Lock
+    _is_mock_connected: bool
 
     def __init__(self,
                  connection_url: str,
@@ -36,11 +35,11 @@ class MockTransport(TransportBase):
                          message_received_handler=message_received_handler,
                          connection_lost_handler=connection_lost_handler)
 
-        self.is_connected = False
         self.outbound_messages = None
         self.inbound_messages = None
         self.reply_mocking = None
         self._writing_lock = threading.Lock()
+        self._is_mock_connected = False
 
     def connect(self) -> None:
         if self.is_connected:
@@ -49,7 +48,11 @@ class MockTransport(TransportBase):
         logger.info(f"Pretending to connect.")
         self.outbound_messages = deque()  # Discard any previous buffer of messages
         self.inbound_messages = deque()  # Discard any previous buffer of messages
-        self.is_connected = True
+        self._is_mock_connected = True
+
+    @property
+    def is_connected(self) -> bool:
+        return self._is_mock_connected
 
     def send_message(self, message: bytes) -> None:
         if not self.is_connected:
@@ -68,7 +71,7 @@ class MockTransport(TransportBase):
         try:
             mocked_reply = self.reply_mocking(message)
         except Exception as e:
-            self.is_connected = False
+            self._is_mock_connected = False
             self.connection_lost_handler(e)
             return
 
@@ -98,7 +101,7 @@ class MockTransport(TransportBase):
 
         logger.info(f"Pretending to disconnect.")
         # Not clearing in/outbound_messages buffers as a courtesy for unit-tests
-        self.is_connected = False
+        self._is_mock_connected = False
         self.connection_lost_handler(None)
 
     def __enter__(self) -> MockTransport:

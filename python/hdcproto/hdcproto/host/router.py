@@ -42,7 +42,7 @@ class MessageRouter:
 
     @property
     def is_connected(self) -> bool:
-        return self.transport is not None
+        return self.transport is not None and self.transport.is_connected
 
     def connect(self, connection_url: str | None = None):
         if connection_url is None and self.connection_url is None:

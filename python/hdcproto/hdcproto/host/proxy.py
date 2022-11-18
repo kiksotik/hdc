@@ -27,12 +27,13 @@ class CommandProxyBase:
     feature_proxy: FeatureProxyBase
     command_id: int
     default_timeout: float
-    known_exceptions: dict[int, str | typing.Type[HdcCmdException]]
+    command_raises: dict[int, HdcCmdException]
     msg_prefix: bytes
 
     def __init__(self,
                  feature_proxy: FeatureProxyBase,
                  command_id: int,
+                 raises_also: typing.Iterable[HdcCmdException | enum.IntEnum] | None = None,
                  default_timeout: float = DEFAULT_REPLY_TIMEOUT):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
@@ -49,13 +50,22 @@ class CommandProxyBase:
         self.command_id = command_id
         self.default_timeout = default_timeout
 
-        # Register exceptions raised by all commands
-        self.known_exceptions = dict()
-        self.register_exception(HdcCmdExc_CommandFailed)
-        self.register_exception(HdcCmdExc_UnknownFeature)
-        self.register_exception(HdcCmdExc_UnknownCommand)
-        self.register_exception(HdcCmdExc_InvalidArgs)
-        self.register_exception(HdcCmdExc_NotNow)
+        raised_by_all_commands = [
+            HdcCmdExc_CommandFailed(),
+            HdcCmdExc_UnknownFeature(),
+            HdcCmdExc_UnknownCommand(),
+            HdcCmdExc_InvalidArgs(),
+            HdcCmdExc_NotNow()
+        ]
+        if raises_also is None:
+            raises_also = []
+        elif isinstance(raises_also, HdcCmdException):
+            raises_also = [raises_also]
+        self.command_raises = dict()
+        for exc in raised_by_all_commands + raises_also:
+            if isinstance(exc, enum.IntEnum):
+                exc = HdcCmdException(exc)
+            self._register_exception(exc)
 
         self.msg_prefix = bytes([int(MessageTypeID.COMMAND),
                                  self.feature_proxy.feature_id,
@@ -65,47 +75,11 @@ class CommandProxyBase:
     def router(self) -> hdcproto.host.router.MessageRouter:
         return self.feature_proxy.device_proxy.router
 
-    def register_exception(self,
-                           id_or_exception_class: int | enum.IntEnum | typing.Type[HdcCmdException],
-                           exception_name: str | None = None) -> None:
-
-        registry_value: str | typing.Type[HdcCmdException]
-
-        if isinstance(id_or_exception_class, type) and issubclass(id_or_exception_class, HdcCmdException):
-            if exception_name is not None:
-                raise ValueError("exception_name not needed")
-            dummy_exception = id_or_exception_class(exception_message=None)
-            exception_id = dummy_exception.exception_id
-            registry_value = id_or_exception_class  # Register the class, not an instance!
-        elif isinstance(id_or_exception_class, enum.IntEnum):
-            if exception_name is not None:
-                raise ValueError("exception_name not needed")
-            exception_id: int = int(id_or_exception_class)
-            registry_value = id_or_exception_class.name  # Register IntEnum name
-        elif isinstance(id_or_exception_class, int):
-            # Assume it's an application specific exception.
-            # Disallow overriding CommandErrorCodes whose meaning is already predefined and thus reserved by HDC-spec
-            exception_id: int = int(id_or_exception_class)
-            if not ExcID.is_custom(exception_id):
-                raise ValueError(f"Exception.id=0x{exception_id:02X} is not available "
-                                 f"for application-specific exceptions")
-
-            if exception_name is None:
-                exception_name = f"Exception_0x{exception_id:02X}"  # Fallback for lazy developers.
-            registry_value = exception_name
-        else:
-            raise TypeError("id_or_exception should be an int, IntEnum or an HdcCmdException")
-
-        if isinstance(registry_value, str) and len(registry_value) < 1:  # Todo: Validate name with RegEx
-            raise ValueError("Invalid exception name")
-
-        if not is_valid_uint8(exception_id):
-            raise ValueError(f"Exception.id=0x{id_or_exception_class:02X} is beyond valid range from 0x00 to 0xFF")
-
-        if exception_id in self.known_exceptions:
-            raise ValueError(f'Already registered Exception.id=0x{exception_id:02X} '
-                             f'as "{self.known_exceptions[exception_id]}"')
-        self.known_exceptions[exception_id] = registry_value
+    def _register_exception(self, exception: HdcCmdException) -> None:
+        if exception.exception_id in self.command_raises:
+            raise ValueError(f'Already registered Exception.id=0x{exception.exception_id:02X} '
+                             f'as "{self.command_raises[exception.exception_id]}"')
+        self.command_raises[exception.exception_id] = exception
 
     def _send_request_and_get_reply(self, request_message: bytes, timeout: float) -> bytes:
 
@@ -125,22 +99,19 @@ class CommandProxyBase:
         if exception_id == ExcID.NO_ERROR:
             return reply_message
 
-        # ... else it's an HDC-exception. Translate message into a native exception:
-        exception_message = reply_message[4:].decode(encoding="utf-8", errors="strict")  # Might be empty
-
+        # ... else it's an HDC-exception.
+        # Translate HDC-message into the exception class that has been registered for that Exception.id
         try:
-            exception_class_or_name: str | typing.Type[HdcCmdException] = self.known_exceptions[exception_id]
+            exc_descriptor = self.command_raises[exception_id]
         except KeyError:
-            exception_class_or_name = f"Exception_0x{exception_id:02X}"  # Fallback to numeric value
+            self.logger.warning(f"Received an unexpected Exception.id=0x{exception_id:02X}. Raising it anyway")
+            exc_descriptor = HdcCmdException(exception_id=exception_id,
+                                             exception_name=f"Exception_0x{exception_id:02X}")
 
-        if isinstance(exception_class_or_name, type) and issubclass(exception_class_or_name, Exception):
-            exception_class_or_name: typing.Type[Exception]
-            exception = exception_class_or_name(exception_message)
-        else:
-            exception = HdcCmdException(exception_id=exception_id,
-                                        exception_name=str(exception_class_or_name),
-                                        exception_message=exception_message)
+        # Use the "descriptor" just as a template to create the actual exception instance being raised.
+        exception = exc_descriptor.clone_with_hdc_message(reply_message)
 
+        # Hello debuggers: This exception was actually raised by the HDC-device! Don't blame the proxy!
         raise exception
 
     def _call_cmd(self,
@@ -190,8 +161,9 @@ class VoidWithoutArgsCommandProxy(CommandProxyBase):
 class GetPropertyValueCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=CmdID.GET_PROP_VALUE)
-        self.register_exception(HdcCmdExc_UnknownProperty)
+        super().__init__(feature_proxy,
+                         command_id=CmdID.GET_PROP_VALUE,
+                         raises_also=[HdcCmdExc_UnknownProperty()])
 
     def __call__(self,
                  property_id: int,
@@ -210,9 +182,10 @@ class GetPropertyValueCommandProxy(CommandProxyBase):
 class SetPropertyValueCommandProxy(CommandProxyBase):
 
     def __init__(self, feature_proxy: FeatureProxyBase):
-        super().__init__(feature_proxy, command_id=CmdID.SET_PROP_VALUE)
-        self.register_exception(HdcCmdExc_UnknownProperty)
-        self.register_exception(HdcCmdExc_RoProperty)
+        super().__init__(feature_proxy,
+                         command_id=CmdID.SET_PROP_VALUE,
+                         raises_also=[HdcCmdExc_UnknownProperty(),
+                                      HdcCmdExc_RoProperty()])
 
     def __call__(self,
                  property_id: int,

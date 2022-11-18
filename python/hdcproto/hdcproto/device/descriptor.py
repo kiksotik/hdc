@@ -13,7 +13,8 @@ import hdcproto.device.router
 import hdcproto.transport.serialport
 from hdcproto.common import (is_valid_uint8, ExcID, HdcDataType, MessageTypeID, FeatureID, CmdID, EvtID, PropID,
                              HdcDataTypeError, HdcCmdException, HdcCmdExc_CommandFailed, HdcCmdExc_InvalidArgs,
-                             HdcCmdExc_UnknownProperty)
+                             HdcCmdExc_UnknownProperty, HdcCmdExc_NotNow, HdcCmdExc_UnknownFeature,
+                             HdcCmdExc_UnknownCommand)
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.descriptor"
 
@@ -92,7 +93,7 @@ class CommandDescriptorBase:
     command_implementation: typing.Callable[[typing.Any], typing.Any]
     command_arguments: tuple[ArgD, ...]  # ToDo: Attribute optionality. #25
     command_returns: tuple[RetD, ...]  # ToDo: Attribute optionality. #25
-    command_raises: dict[int, str]  # ToDo: Attribute optionality. #25
+    command_raises: dict[int, HdcCmdException]
 
     _command_request_handler: typing.Callable[[bytes], None]
     msg_prefix: bytes
@@ -103,9 +104,9 @@ class CommandDescriptorBase:
                  command_name: str,
                  command_implementation: typing.Callable[[typing.Any], typing.Any],
                  command_description: str | None,
-                 command_arguments: tuple[ArgD, ...] | None,
-                 command_returns: RetD | tuple[RetD, ...] | None,
-                 command_raises: list[enum.IntEnum] | None):
+                 command_arguments: typing.Iterable[ArgD, ...] | None,
+                 command_returns: RetD | typing.Iterable[RetD, ...] | None,
+                 command_raises_also: typing.Iterable[HdcCmdException | enum.IntEnum] | None):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor.MyFeatureDescriptor.MyCommandDescriptor"
@@ -140,14 +141,21 @@ class CommandDescriptorBase:
             raise ValueError("Command name must be a non-empty string")  # ToDo: Validate name with RegEx
         self.command_name = command_name
 
-        if command_raises is None:
-            command_raises = list()
+        raised_by_all_commands = [
+            HdcCmdExc_CommandFailed(),
+            HdcCmdExc_UnknownFeature(),  # Technically raised by the router, but proxy doesn't care
+            HdcCmdExc_UnknownCommand(),  # Technically raised by the router, but proxy doesn't care
+            HdcCmdExc_InvalidArgs(),
+            HdcCmdExc_NotNow()
+        ]
+
+        if command_raises_also is None:
+            command_raises_also = []
         self.command_raises = dict()
-        for error_enum in command_raises:
-            if not isinstance(error_enum, ExcID) and ExcID.is_custom(int(error_enum)):
-                raise ValueError(f"Mustn't override meaning of predefined or reserved "
-                                 f"Exception-id=0x{error_enum:02X}")
-            self.command_raises[int(error_enum)] = error_enum.name
+        for exc in raised_by_all_commands + command_raises_also:
+            if isinstance(exc, enum.IntEnum):
+                exc = HdcCmdException(exc)
+            self._register_exception(exc)
 
         self.command_description = command_description
 
@@ -218,6 +226,12 @@ class CommandDescriptorBase:
     def router(self) -> hdcproto.device.router.MessageRouter:
         return self.feature_descriptor.device_descriptor.router
 
+    def _register_exception(self, exception: HdcCmdException) -> None:
+        if exception.exception_id in self.command_raises:
+            raise ValueError(f'Already registered Exception.id=0x{exception.exception_id:02X} '
+                             f'as "{self.command_raises[exception.exception_id]}"')
+        self.command_raises[exception.exception_id] = exception
+
     def _command_request_handler(self, request_message: bytes) -> None:
         try:
             if self.command_arguments is None:
@@ -235,9 +249,16 @@ class CommandDescriptorBase:
             else:
                 return_values = self.command_implementation(*parsed_arguments)
         except HdcCmdException as e:
-            if e.exception_id not in self.command_raises:
-                self.logger.warning(f"Raising HDC-exception.id=0x{e.exception_id:02X}, although "
-                                    f"it has not been registered for {self.__class__.__name__}")
+            # Sanity-checking against exception descriptors registered for this command
+            registered_exception_descriptor = self.command_raises.pop(e.exception_id)
+            if registered_exception_descriptor is None:
+                # Dear developer: Have you forgotten to declare this kind of exception in this command's descriptor? :-)
+                self.logger.warning(f"Raising Exception.id=0x{e.exception_id:02X}, "
+                                    f"although it has not been registered for {self.__class__.__name__}")
+            elif e.exception_name != registered_exception_descriptor.exception_name:
+                self.logger.warning(f"Raising Exception.id=0x{e.exception_id:02X} with name '{e.exception_name}', "
+                                    f"although it had been registered with a different name "
+                                    f"of {registered_exception_descriptor.exception_name}")
             raise
         except ValueError as e:
             raise HdcCmdExc_InvalidArgs(exception_message=str(e))
@@ -272,10 +293,9 @@ class CommandDescriptorBase:
             returns=[ret.to_idl_dict()
                      for ret in self.command_returns
                      ] if self.command_returns is not None else None,
-            raises=[
-                dict(id=error_id, name=error_name)
-                for error_id, error_name in self.command_raises.items()
-            ]
+            raises=[exc.to_idl_dict()
+                    for exc in sorted(self.command_raises.values(), key=lambda d: d.exception_id)
+                    ] if self.command_raises is not None else None
         )
 
 
@@ -286,12 +306,10 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
                          command_name="GetPropertyValue",
                          command_implementation=self._command_implementation,
                          command_description="",  # ToDo: Attribute optionality. #25
-                         command_arguments=(ArgD(HdcDataType.UINT8, name="PropertyID"),),
+                         command_arguments=[ArgD(HdcDataType.UINT8, name="PropertyID")],
                          # Returns 'BLOB', because data-type depends on requested property
-                         command_returns=(RetD(HdcDataType.BLOB, doc="Actual data-type depends on property"),),
-                         command_raises=[ExcID.INVALID_ARGS,
-                                         ExcID.UNKNOWN_PROPERTY,
-                                         ExcID.COMMAND_FAILED])
+                         command_returns=[RetD(HdcDataType.BLOB, doc="Actual data-type depends on property")],
+                         command_raises_also=[ExcID.UNKNOWN_PROPERTY])
 
     def _command_implementation(self, property_id: int) -> bytes:
         """
@@ -323,9 +341,7 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
                          command_arguments=(ArgD(HdcDataType.UINT8, "PropertyID"),
                                             ArgD(HdcDataType.BLOB, "NewValue", "Actual data-type depends on property")),
                          command_returns=(RetD(HdcDataType.BLOB, "ActualNewValue", "May differ from NewValue!"),),
-                         command_raises=[ExcID.INVALID_ARGS,
-                                         ExcID.UNKNOWN_PROPERTY,
-                                         ExcID.RO_PROPERTY])
+                         command_raises_also=[ExcID.UNKNOWN_PROPERTY])
 
     def _command_implementation(self, property_id: int, new_value_as_bytes: bytes) -> bytes:
         """

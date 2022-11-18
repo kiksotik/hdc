@@ -3,7 +3,8 @@ from __future__ import annotations
 import enum
 import unittest
 
-from hdcproto.common import ExcID, MessageTypeID, MetaID, HdcCmdExc_CommandFailed, PropID, HdcDataType, HdcCmdException
+from hdcproto.common import (ExcID, MessageTypeID, MetaID, HdcCmdExc_CommandFailed, PropID, HdcDataType,
+                             HdcCmdException, FeatureID, CmdID)
 from hdcproto.host.proxy import (DeviceProxyBase, FeatureProxyBase, VoidWithoutArgsCommandProxy,
                                  PropertyProxy_RW_INT32, EventProxyBase, CoreFeatureProxyBase)
 from hdcproto.transport.mock import MockTransport
@@ -117,61 +118,87 @@ class TestMessages(unittest.TestCase):
         self.assertEqual(mocked_idl_json, received_idl_json)
 
 
-class TestExceptionRegistration(unittest.TestCase):
-    def setUp(self) -> None:
-        my_device = TestableDeviceProxy()
-        my_device.core = CoreFeatureProxyBase(my_device)
-        self.some_command_proxy = my_device.core.cmd_get_property_value
+class TestExceptionConstructor(unittest.TestCase):
 
-    def test_predefined_code_which_is_not_yet_registered(self):
-        code_not_yet_registered = ExcID.RO_PROPERTY
-        try:
-            self.some_command_proxy.register_exception(code_not_yet_registered)
-        except ValueError:
-            self.fail("Failed to register predefined Exception.id")
+    def test_normal_case_without_message(self):
+        exc_id = 0xDD
+        exc_name = "MyName"
+        exc = HdcCmdException(exception_id=0xDD,
+                              exception_name="MyName")
+        self.assertEqual(exc.exception_name, exc_name)
+        self.assertEqual(exc.exception_id, exc_id)
+        self.assertIsNone(exc.exception_message)
 
-    def test_predefined_code_which_is_already_registered(self):
-        code_already_registered = ExcID.UNKNOWN_PROPERTY
-        with self.assertRaises(ValueError):
-            self.some_command_proxy.register_exception(code_already_registered)
-
-    def test_custom_code_which_is_available(self):
-        code_not_predefined_by_hdc = 0xDD
-        name = "My custom error name"
-        try:
-            self.some_command_proxy.register_exception(code_not_predefined_by_hdc, exception_name=name)
-        except ValueError:
-            self.fail("Failed to register custom Exception.id")
-        self.assertEqual(self.some_command_proxy.known_exceptions[code_not_predefined_by_hdc], name)
-
-    def test_custom_code_which_is_available_but_name_is_missing(self):
-        code_not_predefined_by_hdc = 0xDD
-        self.some_command_proxy.register_exception(code_not_predefined_by_hdc, exception_name=None)
-        registry_value = self.some_command_proxy.known_exceptions[code_not_predefined_by_hdc]
-        self.assertEqual(registry_value, f"Exception_0x{code_not_predefined_by_hdc:02X}")
-
-    def test_custom_code_which_is_available_but_name_is_empty(self):
-        code_not_predefined_by_hdc = 0xDD
-        with self.assertRaises(ValueError):
-            self.some_command_proxy.register_exception(code_not_predefined_by_hdc, exception_name="")
-
-    def test_custom_code_which_is_not_available(self):
-        code_predefined_by_hdc = int(ExcID.UNKNOWN_FEATURE)
-        name = "My custom error name"
-        with self.assertRaises(ValueError):
-            self.some_command_proxy.register_exception(code_predefined_by_hdc, exception_name=name)
+    def test_normal_case_with_message(self):
+        exc_id = 0xDD
+        exc_name = "MyName"
+        exc_msg = "This is a text message."
+        exc = HdcCmdException(exception_id=0xDD,
+                              exception_name="MyName",
+                              exception_message=exc_msg)
+        self.assertEqual(exc.exception_name, exc_name)
+        self.assertEqual(exc.exception_id, exc_id)
+        self.assertEqual(exc.exception_message, exc_msg)
 
     def test_custom_code_which_is_below_valid_range(self):
-        code_negative = -1
-        name = "My custom error name"
         with self.assertRaises(ValueError):
-            self.some_command_proxy.register_exception(code_negative, exception_name=name)
+            HdcCmdException(exception_id=-1,
+                            exception_name="MyName")
 
     def test_custom_code_which_is_beyond_valid_range(self):
-        code_too_big = 256
-        name = "My custom error name"
         with self.assertRaises(ValueError):
-            self.some_command_proxy.register_exception(code_too_big, exception_name=name)
+            HdcCmdException(exception_id=256,
+                            exception_name="MyName")
+
+    # ToDo: Test for invalid names, once HDC-spec settles for a naming style.
+    def test_custom_code_which_is_available_but_name_is_missing(self):
+        with self.assertRaises(ValueError):
+            HdcCmdException(exception_id=256,
+                            exception_name=None)
+
+        with self.assertRaises(ValueError):
+            HdcCmdException(exception_id=256,
+                            exception_name="")
+
+
+class TestExceptionCloning(unittest.TestCase):
+
+    def test_cloning_baseclass(self):
+        custom_exc_id = 0xDD
+        exc_descriptor = HdcCmdException(exception_id=0xDD,
+                                         exception_name="MyName")
+        exception_text = "Text message brought as payload by the HDC-error-message"
+        mocked_hdc_error_msg = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE, custom_exc_id])
+        mocked_hdc_error_msg += exception_text.encode()
+
+        exc_clone = exc_descriptor.clone_with_hdc_message(mocked_hdc_error_msg)
+
+        self.assertIsNot(exc_clone, exc_descriptor)
+        self.assertIsInstance(exc_clone, HdcCmdException)
+        self.assertEqual(exc_clone.exception_id, exc_descriptor.exception_id)
+        self.assertEqual(exc_clone.exception_name, exc_descriptor.exception_name)
+        self.assertEqual(exc_clone.exception_message, exception_text)
+
+    def test_cloning_custom_class(self):
+        custom_exc_id = 0xDD
+        custom_exc_name = "MyExc"
+
+        class MyCustomExceptionClass(HdcCmdException):
+            def __init__(self, txt_msg=None):
+                super().__init__(exception_id=custom_exc_id, exception_name=custom_exc_name, exception_message=txt_msg)
+
+        exc_descriptor = MyCustomExceptionClass()
+        exception_text = "Text message brought as payload by the HDC-error-message"
+        mocked_hdc_error_msg = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE, custom_exc_id])
+        mocked_hdc_error_msg += exception_text.encode()
+
+        exc_clone = exc_descriptor.clone_with_hdc_message(mocked_hdc_error_msg)
+
+        self.assertIsNot(exc_clone, exc_descriptor)
+        self.assertIsInstance(exc_clone, MyCustomExceptionClass)
+        self.assertEqual(exc_clone.exception_id, exc_descriptor.exception_id)
+        self.assertEqual(exc_clone.exception_name, exc_descriptor.exception_name)
+        self.assertEqual(exc_clone.exception_message, exception_text)
 
 
 class TestExceptionHandling(unittest.TestCase):
@@ -185,7 +212,7 @@ class TestExceptionHandling(unittest.TestCase):
     def test_raises_predefined_exception(self):
         predefined_exc_id = ExcID.COMMAND_FAILED
         mocked_exc_text = "Terrible!"
-        self.assertTrue(predefined_exc_id in self.some_command_proxy.known_exceptions)
+        self.assertTrue(predefined_exc_id in self.some_command_proxy.command_raises)
 
         def reply_mocking(req: bytes) -> bytes | None:
             if req[:3] == self.some_command_proxy.msg_prefix:
@@ -206,12 +233,12 @@ class TestExceptionHandling(unittest.TestCase):
         mocked_exc_text = "Terrible!"
 
         class MyCustomException(HdcCmdException):
-            def __init__(self, exception_message):
+            def __init__(self, exception_message=None):
                 super().__init__(exception_id=custom_exc_id,
                                  exception_name=custom_exc_name,
                                  exception_message=exception_message)
 
-        self.some_command_proxy.register_exception(MyCustomException)
+        self.some_command_proxy._register_exception(MyCustomException())
 
         def reply_mocking(req: bytes) -> bytes | None:
             if req[:3] == self.some_command_proxy.msg_prefix:
@@ -236,7 +263,7 @@ class TestExceptionHandling(unittest.TestCase):
             MY_SECOND_EXCEPTION = 0x02
             MY_THIRD_EXCEPTION = 0x03
 
-        self.some_command_proxy.register_exception(MyCustomExceptions.MY_SECOND_EXCEPTION)
+        self.some_command_proxy._register_exception(HdcCmdException(MyCustomExceptions.MY_SECOND_EXCEPTION))
 
         def reply_mocking(req: bytes) -> bytes | None:
             if req[:3] == self.some_command_proxy.msg_prefix:

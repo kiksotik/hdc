@@ -46,8 +46,9 @@ class MinimalCore(CoreFeatureProxyBase):
 
     class DivisionCommandProxy(CommandProxyBase):
         def __init__(self, feature_proxy: FeatureProxyBase):
-            super().__init__(feature_proxy, command_id=0x02)
-            self.register_exception(MyDivZeroError)
+            super().__init__(feature_proxy,
+                             command_id=0x02,
+                             raises_also=[MyDivZeroError()])
 
         def __call__(self,
                      numerator: float,

@@ -63,7 +63,7 @@ def showcase_minimal():
     time.sleep(0.5)  # Allow for some time for the actual firmware reset to happen.
 
     ##################################################################
-    # Example of a command with arguments an return value
+    # Example of a command with arguments a return value
     demo_logger.info("_____________________________")
     result = dev.core.cmd_division(numerator=10, denominator=3)
     demo_logger.info(f"Dividing 10 by 3 returns {result}")
@@ -72,7 +72,7 @@ def showcase_minimal():
     # Example of receiving an exception raised by the device
     demo_logger.info("_____________________________")
     try:
-        result = dev.core.cmd_division(numerator=10, denominator=0)
+        dev.core.cmd_division(numerator=10, denominator=0)
     except MyDivZeroError:
         demo_logger.info("Caught a custom exception raised by the device and handled in this proxy")
     else:

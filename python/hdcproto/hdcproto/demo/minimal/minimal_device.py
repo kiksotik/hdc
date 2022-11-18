@@ -55,7 +55,7 @@ class MinimalCoreDescriptor:
             command_implementation=self.reset,
             command_arguments=None,
             command_returns=None,
-            command_raises=None
+            command_raises_also=None
         )
 
         self.cmd_divide = CommandDescriptorBase(
@@ -64,10 +64,10 @@ class MinimalCoreDescriptor:
             command_name="Divide",
             command_description="Divides numerator by denominator.",  # Human-readable docstring
             command_implementation=self.divide,
-            command_arguments=(ArgD(HdcDataType.FLOAT, "numerator"),
-                               ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")),
+            command_arguments=[ArgD(HdcDataType.FLOAT, "numerator"),
+                               ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")],
             command_returns=RetD(HdcDataType.DOUBLE, doc="Quotient of numerator/denominator"),  # May omit name
-            command_raises=None
+            command_raises_also=[MyDivZeroError()]
         )
 
         # Events

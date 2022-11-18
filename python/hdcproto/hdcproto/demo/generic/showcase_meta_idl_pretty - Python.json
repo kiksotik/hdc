@@ -33,7 +33,29 @@
                     "doc": "(VOID) -> VOID\nReinitializes the whole device.",
                     "args": [],
                     "returns": [],
-                    "raises": []
+                    "raises": [
+                        {
+                            "id": 240,
+                            "name": "COMMAND_FAILED"
+                        },
+                        {
+                            "id": 241,
+                            "name": "UNKNOWN_FEATURE"
+                        },
+                        {
+                            "id": 242,
+                            "name": "UNKNOWN_COMMAND"
+                        },
+                        {
+                            "id": 243,
+                            "name": "INVALID_ARGS"
+                        },
+                        {
+                            "id": 244,
+                            "name": "NOT_NOW",
+                            "doc": "Command can't be executed at this moment."
+                        }
+                    ]
                 },
                 {
                     "id": 2,
@@ -56,7 +78,33 @@
                             "doc": "Quotient of numerator/denominator"
                         }
                     ],
-                    "raises": []
+                    "raises": [
+                        {
+                            "id": 1,
+                            "name": "MyDivZero"
+                        },
+                        {
+                            "id": 240,
+                            "name": "COMMAND_FAILED"
+                        },
+                        {
+                            "id": 241,
+                            "name": "UNKNOWN_FEATURE"
+                        },
+                        {
+                            "id": 242,
+                            "name": "UNKNOWN_COMMAND"
+                        },
+                        {
+                            "id": 243,
+                            "name": "INVALID_ARGS"
+                        },
+                        {
+                            "id": 244,
+                            "name": "NOT_NOW",
+                            "doc": "Command can't be executed at this moment."
+                        }
+                    ]
                 },
                 {
                     "id": 240,
@@ -76,16 +124,29 @@
                     ],
                     "raises": [
                         {
+                            "id": 240,
+                            "name": "COMMAND_FAILED"
+                        },
+                        {
+                            "id": 241,
+                            "name": "UNKNOWN_FEATURE"
+                        },
+                        {
+                            "id": 242,
+                            "name": "UNKNOWN_COMMAND"
+                        },
+                        {
                             "id": 243,
                             "name": "INVALID_ARGS"
                         },
                         {
-                            "id": 245,
-                            "name": "UNKNOWN_PROPERTY"
+                            "id": 244,
+                            "name": "NOT_NOW",
+                            "doc": "Command can't be executed at this moment."
                         },
                         {
-                            "id": 240,
-                            "name": "COMMAND_FAILED"
+                            "id": 245,
+                            "name": "UNKNOWN_PROPERTY"
                         }
                     ]
                 },
@@ -113,16 +174,29 @@
                     ],
                     "raises": [
                         {
+                            "id": 240,
+                            "name": "COMMAND_FAILED"
+                        },
+                        {
+                            "id": 241,
+                            "name": "UNKNOWN_FEATURE"
+                        },
+                        {
+                            "id": 242,
+                            "name": "UNKNOWN_COMMAND"
+                        },
+                        {
                             "id": 243,
                             "name": "INVALID_ARGS"
                         },
                         {
-                            "id": 245,
-                            "name": "UNKNOWN_PROPERTY"
+                            "id": 244,
+                            "name": "NOT_NOW",
+                            "doc": "Command can't be executed at this moment."
                         },
                         {
-                            "id": 246,
-                            "name": "RO_PROPERTY"
+                            "id": 245,
+                            "name": "UNKNOWN_PROPERTY"
                         }
                     ]
                 }

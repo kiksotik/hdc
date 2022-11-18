@@ -38,7 +38,7 @@ class TestConnection(unittest.TestCase):
         self.assertFalse(my_device.is_connected)
         log_text = "Hello there!"
         import hdcproto.device.router
-        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING) as log:
+        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):
             my_device.core.evt_log.emit(logging.ERROR, log_text)
 
         my_device.connect(connection_url="mock://")
@@ -53,7 +53,7 @@ class TestConnection(unittest.TestCase):
 
         my_device.close()
         self.assertFalse(my_device.is_connected)
-        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING) as log:
+        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):
             my_device.core.evt_log.emit(logging.ERROR, log_text)
 
     def test_connect_with_context(self):
@@ -62,7 +62,7 @@ class TestConnection(unittest.TestCase):
         self.assertFalse(my_device.is_connected)
         log_text = "Hello there!"
         import hdcproto.device.router
-        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING) as log:
+        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):
             my_device.core.evt_log.emit(logging.ERROR, log_text)
 
         with my_device:
@@ -76,7 +76,7 @@ class TestConnection(unittest.TestCase):
             self.assertEqual(expected_evt_msg, conn_mock.outbound_messages.pop())
 
         self.assertFalse(my_device.is_connected)
-        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING) as log:
+        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):
             my_device.core.evt_log.emit(logging.ERROR, log_text)
 
 
@@ -140,6 +140,49 @@ class TestCommands(unittest.TestCase):
         self.assertEqual(self.my_device.core.log_event_threshold, logging.INFO)
 
 
+class TestExceptionsDefinedByHdc(unittest.TestCase):
+    def setUp(self) -> None:
+        self.my_device = TestableDeviceDescriptor()
+        self.my_device.connect()
+        self.conn_mock: MockTransport = self.my_device.router.transport
+
+    def test_unknown_feature(self):
+        bogus_feature_id = 0x42
+        cmd_req = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, PropID.LOG_EVT_THRESHOLD])
+        self.conn_mock.receive_message(cmd_req)
+        received_reply = self.conn_mock.outbound_messages.pop()
+        expected_reply = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, ExcID.UNKNOWN_FEATURE])
+        self.assertSequenceEqual(expected_reply, received_reply)
+
+    def test_unknown_command(self):
+        bogus_cmd_id = 0x42
+        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, PropID.LOG_EVT_THRESHOLD])
+        self.conn_mock.receive_message(cmd_req)
+        received_reply = self.conn_mock.outbound_messages.pop()
+        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, ExcID.UNKNOWN_COMMAND])
+        self.assertSequenceEqual(expected_reply, received_reply)
+
+    def test_missing_command_arguments(self):
+        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE])  # Omitting PropID argument!
+        self.conn_mock.receive_message(cmd_req)
+        received_reply = self.conn_mock.outbound_messages.pop()
+        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
+                                ExcID.INVALID_ARGS])
+
+        self.assertSequenceEqual(expected_reply, received_reply[:4])
+
+    def test_excess_command_arguments(self):
+        unexpected_argument = 0x42
+        cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
+                         PropID.LOG_EVT_THRESHOLD, unexpected_argument])
+        self.conn_mock.receive_message(cmd_req)
+        received_reply = self.conn_mock.outbound_messages.pop()
+        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
+                                ExcID.INVALID_ARGS])
+
+        self.assertSequenceEqual(expected_reply, received_reply[:4])
+
+
 class TestCommandErrors(unittest.TestCase):
     def setUp(self) -> None:
         self.my_device = TestableDeviceDescriptor()
@@ -151,8 +194,7 @@ class TestCommandErrors(unittest.TestCase):
         cmd_req = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, PropID.LOG_EVT_THRESHOLD])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes(
-            [MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, ExcID.UNKNOWN_FEATURE])
+        expected_reply = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, ExcID.UNKNOWN_FEATURE])
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_unknown_command(self):
@@ -160,8 +202,7 @@ class TestCommandErrors(unittest.TestCase):
         cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, PropID.LOG_EVT_THRESHOLD])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes(
-            [MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, ExcID.UNKNOWN_COMMAND])
+        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, ExcID.UNKNOWN_COMMAND])
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_missing_command_arguments(self):

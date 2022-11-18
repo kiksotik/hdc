@@ -53,7 +53,7 @@ class TestConnection(unittest.TestCase):
 
         my_device.close()
         self.assertFalse(my_device.is_connected)
-        with self.assertRaises(RuntimeError):
+        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING) as log:
             my_device.core.evt_log.emit(logging.ERROR, log_text)
 
     def test_connect_with_context(self):
@@ -76,7 +76,7 @@ class TestConnection(unittest.TestCase):
             self.assertEqual(expected_evt_msg, conn_mock.outbound_messages.pop())
 
         self.assertFalse(my_device.is_connected)
-        with self.assertRaises(RuntimeError):
+        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING) as log:
             my_device.core.evt_log.emit(logging.ERROR, log_text)
 
 

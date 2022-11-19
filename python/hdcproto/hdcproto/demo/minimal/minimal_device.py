@@ -5,9 +5,9 @@ import time
 from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, HdcCmdException
-from hdcproto.device.descriptor import (DeviceService, CoreFeatureService,
-                                        CommandService, PropertyService,
-                                        FeatureService, EventService, ArgD, RetD)
+from hdcproto.device.service import (DeviceService, CoreFeatureService,
+                                     CommandService, PropertyService,
+                                     FeatureService, EventService, ArgD, RetD)
 
 
 class MinimalDeviceDescriptor(DeviceService):
@@ -36,11 +36,11 @@ class MyDivZeroError(HdcCmdException):
 
 
 class MinimalCoreDescriptor:
-    def __init__(self, device_descriptor: DeviceService):
+    def __init__(self, device_service: DeviceService):
         # We could "inherit" from CoreFeatureDescriptor, but we choose "composition", instead, because
-        # it allows us to separate more cleanly our custom descriptors from those defined in FeatureService.
+        # it allows us to separate more cleanly our custom services from those defined in FeatureService.
         # This is for example useful to keep the autocompletion list short and readable while coding.
-        self.hdc = CoreFeatureService(device_service=device_descriptor, feature_states=self.States)
+        self.hdc = CoreFeatureService(device_service=device_service, feature_states=self.States)
 
         # Custom attributes
         self.led_blinking_rate = 5
@@ -190,6 +190,6 @@ if __name__ == '__main__':
     logging.getLogger("hdcproto.transport.packetizer").setLevel(logging.DEBUG)
     logging.getLogger("hdcproto.transport.tcpserver").setLevel(logging.DEBUG)
     logging.getLogger("hdcproto.device.router").setLevel(logging.DEBUG)
-    logging.getLogger("hdcproto.device.descriptor").setLevel(logging.DEBUG)
+    logging.getLogger("hdcproto.device.service").setLevel(logging.DEBUG)
 
     launch_device(connection_url="socket://localhost:55555")

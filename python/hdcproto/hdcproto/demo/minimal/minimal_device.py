@@ -8,7 +8,7 @@ from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, 
 from hdcproto.device.service import (DeviceService, CoreFeatureService,
                                      CommandService, PropertyService,
                                      FeatureService, EventService)
-from hdcproto.descriptor import ArgD, RetD
+from hdcproto.descriptor import ArgD, RetD, PropertyDescriptor
 
 
 class MinimalDeviceService(DeviceService):
@@ -77,40 +77,52 @@ class MinimalCoreService:
         # Properties
         self.prop_microcontroller_devid = PropertyService(
             feature_service=self.hdc,
-            property_id=0x10,
-            property_name="uC_DEVID",
-            property_doc="32bit Device-ID of STM32 microcontroller.",
-            property_type=HdcDataType.UINT32,
+            property_descriptor=PropertyDescriptor(
+                id_=0x10,
+                name="uC_DEVID",
+                dtype=HdcDataType.UINT32,
+                is_readonly=True,
+                doc="32bit Device-ID of STM32 microcontroller."
+            ),
             property_getter=lambda: 12345,  # bogus
             property_setter=None
         )
 
         self.prop_microcontroller_revid = PropertyService(
             feature_service=self.hdc,
-            property_id=0x11,
-            property_name="uC_REVID",
-            property_doc="32bit Revision-ID of STM32 microcontroller.",
-            property_type=HdcDataType.UINT32,
+            property_descriptor=PropertyDescriptor(
+                id_=0x11,
+                name="uC_REVID",
+                dtype=HdcDataType.UINT32,
+                is_readonly=True,
+                doc="32bit Revision-ID of STM32 microcontroller."
+            ),
             property_getter=lambda: 67890,  # bogus
             property_setter=None
         )
 
         self.prop_microcontroller_uid = PropertyService(
             feature_service=self.hdc,
-            property_id=0x12,
-            property_name="uC_UID",
-            property_doc="96bit unique-ID of STM32 microcontroller.",
-            property_type=HdcDataType.BLOB,
+            property_descriptor=PropertyDescriptor(
+                id_=0x12,
+                name="uC_UID",
+                dtype=HdcDataType.BLOB,
+                is_readonly=True,
+                doc="96bit unique-ID of STM32 microcontroller."
+            ),
             property_getter=lambda: bytes(range(12)),  # bogus
             property_setter=None
         )
 
         self.prop_led_blinking_rate = PropertyService(
             feature_service=self.hdc,
-            property_id=0x13,
-            property_name="LedBlinkingRate",
-            property_doc="Blinking frequency of the LED given in Herz.",
-            property_type=HdcDataType.UINT8,
+            property_descriptor=PropertyDescriptor(
+                id_=0x13,
+                name="LedBlinkingRate",
+                dtype=HdcDataType.UINT8,
+                is_readonly=False,
+                doc="Blinking frequency of the LED given in Herz."
+            ),
             property_getter=lambda: self.led_blinking_rate,
             property_setter=self.led_blinking_rate_setter
         )

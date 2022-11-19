@@ -96,3 +96,45 @@ class StateDescriptor:
             name=self.state_name,
             doc=self.state_doc
         )
+
+
+class PropertyDescriptor:
+    id: int
+    name: str
+    dtype: HdcDataType
+    is_readonly: bool
+    doc: str | None
+
+    def __init__(self,
+                 id_: int,
+                 name: str,
+                 dtype: HdcDataType,
+                 is_readonly: bool,
+                 doc: str | None = None):
+
+        if not is_valid_uint8(id_):
+            raise ValueError(f"id_ value of {id_} is beyond valid range from 0x00 to 0xFF")
+        self.id = int(id_)
+
+        if not name:  # ToDo: Validate name with RegEx
+            raise ValueError("name must be a non-empty string")
+        self.name = str(name)
+
+        if not isinstance(dtype, HdcDataType):
+            raise ValueError("dtype must be specified as HdcDataType")
+        self.dtype = dtype
+
+        self.is_readonly = bool(is_readonly)
+        self.doc = None if doc is None else str(doc)
+
+    def __str__(self):
+        return f"Property_0x{self.id}_{self.name}"
+
+    def to_idl_dict(self) -> dict:
+        return dict(
+            id=self.id,
+            name=self.name,
+            dtype=self.dtype.name,
+            # ToDo: ValueSize attribute, as in STM32 implementation
+            ro=self.is_readonly,
+            doc=self.doc)

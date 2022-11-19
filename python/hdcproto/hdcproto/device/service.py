@@ -15,7 +15,7 @@ from hdcproto.common import (is_valid_uint8, ExcID, HdcDataType, MessageTypeID, 
                              HdcDataTypeError, HdcCmdException, HdcCmdExc_CommandFailed, HdcCmdExc_InvalidArgs,
                              HdcCmdExc_UnknownProperty, HdcCmdExc_NotNow, HdcCmdExc_UnknownFeature,
                              HdcCmdExc_UnknownCommand)
-from hdcproto.descriptor import ArgD, RetD, StateDescriptor
+from hdcproto.descriptor import ArgD, RetD, StateDescriptor, PropertyDescriptor
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.service"
 
@@ -185,7 +185,7 @@ class CommandService:
                 return_values = self.command_implementation(*parsed_arguments)
         except HdcCmdException as e:
             # Sanity-checking against exception descriptors registered for this command
-            registered_exception_descriptor = self.command_raises.pop(e.exception_id)
+            registered_exception_descriptor = self.command_raises.get(e.exception_id)
             if registered_exception_descriptor is None:
                 # Dear developer: Have you forgotten to declare this kind of exception in this command's descriptor? :-)
                 self.logger.warning(f"Raising Exception.id=0x{e.exception_id:02X}, "
@@ -248,18 +248,17 @@ class GetPropertyValueCommandService(CommandService):
 
     def _command_implementation(self, property_id: int) -> bytes:
         """
-        Returns variable data-type, depending on the requested PropertyID.
+        Returns variable data-type, depending on the requested property_id.
         Therefore, returning a serialized result as BLOB.
         """
-        prop_descr = self.feature_service.property_services.get(property_id, None)
-        if prop_descr is None:
+        prop_service = self.feature_service.property_services.get(property_id, None)
+        if prop_service is None:
             raise HdcCmdExc_UnknownProperty()
 
-        prop_type = prop_descr.property_type
-        prop_value = prop_descr.property_getter()
-        value_as_bytes = prop_type.value_to_bytes(prop_value)
+        prop_value = prop_service.property_getter()
+        value_as_bytes = prop_service.property_descriptor.dtype.value_to_bytes(prop_value)
 
-        self.logger.info(f"Replying with {self.command_name}('{prop_descr.property_name}') "
+        self.logger.info(f"Replying with {self.command_name}({prop_service.property_descriptor}) "
                          f"-> {repr(prop_value)}")
         return value_as_bytes
 
@@ -271,7 +270,7 @@ class SetPropertyValueCommandService(CommandService):
                          command_name="SetPropertyValue",
                          command_implementation=self._command_implementation,
                          command_doc="Returned value might differ from NewValue argument, "
-                                             "i.e. because of trimming to valid range or discretization.",
+                                     "i.e. because of trimming to valid range or discretization.",
                          # Signature uses 'BLOB', because data-type depends on requested property
                          command_arguments=(ArgD(HdcDataType.UINT8, "PropertyID"),
                                             ArgD(HdcDataType.BLOB, "NewValue", "Actual data-type depends on property")),
@@ -280,25 +279,25 @@ class SetPropertyValueCommandService(CommandService):
 
     def _command_implementation(self, property_id: int, new_value_as_bytes: bytes) -> bytes:
         """
-        Receives and returns variable data-type, depending on the requested PropertyID.
+        Receives and returns variable data-type, depending on the requested property_id.
         Therefore, de-serializing argument from bytes and returning a serialized result as BLOB.
         """
 
-        prop_descr = self.feature_service.property_services.get(property_id, None)
-        if prop_descr is None:
+        prop_service = self.feature_service.property_services.get(property_id, None)
+        if prop_service is None:
             raise HdcCmdExc_UnknownProperty()
 
-        prop_type = prop_descr.property_type
+        prop_type = prop_service.property_descriptor.dtype
         try:
             new_value = prop_type.bytes_to_value(new_value_as_bytes)
-            actual_new_value = prop_descr.property_setter(new_value)
+            actual_new_value = prop_service.property_setter(new_value)
         except (HdcDataTypeError, ValueError) as e:
             raise HdcCmdExc_InvalidArgs(exception_message=str(e))
 
         actual_new_value_as_bytes = prop_type.value_to_bytes(actual_new_value)
 
         self.logger.log(level=logging.INFO if new_value == actual_new_value else logging.WARNING,
-                        msg=f"Replying with {self.command_name}('{prop_descr.property_name}', {repr(new_value)}) "
+                        msg=f"Replying with {self.command_name}({prop_service.property_descriptor}, {repr(new_value)}) "
                             f"-> {repr(actual_new_value)}")
 
         return actual_new_value_as_bytes
@@ -460,73 +459,41 @@ class FeatureStateTransitionEventService(EventService):
 
 
 class PropertyService:
+    property_descriptor: PropertyDescriptor
     feature_service: FeatureService
-    property_id: int
-    property_name: str
-    property_doc: str
-    property_type: HdcDataType
-    property_implementation: int | float | str | bytes | HdcDataType | None
     property_getter: typing.Callable[[None], int | float | str | bytes | HdcDataType]
     property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes | HdcDataType] | None
 
     def __init__(self,
+                 property_descriptor: PropertyDescriptor,
                  feature_service: FeatureService,
-                 property_id: int,
-                 property_name: str,
-                 property_doc: str | None,
-                 property_type: HdcDataType,
                  property_getter: typing.Callable[[], int | float | str | bytes | HdcDataType],
                  property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes | HdcDataType] | None
                  ):
-
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.service.MyDeviceService.MyFeatureService.MyPropertyService"
         self.logger = feature_service.logger.getChild(self.__class__.__name__)
 
-        if not is_valid_uint8(property_id):
-            raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
+        if not isinstance(property_descriptor, PropertyDescriptor):
+            raise TypeError
+        self.property_descriptor = property_descriptor
 
         self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"to service PropertyID=0x{property_id:02X} "
-                          f"on FeatureID=0x{feature_service.feature_id:02X}")
+                          f"to service {property_descriptor} "
+                          f"on FeatureID=0x{feature_service.feature_id:02X}")  # ToDo: Use FeatureDescriptor.__str__
 
         # Reference from feature --> property
-        if property_id in feature_service.property_services:
+        if property_descriptor.id in feature_service.property_services:
             self.logger.warning(f"Replacing previous instance of type "
-                                f"{feature_service.property_services[property_id].__class__.__name__} with new"
-                                f"instance of type {self.__class__.__name__} to service PropertyID=0x{property_id:02X}")
-        feature_service.property_services[property_id] = self
+                                f"{feature_service.property_services[property_descriptor.id].__class__.__name__} with "
+                                f"new instance of type {self.__class__.__name__} to service "
+                                f"{property_descriptor}")
+        feature_service.property_services[property_descriptor.id] = self
 
         self.feature_service = feature_service  # Reference from property --> feature
-        self.property_id = property_id
-
-        if not property_name:
-            raise ValueError("Property name must be a non-empty string")  # ToDo: Validate name with RegEx
-        self.property_name = property_name
-
-        if property_doc is None:
-            property_doc = ""
-        self.property_doc = property_doc
-
-        if not isinstance(property_type, HdcDataType):
-            raise ValueError("property_type must be specified as HdcDataType")
-        self.property_type = property_type
 
         self.property_getter = property_getter  # ToDo: Validate getter signature
         self.property_setter = property_setter  # ToDo: Validate setter signature
-
-    @property
-    def property_is_readonly(self) -> bool:
-        return self.property_setter is None
-
-    def to_idl_dict(self) -> dict:
-        return dict(
-            id=self.property_id,
-            name=self.property_name,
-            dtype=self.property_type.name,
-            # ToDo: ValueSize attribute, as in STM32 implementation
-            ro=self.property_is_readonly,
-            doc=self.property_doc)
 
 
 class FeatureService:
@@ -621,20 +588,26 @@ class FeatureService:
 
         self.prop_log_event_threshold = PropertyService(
             feature_service=self,
-            property_id=PropID.LOG_EVT_THRESHOLD,
-            property_name='LogEventThreshold',
-            property_doc="Suppresses LogEvents with lower log-levels.",
-            property_type=HdcDataType.UINT8,
+            property_descriptor=PropertyDescriptor(
+                id_=PropID.LOG_EVT_THRESHOLD,
+                name='LogEventThreshold',
+                dtype=HdcDataType.UINT8,
+                is_readonly=False,
+                doc="Suppresses LogEvents with lower log-levels."
+            ),
             property_getter=lambda: self.log_event_threshold,
             property_setter=self.prop_log_event_threshold_setter
         )
 
         self.prop_feature_state = PropertyService(
             feature_service=self,
-            property_id=PropID.FEAT_STATE,
-            property_name='FeatureState',
-            property_doc="Current feature-state",
-            property_type=HdcDataType.UINT8,
+            property_descriptor=PropertyDescriptor(
+                id_=PropID.FEAT_STATE,
+                name='FeatureState',
+                dtype=HdcDataType.UINT8,
+                is_readonly=True,
+                doc="Current feature-state"
+            ),
             property_getter=lambda: self.feature_state_id,
             property_setter=None  # Not exposing a setter on HDC interface does *not* mean this is immutable. ;-)
         )
@@ -701,8 +674,8 @@ class FeatureService:
                 for d in sorted(self.event_services.values(), key=lambda d: d.event_id)
             ],
             "properties": [
-                d.to_idl_dict()
-                for d in sorted(self.property_services.values(), key=lambda d: d.property_id)
+                srv.property_descriptor.to_idl_dict()
+                for srv in sorted(self.property_services.values(), key=lambda srv: srv.property_descriptor.id)
             ]
         }
 

@@ -7,7 +7,8 @@ from pynput import keyboard
 from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, HdcCmdException
 from hdcproto.device.service import (DeviceService, CoreFeatureService,
                                      CommandService, PropertyService,
-                                     FeatureService, EventService, ArgD, RetD)
+                                     FeatureService, EventService)
+from hdcproto.descriptor import ArgD, RetD
 
 
 class MinimalDeviceService(DeviceService):

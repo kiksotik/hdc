@@ -197,6 +197,10 @@
                         {
                             "id": 245,
                             "name": "UNKNOWN_PROPERTY"
+                        },
+                        {
+                            "id": 246,
+                            "name": "RO_PROPERTY"
                         }
                     ]
                 }

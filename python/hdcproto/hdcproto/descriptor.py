@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from hdcproto.common import HdcDataType, is_valid_uint8
+import enum
+import typing
+
+from hdcproto.common import (HdcDataType, is_valid_uint8, HdcCmdException, HdcCmdExc_CommandFailed,
+                             HdcCmdExc_UnknownFeature, HdcCmdExc_UnknownCommand, HdcCmdExc_InvalidArgs,
+                             HdcCmdExc_NotNow, CmdID, HdcCmdExc_UnknownProperty, HdcCmdExc_RoProperty)
 
 
 class ArgD:
@@ -95,6 +100,160 @@ class StateDescriptor:
             id=self.state_id,
             name=self.state_name,
             doc=self.state_doc
+        )
+
+
+class CommandDescriptor:
+    id: int
+    name: str
+    arguments: tuple[ArgD, ...]  # ToDo: Attribute optionality. #25
+    returns: tuple[RetD, ...]  # ToDo: Attribute optionality. #25
+    raises: dict[int, HdcCmdException]  # Not optional, because of mandatory exceptions
+    doc: str | None
+
+    def __init__(self,
+                 id_: int,
+                 name: str,
+                 arguments: typing.Iterable[ArgD, ...] | None,
+                 returns: RetD | typing.Iterable[RetD, ...] | None,
+                 raises_also: typing.Iterable[HdcCmdException | enum.IntEnum] | None,
+                 doc: str | None):
+
+        if not is_valid_uint8(id_):
+            raise ValueError(f"id value of {id_} is beyond valid range from 0x00 to 0xFF")
+        self.id = id_
+
+        if not name:  # ToDo: Validate name with RegEx
+            raise ValueError("name must be a non-empty string")
+        self.name = name
+
+        if not arguments:
+            # ToDo: Attribute optionality. #25
+            # Harmonize it into an empty tuple to simplify remainder of this implementation
+            self.arguments = tuple()
+        else:
+            if any(not isinstance(arg, ArgD) for arg in arguments):
+                raise TypeError("command_arguments must be an iterable of ArgD objects")
+
+            if any(arg.dtype.is_variable_size() for arg in arguments[:-1]):
+                raise ValueError("Only last argument may be of a variable-size data-type")
+
+            self.arguments = tuple(arguments)
+
+        if not returns:
+            # ToDo: Attribute optionality. #25
+            # Harmonize it into a tuple to simplify remainder of this implementation
+            self.returns = tuple()
+        elif isinstance(returns, RetD):
+            # Meaning it returns a single value.
+            # Harmonize it into a tuple to simplify remainder of this implementation
+            self.returns = tuple([returns])
+        else:
+            if any(not isinstance(ret, RetD) for ret in returns):
+                raise TypeError("command_returns must be an iterable of RetD objects")
+
+            if any(ret.dtype.is_variable_size() for ret in returns[:-1]):
+                raise ValueError("Only last return value may be of a variable-size data-type")
+
+            self.returns = tuple(returns)
+
+        raised_by_all_commands = [
+            HdcCmdExc_CommandFailed(),
+            HdcCmdExc_UnknownFeature(),  # Technically raised by the router, but proxy doesn't care
+            HdcCmdExc_UnknownCommand(),  # Technically raised by the router, but proxy doesn't care
+            HdcCmdExc_InvalidArgs(),
+            HdcCmdExc_NotNow(), ]
+
+        if raises_also is None:
+            raises_also = []
+        self.raises = dict()
+        for exc in raised_by_all_commands + raises_also:
+            if isinstance(exc, enum.IntEnum):
+                exc = HdcCmdException(exc)
+            self._register_exception(exc)
+
+        if doc is None:  # ToDo: Attribute optionality. #25
+            doc = ""
+        description_already_contains_command_signature = doc.startswith('(')
+        if not description_already_contains_command_signature:
+            cmd_signature = "("
+            if not self.arguments:
+                cmd_signature += "VOID"
+            else:
+                cmd_signature += ', '.join(f"{arg.dtype.name} {arg.name}"
+                                           for arg in self.arguments)
+            cmd_signature += ") -> "
+
+            if len(self.returns) == 0:
+                cmd_signature += "VOID"
+            elif len(self.returns) == 1:
+                cmd_signature += f"{self.returns[0].dtype.name}"
+                if self.returns[0].name:
+                    cmd_signature += f" {self.returns[0].name}"
+            else:
+                cmd_signature += "("
+                cmd_signature += ', '.join(f"{ret.dtype.name}{f' ret.name' if ret.name else ''}"
+                                           for ret in self.returns)
+                cmd_signature += ")"
+            if doc:
+                doc = cmd_signature + '\n' + doc
+            else:
+                doc = cmd_signature
+
+        self.doc = doc
+
+    def _register_exception(self, exception: HdcCmdException) -> None:
+        if exception.exception_id in self.raises:
+            raise ValueError(f'Already registered Exception.id=0x{exception.exception_id:02X} '
+                             f'as "{self.raises[exception.exception_id]}"')
+        self.raises[exception.exception_id] = exception
+
+    def __str__(self):
+        return f"Command_0x{self.id}_{self.name}"
+
+    def to_idl_dict(self) -> dict:
+        return dict(
+            id=self.id,
+            name=self.name,
+            doc=self.doc,
+            args=[arg.to_idl_dict()
+                  for arg in self.arguments
+                  ] if self.arguments is not None else None,
+            returns=[ret.to_idl_dict()
+                     for ret in self.returns
+                     ] if self.returns is not None else None,
+            raises=[exc.to_idl_dict()
+                    for exc in sorted(self.raises.values(), key=lambda d: d.exception_id)
+                    ] if self.raises is not None else None
+        )
+
+
+class GetPropertyValueCommandDescriptor(CommandDescriptor):
+    def __init__(self):
+        super().__init__(
+            id_=CmdID.GET_PROP_VALUE,
+            name="GetPropertyValue",
+            arguments=[ArgD(HdcDataType.UINT8, name="PropertyID")],
+            # Returns 'BLOB', because data-type depends on requested property
+            returns=[RetD(HdcDataType.BLOB, doc="Actual data-type depends on property")],
+            raises_also=[HdcCmdExc_UnknownProperty()],
+            doc=None
+        )
+
+
+class SetPropertyValueCommandDescriptor(CommandDescriptor):
+    def __init__(self):
+        super().__init__(
+            id_=CmdID.SET_PROP_VALUE,
+            name="SetPropertyValue",
+            # Signature uses 'BLOB', because data-type depends on requested property
+            arguments=[ArgD(HdcDataType.UINT8, "PropertyID"),
+                       ArgD(HdcDataType.BLOB, "NewValue", "Actual data-type depends on property")],
+            returns=[RetD(HdcDataType.BLOB, "ActualNewValue", "May differ from NewValue!")],
+            raises_also=[HdcCmdExc_UnknownProperty(),
+                         HdcCmdExc_RoProperty()],
+            doc="Returned value might differ from NewValue argument, "
+                "i.e. because of trimming to valid range or discretization."
         )
 
 

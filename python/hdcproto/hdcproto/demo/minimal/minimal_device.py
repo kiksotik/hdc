@@ -8,7 +8,7 @@ from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, 
 from hdcproto.device.service import (DeviceService, CoreFeatureService,
                                      CommandService, PropertyService,
                                      FeatureService, EventService)
-from hdcproto.descriptor import ArgD, RetD, PropertyDescriptor
+from hdcproto.descriptor import ArgD, RetD, PropertyDescriptor, CommandDescriptor
 
 
 class MinimalDeviceService(DeviceService):
@@ -47,28 +47,31 @@ class MinimalCoreService:
         self.led_blinking_rate = 5
 
         # Commands
-        # Commands
         self.cmd_reset = CommandService(
+            command_descriptor=CommandDescriptor(
+                id_=0x01,
+                name="Reset",
+                arguments=None,
+                returns=None,
+                raises_also=None,
+                doc="Reinitializes the whole device.",
+            ),
             feature_service=self.hdc,
-            command_id=0x01,
-            command_name="Reset",
-            command_doc="Reinitializes the whole device.",  # Human-readable docstring
             command_implementation=self.reset,
-            command_arguments=None,
-            command_returns=None,
-            command_raises_also=None
         )
 
         self.cmd_divide = CommandService(
+            command_descriptor=CommandDescriptor(
+                id_=0x02,
+                name="Divide",
+                arguments=[ArgD(HdcDataType.FLOAT, "numerator"),
+                           ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")],
+                returns=RetD(HdcDataType.DOUBLE, doc="Quotient of numerator/denominator"),  # May omit name
+                raises_also=[MyDivZeroError()],
+                doc="Divides numerator by denominator."
+            ),
             feature_service=self.hdc,
-            command_id=0x02,
-            command_name="Divide",
-            command_doc="Divides numerator by denominator.",  # Human-readable docstring
             command_implementation=self.divide,
-            command_arguments=[ArgD(HdcDataType.FLOAT, "numerator"),
-                               ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")],
-            command_returns=RetD(HdcDataType.DOUBLE, doc="Quotient of numerator/denominator"),  # May omit name
-            command_raises_also=[MyDivZeroError()]
         )
 
         # Events

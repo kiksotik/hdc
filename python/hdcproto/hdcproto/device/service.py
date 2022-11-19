@@ -11,170 +11,73 @@ import semver
 import hdcproto.device
 import hdcproto.device.router
 import hdcproto.transport.serialport
-from hdcproto.common import (is_valid_uint8, ExcID, HdcDataType, MessageTypeID, FeatureID, CmdID, EvtID, PropID,
+from hdcproto.common import (is_valid_uint8, ExcID, HdcDataType, MessageTypeID, FeatureID, EvtID, PropID,
                              HdcDataTypeError, HdcCmdException, HdcCmdExc_CommandFailed, HdcCmdExc_InvalidArgs,
-                             HdcCmdExc_UnknownProperty, HdcCmdExc_NotNow, HdcCmdExc_UnknownFeature,
-                             HdcCmdExc_UnknownCommand)
-from hdcproto.descriptor import ArgD, RetD, StateDescriptor, PropertyDescriptor
+                             HdcCmdExc_UnknownProperty, )
+from hdcproto.descriptor import ArgD, StateDescriptor, PropertyDescriptor, CommandDescriptor, \
+    GetPropertyValueCommandDescriptor, SetPropertyValueCommandDescriptor
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.service"
 
 
 class CommandService:
+    command_descriptor: CommandDescriptor
     feature_service: FeatureService
-    command_id: int
-    command_name: str
-    command_doc: str
     command_implementation: typing.Callable[[typing.Any], typing.Any]
-    command_arguments: tuple[ArgD, ...]  # ToDo: Attribute optionality. #25
-    command_returns: tuple[RetD, ...]  # ToDo: Attribute optionality. #25
-    command_raises: dict[int, HdcCmdException]
-
     _command_request_handler: typing.Callable[[bytes], None]
     msg_prefix: bytes
 
     def __init__(self,
+                 command_descriptor: CommandDescriptor,
                  feature_service: FeatureService,
-                 command_id: int,
-                 command_name: str,
-                 command_implementation: typing.Callable[[typing.Any], typing.Any],
-                 command_doc: str | None,
-                 command_arguments: typing.Iterable[ArgD, ...] | None,
-                 command_returns: RetD | typing.Iterable[RetD, ...] | None,
-                 command_raises_also: typing.Iterable[HdcCmdException | enum.IntEnum] | None):
+                 command_implementation: typing.Callable[[typing.Any], typing.Any]):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.service.MyDeviceService.MyFeatureService.MyCommandService"
         self.logger = feature_service.logger.getChild(self.__class__.__name__)
 
-        if not is_valid_uint8(command_id):
-            raise ValueError(f"command_id value of {command_id} is beyond valid range from 0x00 to 0xFF")
+        if not isinstance(command_descriptor, CommandDescriptor):
+            raise TypeError
+        self.command_descriptor = command_descriptor
 
         self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"to service CommandID=0x{command_id:02X} "
-                          f"on FeatureID=0x{feature_service.feature_id:02X}")
+                          f"to service {command_descriptor} "
+                          f"on FeatureID=0x{feature_service.feature_id:02X}")  # ToDo: Use FeatureDescriptor.__str__
 
         # Reference from feature --> command
-        if command_id in feature_service.command_services:
+        if command_descriptor.id in feature_service.command_services:
             self.logger.warning(f"Replacing previous instance of type "
-                                f"{feature_service.command_services[command_id].__class__.__name__} with new"
-                                f"instance of type {self.__class__.__name__} to service "
-                                f"CommandID=0x{command_id:02X}")
-        feature_service.command_services[command_id] = self
+                                f"{feature_service.command_services[command_descriptor.id].__class__.__name__} with "
+                                f"new instance of type {self.__class__.__name__} to service {command_descriptor}")
+        feature_service.command_services[command_descriptor.id] = self
 
         self.feature_service = feature_service  # Reference from command --> feature
 
         # Let message router know that this Service will handle requests addressed at this FeatureID & CommandID
         feature_service.router.register_command_request_handler(
             feature_id=feature_service.feature_id,
-            command_id=command_id,
+            command_id=command_descriptor.id,
             command_request_handler=self._command_request_handler)
 
-        self.command_id = command_id
-
-        if not command_name:
-            raise ValueError("Command name must be a non-empty string")  # ToDo: Validate name with RegEx
-        self.command_name = command_name
-
-        raised_by_all_commands = [
-            HdcCmdExc_CommandFailed(),
-            HdcCmdExc_UnknownFeature(),  # Technically raised by the router, but proxy doesn't care
-            HdcCmdExc_UnknownCommand(),  # Technically raised by the router, but proxy doesn't care
-            HdcCmdExc_InvalidArgs(),
-            HdcCmdExc_NotNow()
-        ]
-
-        if command_raises_also is None:
-            command_raises_also = []
-        self.command_raises = dict()
-        for exc in raised_by_all_commands + command_raises_also:
-            if isinstance(exc, enum.IntEnum):
-                exc = HdcCmdException(exc)
-            self._register_exception(exc)
-
-        self.command_doc = command_doc
-
-        if not command_arguments:
-            # Meaning "Has no args".
-            # Harmonize it into an empty tuple to simplify remainder of this implementation
-            self.command_arguments = tuple()
-        else:
-            if any(not isinstance(arg, ArgD) for arg in command_arguments):
-                raise TypeError("command_arguments must be an iterable of ArgD objects")
-
-            if any(arg.dtype.is_variable_size() for arg in command_arguments[:-1]):
-                raise ValueError("Only last argument may be of a variable-size data-type")
-
-            self.command_arguments = tuple(command_arguments)
-
-        if not command_returns:
-            # Meaning "Returns nothing".
-            # Harmonize it into a tuple to simplify remainder of this implementation
-            self.command_returns = tuple()
-        elif isinstance(command_returns, RetD):
-            # Meaning it returns a single value.
-            # Harmonize it into a tuple to simplify remainder of this implementation
-            self.command_returns = tuple([command_returns])
-        else:
-            if any(not isinstance(ret, RetD) for ret in command_returns):
-                raise TypeError("command_returns must be an iterable of RetD objects")
-
-            if any(ret.dtype.is_variable_size() for ret in command_returns[:-1]):
-                raise ValueError("Only last return value may be of a variable-size data-type")
-
-            self.command_returns = tuple(command_returns)
-
-        # Validate signature of implementation to be compatible with HDC args and returns
+        # ToDo: Validate signature of implementation to be compatible with HDC args and returns
         self.command_implementation = command_implementation
-
-        description_already_contains_command_signature = command_doc.startswith('(')
-        if not description_already_contains_command_signature:
-            cmd_signature = "("
-            if not self.command_arguments:
-                cmd_signature += "VOID"
-            else:
-                cmd_signature += ', '.join(f"{arg.dtype.name} {arg.name}"
-                                           for arg in self.command_arguments)
-            cmd_signature += ") -> "
-
-            if len(self.command_returns) == 0:
-                cmd_signature += "VOID"
-            elif len(self.command_returns) == 1:
-                cmd_signature += f"{self.command_returns[0].dtype.name}"
-                if self.command_returns[0].name:
-                    cmd_signature += f" {self.command_returns[0].name}"
-            else:
-                cmd_signature += "("
-                cmd_signature += ', '.join(f"{ret.dtype.name}{f' ret.name' if ret.name else ''}"
-                                           for ret in self.command_returns)
-                cmd_signature += ")"
-            if command_doc:
-                self.command_doc = cmd_signature + '\n' + command_doc
-            else:
-                self.command_doc = cmd_signature
 
         self.msg_prefix = bytes([int(MessageTypeID.COMMAND),
                                  self.feature_service.feature_id,
-                                 self.command_id])
+                                 self.command_descriptor.id])
 
     @property
     def router(self) -> hdcproto.device.router.MessageRouter:
         return self.feature_service.device_service.router
 
-    def _register_exception(self, exception: HdcCmdException) -> None:
-        if exception.exception_id in self.command_raises:
-            raise ValueError(f'Already registered Exception.id=0x{exception.exception_id:02X} '
-                             f'as "{self.command_raises[exception.exception_id]}"')
-        self.command_raises[exception.exception_id] = exception
-
     def _command_request_handler(self, request_message: bytes) -> None:
         try:
-            if self.command_arguments is None:
+            if self.command_descriptor.arguments is None:
                 parsed_arguments = None
             else:
                 parsed_arguments = HdcDataType.parse_command_request_msg(
                     request_message=request_message,
-                    expected_data_types=[arg.dtype for arg in self.command_arguments])
+                    expected_data_types=[arg.dtype for arg in self.command_descriptor.arguments])
         except HdcDataTypeError as e:
             raise HdcCmdExc_InvalidArgs(exception_message=str(e))
 
@@ -185,7 +88,7 @@ class CommandService:
                 return_values = self.command_implementation(*parsed_arguments)
         except HdcCmdException as e:
             # Sanity-checking against exception descriptors registered for this command
-            registered_exception_descriptor = self.command_raises.get(e.exception_id)
+            registered_exception_descriptor = self.command_descriptor.raises.get(e.exception_id)
             if registered_exception_descriptor is None:
                 # Dear developer: Have you forgotten to declare this kind of exception in this command's descriptor? :-)
                 self.logger.warning(f"Raising Exception.id=0x{e.exception_id:02X}, "
@@ -208,48 +111,26 @@ class CommandService:
         elif not isinstance(return_values, tuple) and not isinstance(return_values, list):
             return_values = tuple([return_values])
 
-        if len(return_values) != len(self.command_returns):
+        if len(return_values) != len(self.command_descriptor.returns):
             raise RuntimeError("Command implementation did not return the expected number of return values")
 
-        for i, return_descriptor in enumerate(self.command_returns):
+        for i, return_descriptor in enumerate(self.command_descriptor.returns):
             ret_value = return_values[i]
             reply.extend(return_descriptor.dtype.value_to_bytes(ret_value))
         reply = bytes(reply)
         self.router.send_reply_for_pending_request(reply)
 
-    def to_idl_dict(self) -> dict:
-        return dict(
-            id=self.command_id,
-            name=self.command_name,
-            doc=self.command_doc,
-            args=[arg.to_idl_dict()
-                  for arg in self.command_arguments
-                  ] if self.command_arguments is not None else None,
-            returns=[ret.to_idl_dict()
-                     for ret in self.command_returns
-                     ] if self.command_returns is not None else None,
-            raises=[exc.to_idl_dict()
-                    for exc in sorted(self.command_raises.values(), key=lambda d: d.exception_id)
-                    ] if self.command_raises is not None else None
-        )
-
 
 class GetPropertyValueCommandService(CommandService):
     def __init__(self, feature_service: FeatureService):
-        super().__init__(feature_service,
-                         command_id=CmdID.GET_PROP_VALUE,
-                         command_name="GetPropertyValue",
-                         command_implementation=self._command_implementation,
-                         command_doc="",  # ToDo: Attribute optionality. #25
-                         command_arguments=[ArgD(HdcDataType.UINT8, name="PropertyID")],
-                         # Returns 'BLOB', because data-type depends on requested property
-                         command_returns=[RetD(HdcDataType.BLOB, doc="Actual data-type depends on property")],
-                         command_raises_also=[ExcID.UNKNOWN_PROPERTY])
+        super().__init__(command_descriptor=GetPropertyValueCommandDescriptor(),
+                         feature_service=feature_service,
+                         command_implementation=self._command_implementation)
 
     def _command_implementation(self, property_id: int) -> bytes:
         """
         Returns variable data-type, depending on the requested property_id.
-        Therefore, returning a serialized result as BLOB.
+        Therefore, returning a still serialized result as BLOB.
         """
         prop_service = self.feature_service.property_services.get(property_id, None)
         if prop_service is None:
@@ -258,29 +139,21 @@ class GetPropertyValueCommandService(CommandService):
         prop_value = prop_service.property_getter()
         value_as_bytes = prop_service.property_descriptor.dtype.value_to_bytes(prop_value)
 
-        self.logger.info(f"Replying with {self.command_name}({prop_service.property_descriptor}) "
+        self.logger.info(f"Replying with {self.command_descriptor.name}({prop_service.property_descriptor}) "
                          f"-> {repr(prop_value)}")
         return value_as_bytes
 
 
 class SetPropertyValueCommandService(CommandService):
     def __init__(self, feature_service: FeatureService):
-        super().__init__(feature_service,
-                         command_id=CmdID.SET_PROP_VALUE,
-                         command_name="SetPropertyValue",
-                         command_implementation=self._command_implementation,
-                         command_doc="Returned value might differ from NewValue argument, "
-                                     "i.e. because of trimming to valid range or discretization.",
-                         # Signature uses 'BLOB', because data-type depends on requested property
-                         command_arguments=(ArgD(HdcDataType.UINT8, "PropertyID"),
-                                            ArgD(HdcDataType.BLOB, "NewValue", "Actual data-type depends on property")),
-                         command_returns=(RetD(HdcDataType.BLOB, "ActualNewValue", "May differ from NewValue!"),),
-                         command_raises_also=[ExcID.UNKNOWN_PROPERTY])
+        super().__init__(command_descriptor=SetPropertyValueCommandDescriptor(),
+                         feature_service=feature_service,
+                         command_implementation=self._command_implementation)
 
     def _command_implementation(self, property_id: int, new_value_as_bytes: bytes) -> bytes:
         """
         Receives and returns variable data-type, depending on the requested property_id.
-        Therefore, de-serializing argument from bytes and returning a serialized result as BLOB.
+        Therefore, de-serializing argument from bytes and returning a still serialized result as BLOB.
         """
 
         prop_service = self.feature_service.property_services.get(property_id, None)
@@ -297,7 +170,8 @@ class SetPropertyValueCommandService(CommandService):
         actual_new_value_as_bytes = prop_type.value_to_bytes(actual_new_value)
 
         self.logger.log(level=logging.INFO if new_value == actual_new_value else logging.WARNING,
-                        msg=f"Replying with {self.command_name}({prop_service.property_descriptor}, {repr(new_value)}) "
+                        msg=f"Replying with {self.command_descriptor.name}"
+                            f"({prop_service.property_descriptor}, {repr(new_value)}) "
                             f"-> {repr(actual_new_value)}")
 
         return actual_new_value_as_bytes
@@ -666,8 +540,8 @@ class FeatureService:
                 for d in sorted(self.state_descriptors.values(), key=lambda d: d.state_id)
             ] if self.state_descriptors is not None else None,
             "commands": [
-                d.to_idl_dict()
-                for d in sorted(self.command_services.values(), key=lambda d: d.command_id)
+                srv.command_descriptor.to_idl_dict()
+                for srv in sorted(self.command_services.values(), key=lambda srv: srv.command_descriptor.id)
             ],
             "events": [
                 d.to_idl_dict()

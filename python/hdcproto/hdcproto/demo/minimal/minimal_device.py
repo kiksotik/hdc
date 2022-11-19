@@ -5,15 +5,15 @@ import time
 from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, HdcCmdException
-from hdcproto.device.descriptor import (DeviceDescriptorBase, CoreFeatureDescriptorBase,
-                                        CommandDescriptorBase, PropertyDescriptorBase,
-                                        FeatureDescriptorBase, EventDescriptorBase, ArgD, RetD)
+from hdcproto.device.descriptor import (DeviceService, CoreFeatureService,
+                                        CommandService, PropertyService,
+                                        FeatureService, EventService, ArgD, RetD)
 
 
-class MinimalDeviceDescriptor(DeviceDescriptorBase):
+class MinimalDeviceDescriptor(DeviceService):
     def __init__(self, connection_url: str):
         super().__init__(connection_url,
-                         core_feature_descriptor_class=MinimalCoreDescriptor,
+                         core_feature_service_class=MinimalCoreDescriptor,
                          device_name="MinimalCore",
                          device_version="0.0.1",  # Mocking a SemVer for this implementation
                          device_description="Python implementation of the 'Minimal' HDC-device demonstration")
@@ -36,19 +36,19 @@ class MyDivZeroError(HdcCmdException):
 
 
 class MinimalCoreDescriptor:
-    def __init__(self, device_descriptor: DeviceDescriptorBase):
+    def __init__(self, device_descriptor: DeviceService):
         # We could "inherit" from CoreFeatureDescriptor, but we choose "composition", instead, because
-        # it allows us to separate more cleanly our custom descriptors from those defined in FeatureDescriptorBase.
+        # it allows us to separate more cleanly our custom descriptors from those defined in FeatureService.
         # This is for example useful to keep the autocompletion list short and readable while coding.
-        self.hdc = CoreFeatureDescriptorBase(device_descriptor=device_descriptor, feature_states=self.States)
+        self.hdc = CoreFeatureService(device_service=device_descriptor, feature_states=self.States)
 
         # Custom attributes
         self.led_blinking_rate = 5
 
         # Commands
         # Commands
-        self.cmd_reset = CommandDescriptorBase(
-            feature_descriptor=self.hdc,
+        self.cmd_reset = CommandService(
+            feature_service=self.hdc,
             command_id=0x01,
             command_name="Reset",
             command_description="Reinitializes the whole device.",  # Human-readable docstring
@@ -58,8 +58,8 @@ class MinimalCoreDescriptor:
             command_raises_also=None
         )
 
-        self.cmd_divide = CommandDescriptorBase(
-            feature_descriptor=self.hdc,
+        self.cmd_divide = CommandService(
+            feature_service=self.hdc,
             command_id=0x02,
             command_name="Divide",
             command_description="Divides numerator by denominator.",  # Human-readable docstring
@@ -71,11 +71,11 @@ class MinimalCoreDescriptor:
         )
 
         # Events
-        self.evt_button = ButtonEventDescriptor(feature_descriptor=self.hdc)  # Example of a custom event
+        self.evt_button = ButtonEventDescriptor(feature_service=self.hdc)  # Example of a custom event
 
         # Properties
-        self.prop_microcontroller_devid = PropertyDescriptorBase(
-            feature_descriptor=self.hdc,
+        self.prop_microcontroller_devid = PropertyService(
+            feature_service=self.hdc,
             property_id=0x10,
             property_name="uC_DEVID",
             property_description="32bit Device-ID of STM32 microcontroller.",
@@ -84,8 +84,8 @@ class MinimalCoreDescriptor:
             property_setter=None
         )
 
-        self.prop_microcontroller_revid = PropertyDescriptorBase(
-            feature_descriptor=self.hdc,
+        self.prop_microcontroller_revid = PropertyService(
+            feature_service=self.hdc,
             property_id=0x11,
             property_name="uC_REVID",
             property_description="32bit Revision-ID of STM32 microcontroller.",
@@ -94,8 +94,8 @@ class MinimalCoreDescriptor:
             property_setter=None
         )
 
-        self.prop_microcontroller_uid = PropertyDescriptorBase(
-            feature_descriptor=self.hdc,
+        self.prop_microcontroller_uid = PropertyService(
+            feature_service=self.hdc,
             property_id=0x12,
             property_name="uC_UID",
             property_description="96bit unique-ID of STM32 microcontroller.",
@@ -104,8 +104,8 @@ class MinimalCoreDescriptor:
             property_setter=None
         )
 
-        self.prop_led_blinking_rate = PropertyDescriptorBase(
-            feature_descriptor=self.hdc,
+        self.prop_led_blinking_rate = PropertyService(
+            feature_service=self.hdc,
             property_id=0x13,
             property_name="LedBlinkingRate",
             property_description="Blinking frequency of the LED given in Herz.",
@@ -147,9 +147,9 @@ class MinimalCoreDescriptor:
         return self.led_blinking_rate
 
 
-class ButtonEventDescriptor(EventDescriptorBase):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor=feature_descriptor,
+class ButtonEventDescriptor(EventService):
+    def __init__(self, feature_service: FeatureService):
+        super().__init__(feature_service=feature_service,
                          event_id=0x01,
                          event_name="ButtonEvent",
                          event_description="Notify host about the button being pressed on the device.",

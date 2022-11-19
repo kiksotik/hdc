@@ -4,11 +4,11 @@ import logging
 import unittest
 
 from hdcproto.common import (MessageTypeID, FeatureID, EvtID, CmdID, PropID, ExcID, MetaID, HDC_VERSION)
-from hdcproto.device.descriptor import DeviceDescriptorBase, CoreFeatureDescriptorBase
+from hdcproto.device.descriptor import DeviceService, CoreFeatureService
 from hdcproto.transport.mock import MockTransport
 
 
-class TestableDeviceDescriptor(DeviceDescriptorBase):
+class TestableDeviceDescriptor(DeviceService):
     def __init__(self):
         # Mock the transport-layer by connecting with the MockTransport class, which allows tests to
         # intercept any HDC-request messages emitted by the proxy classes that are under scrutiny.
@@ -16,12 +16,12 @@ class TestableDeviceDescriptor(DeviceDescriptorBase):
                          device_name="TestDeviceMockup",
                          device_version="0.0.42",
                          device_description="",
-                         core_feature_descriptor_class=TestableCoreDescriptor)
+                         core_feature_service_class=TestableCoreDescriptor)
 
 
-class TestableCoreDescriptor(CoreFeatureDescriptorBase):
-    def __init__(self, device_descriptor: DeviceDescriptorBase):
-        super().__init__(device_descriptor=device_descriptor, feature_states=self.States)
+class TestableCoreDescriptor(CoreFeatureService):
+    def __init__(self, device_service: DeviceService):
+        super().__init__(device_service=device_service, feature_states=self.States)
 
     @enum.unique
     class States(enum.IntEnum):

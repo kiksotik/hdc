@@ -16,7 +16,7 @@ from hdcproto.common import (is_valid_uint8, ExcID, HdcDataType, MessageTypeID, 
                              HdcCmdExc_UnknownProperty, HdcCmdExc_NotNow, HdcCmdExc_UnknownFeature,
                              HdcCmdExc_UnknownCommand)
 
-logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.descriptor"
+logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.service"
 
 
 class ArgD:
@@ -85,8 +85,8 @@ class RetD:
         )
 
 
-class CommandDescriptorBase:
-    feature_descriptor: FeatureDescriptorBase
+class CommandService:
+    feature_service: FeatureService
     command_id: int
     command_name: str
     command_description: str
@@ -99,7 +99,7 @@ class CommandDescriptorBase:
     msg_prefix: bytes
 
     def __init__(self,
-                 feature_descriptor: FeatureDescriptorBase,
+                 feature_service: FeatureService,
                  command_id: int,
                  command_name: str,
                  command_implementation: typing.Callable[[typing.Any], typing.Any],
@@ -109,29 +109,29 @@ class CommandDescriptorBase:
                  command_raises_also: typing.Iterable[HdcCmdException | enum.IntEnum] | None):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
-        # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor.MyFeatureDescriptor.MyCommandDescriptor"
-        self.logger = feature_descriptor.logger.getChild(self.__class__.__name__)
+        # Logger-name like: "hdcproto.device.service.MyDeviceService.MyFeatureService.MyCommandService"
+        self.logger = feature_service.logger.getChild(self.__class__.__name__)
 
         if not is_valid_uint8(command_id):
             raise ValueError(f"command_id value of {command_id} is beyond valid range from 0x00 to 0xFF")
 
         self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"as descriptor for CommandID=0x{command_id:02X} "
-                          f"on FeatureID=0x{feature_descriptor.feature_id:02X}")
+                          f"to service CommandID=0x{command_id:02X} "
+                          f"on FeatureID=0x{feature_service.feature_id:02X}")
 
         # Reference from feature --> command
-        if command_id in feature_descriptor.command_descriptors:
-            self.logger.warning(f"Replacing previous descriptor instance of type "
-                                f"{feature_descriptor.command_descriptors[command_id].__class__.__name__} with new"
-                                f"instance of type {self.__class__.__name__} for "
+        if command_id in feature_service.command_services:
+            self.logger.warning(f"Replacing previous instance of type "
+                                f"{feature_service.command_services[command_id].__class__.__name__} with new"
+                                f"instance of type {self.__class__.__name__} to service "
                                 f"CommandID=0x{command_id:02X}")
-        feature_descriptor.command_descriptors[command_id] = self
+        feature_service.command_services[command_id] = self
 
-        self.feature_descriptor = feature_descriptor  # Reference from command --> feature
+        self.feature_service = feature_service  # Reference from command --> feature
 
-        # Let message router know that this Descriptor will handle requests addressed at this FeatureID & CommandID
-        feature_descriptor.router.register_command_request_handler(
-            feature_id=feature_descriptor.feature_id,
+        # Let message router know that this Service will handle requests addressed at this FeatureID & CommandID
+        feature_service.router.register_command_request_handler(
+            feature_id=feature_service.feature_id,
             command_id=command_id,
             command_request_handler=self._command_request_handler)
 
@@ -219,12 +219,12 @@ class CommandDescriptorBase:
                 self.command_description = cmd_signature
 
         self.msg_prefix = bytes([int(MessageTypeID.COMMAND),
-                                 self.feature_descriptor.feature_id,
+                                 self.feature_service.feature_id,
                                  self.command_id])
 
     @property
     def router(self) -> hdcproto.device.router.MessageRouter:
-        return self.feature_descriptor.device_descriptor.router
+        return self.feature_service.device_service.router
 
     def _register_exception(self, exception: HdcCmdException) -> None:
         if exception.exception_id in self.command_raises:
@@ -299,9 +299,9 @@ class CommandDescriptorBase:
         )
 
 
-class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
+class GetPropertyValueCommandService(CommandService):
+    def __init__(self, feature_service: FeatureService):
+        super().__init__(feature_service,
                          command_id=CmdID.GET_PROP_VALUE,
                          command_name="GetPropertyValue",
                          command_implementation=self._command_implementation,
@@ -316,7 +316,7 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
         Returns variable data-type, depending on the requested PropertyID.
         Therefore, returning a serialized result as BLOB.
         """
-        prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
+        prop_descr = self.feature_service.property_services.get(property_id, None)
         if prop_descr is None:
             raise HdcCmdExc_UnknownProperty()
 
@@ -329,9 +329,9 @@ class GetPropertyValueCommandDescriptor(CommandDescriptorBase):
         return value_as_bytes
 
 
-class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
+class SetPropertyValueCommandService(CommandService):
+    def __init__(self, feature_service: FeatureService):
+        super().__init__(feature_service,
                          command_id=CmdID.SET_PROP_VALUE,
                          command_name="SetPropertyValue",
                          command_implementation=self._command_implementation,
@@ -349,7 +349,7 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
         Therefore, de-serializing argument from bytes and returning a serialized result as BLOB.
         """
 
-        prop_descr = self.feature_descriptor.property_descriptors.get(property_id, None)
+        prop_descr = self.feature_service.property_services.get(property_id, None)
         if prop_descr is None:
             raise HdcCmdExc_UnknownProperty()
 
@@ -369,8 +369,8 @@ class SetPropertyValueCommandDescriptor(CommandDescriptorBase):
         return actual_new_value_as_bytes
 
 
-class EventDescriptorBase:
-    feature_descriptor: FeatureDescriptorBase
+class EventService:
+    feature_service: FeatureService
     event_id: int
     event_name: str
     event_description: str
@@ -378,32 +378,32 @@ class EventDescriptorBase:
     msg_prefix: bytes
 
     def __init__(self,
-                 feature_descriptor: FeatureDescriptorBase,
+                 feature_service: FeatureService,
                  event_id: int,
                  event_name: str,
                  event_description: str | None,
                  event_arguments: tuple[ArgD, ...] | None):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
-        # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor.MyFeatureDescriptor.MyEventDescriptor"
-        self.logger = feature_descriptor.logger.getChild(self.__class__.__name__)
+        # Logger-name like: "hdcproto.device.service.MyDeviceService.MyFeatureService.MyEventService"
+        self.logger = feature_service.logger.getChild(self.__class__.__name__)
 
         if not is_valid_uint8(event_id):
             raise ValueError(f"event_id value of {event_id} is beyond valid range from 0x00 to 0xFF")
 
         self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"as descriptor for EventID=0x{event_id:02X} "
-                          f"on FeatureID=0x{feature_descriptor.feature_id:02X}")
+                          f"to service EventID=0x{event_id:02X} "
+                          f"on FeatureID=0x{feature_service.feature_id:02X}")
 
         # Reference from feature --> event
-        if event_id in feature_descriptor.event_descriptors:
-            self.logger.warning(f"Replacing previous descriptor instance of type "
-                                f"{feature_descriptor.event_descriptors[event_id].__class__.__name__} with new"
-                                f"instance of type {self.__class__.__name__} for "
+        if event_id in feature_service.event_services:
+            self.logger.warning(f"Replacing previous instance of type "
+                                f"{feature_service.event_services[event_id].__class__.__name__} with new"
+                                f"instance of type {self.__class__.__name__} to service "
                                 f"EventID=0x{event_id:02X}")
-        feature_descriptor.event_descriptors[event_id] = self
+        feature_service.event_services[event_id] = self
 
-        self.feature_descriptor = feature_descriptor  # Reference from event --> feature
+        self.feature_service = feature_service  # Reference from event --> feature
         self.event_id = event_id
 
         if not event_name:
@@ -431,12 +431,12 @@ class EventDescriptorBase:
                 self.event_description = evt_signature
 
         self.msg_prefix = bytes([int(MessageTypeID.EVENT),
-                                 self.feature_descriptor.feature_id,
+                                 self.feature_service.feature_id,
                                  self.event_id])
 
     @property
     def router(self) -> hdcproto.device.router.MessageRouter:
-        return self.feature_descriptor.device_descriptor.router
+        return self.feature_service.device_service.router
 
     def _send_event_message_raw(self, event_message: bytes) -> None:
         if not isinstance(event_message, (bytes, bytearray)):
@@ -473,9 +473,9 @@ class EventDescriptorBase:
                   for arg in self.event_arguments])
 
 
-class LogEventDescriptor(EventDescriptorBase):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
+class LogEventService(EventService):
+    def __init__(self, feature_service: FeatureService):
+        super().__init__(feature_service,
                          event_id=EvtID.LOG,
                          event_name="Log",
                          event_description="Forwards software event log to the host.",
@@ -483,7 +483,7 @@ class LogEventDescriptor(EventDescriptorBase):
                                           ArgD(HdcDataType.UTF8, 'LogMsg')))
 
     def emit(self, log_level: int, log_msg: str) -> None:
-        if log_level >= self.feature_descriptor.log_event_threshold:
+        if log_level >= self.feature_service.log_event_threshold:
             self.logger.info(f"Sending {self.event_name}-event -> ({logging.getLevelName(log_level)}, '{log_msg}')")
             self._send_event_message(event_args=[log_level, log_msg])
 
@@ -491,24 +491,24 @@ class LogEventDescriptor(EventDescriptorBase):
 class HdcLoggingHandler(logging.Handler):
     """Python logging handler which emits HDC Log-events on a given HDC-feature."""
 
-    def __init__(self, log_event_descriptor: LogEventDescriptor):
+    def __init__(self, log_event_service: LogEventService):
         super().__init__()
-        self.log_event_descriptor = log_event_descriptor
+        self.log_event_service = log_event_service
 
     def emit(self, record):
         # noinspection PyBroadException
         try:
             msg = self.format(record)
-            self.log_event_descriptor.emit(record.levelno, msg)
+            self.log_event_service.emit(record.levelno, msg)
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception:
             self.handleError(record)
 
 
-class FeatureStateTransitionEventDescriptor(EventDescriptorBase):
-    def __init__(self, feature_descriptor: FeatureDescriptorBase):
-        super().__init__(feature_descriptor,
+class FeatureStateTransitionEventService(EventService):
+    def __init__(self, feature_service: FeatureService):
+        super().__init__(feature_service,
                          event_id=EvtID.FEATURE_STATE_TRANSITION,
                          event_name="FeatureStateTransition",
                          event_description="Notifies host about transitions of this feature's state-machine.",
@@ -524,8 +524,8 @@ class FeatureStateTransitionEventDescriptor(EventDescriptorBase):
         self._send_event_message(event_args=[previous_state_id, current_state_id])
 
 
-class PropertyDescriptorBase:
-    feature_descriptor: FeatureDescriptorBase
+class PropertyService:
+    feature_service: FeatureService
     property_id: int
     property_name: str
     property_description: str
@@ -535,7 +535,7 @@ class PropertyDescriptorBase:
     property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes | HdcDataType] | None
 
     def __init__(self,
-                 feature_descriptor: FeatureDescriptorBase,
+                 feature_service: FeatureService,
                  property_id: int,
                  property_name: str,
                  property_description: str | None,
@@ -545,25 +545,24 @@ class PropertyDescriptorBase:
                  ):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
-        # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor.MyFeatureDescriptor.MyPropertyDescriptor"
-        self.logger = feature_descriptor.logger.getChild(self.__class__.__name__)
+        # Logger-name like: "hdcproto.device.service.MyDeviceService.MyFeatureService.MyPropertyService"
+        self.logger = feature_service.logger.getChild(self.__class__.__name__)
 
         if not is_valid_uint8(property_id):
             raise ValueError(f"property_id value of {property_id} is beyond valid range from 0x00 to 0xFF")
 
         self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"as descriptor for PropertyID=0x{property_id:02X} "
-                          f"on FeatureID=0x{feature_descriptor.feature_id:02X}")
+                          f"to service PropertyID=0x{property_id:02X} "
+                          f"on FeatureID=0x{feature_service.feature_id:02X}")
 
         # Reference from feature --> property
-        if property_id in feature_descriptor.property_descriptors:
-            self.logger.warning(f"Replacing previous descriptor instance of type "
-                                f"{feature_descriptor.property_descriptors[property_id].__class__.__name__} with new"
-                                f"instance of type {self.__class__.__name__} for "
-                                f"PropertyID=0x{property_id:02X}")
-        feature_descriptor.property_descriptors[property_id] = self
+        if property_id in feature_service.property_services:
+            self.logger.warning(f"Replacing previous instance of type "
+                                f"{feature_service.property_services[property_id].__class__.__name__} with new"
+                                f"instance of type {self.__class__.__name__} to service PropertyID=0x{property_id:02X}")
+        feature_service.property_services[property_id] = self
 
-        self.feature_descriptor = feature_descriptor  # Reference from property --> feature
+        self.feature_service = feature_service  # Reference from property --> feature
         self.property_id = property_id
 
         if not property_name:
@@ -596,7 +595,6 @@ class PropertyDescriptorBase:
 
 
 class StateDescriptor:
-    feature_descriptor: FeatureDescriptorBase
     state_id: int
     state_name: str
     state_description: str | None
@@ -625,22 +623,22 @@ class StateDescriptor:
         )
 
 
-class FeatureDescriptorBase:
+class FeatureService:
     feature_id: int
     feature_name: str
     feature_class_name: str
     feature_class_version: str | semver.VersionInfo | None
     feature_description: str | None
-    device_descriptor: DeviceDescriptorBase
+    device_service: DeviceService
     state_descriptors: dict[int, StateDescriptor] | None
-    command_descriptors: dict[int, CommandDescriptorBase]
-    event_descriptors: dict[int, EventDescriptorBase]
-    property_descriptors: dict[int, PropertyDescriptorBase]
+    command_services: dict[int, CommandService]
+    event_services: dict[int, EventService]
+    property_services: dict[int, PropertyService]
 
     feature_state_id: int
 
     def __init__(self,
-                 device_descriptor: DeviceDescriptorBase,
+                 device_service: DeviceService,
                  feature_id: int,
                  feature_name: str,
                  feature_class_name: str,
@@ -648,24 +646,23 @@ class FeatureDescriptorBase:
                  feature_description: str | None = None,
                  feature_states: typing.Type[enum.IntEnum] | list[StateDescriptor] | None = None):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
-        # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor.MyFeatureDescriptor"
-        self.logger = device_descriptor.logger.getChild(self.__class__.__name__)
+        # Logger-name like: "hdcproto.device.service.MyDeviceService.MyFeatureService"
+        self.logger = device_service.logger.getChild(self.__class__.__name__)
 
         if not is_valid_uint8(feature_id):
             raise ValueError(f"feature_id value of 0x{feature_id:02X} is beyond valid range from 0x00 to 0xFF")
 
         self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"as descriptor for FeatureID=0x{feature_id:02X}")
+                          f"to service FeatureID=0x{feature_id:02X}")
 
         # Reference from device --> feature
-        if feature_id in device_descriptor.feature_descriptors:
-            self.logger.warning(f"Replacing previous descriptor instance of type "
-                                f"{device_descriptor.feature_descriptors[feature_id].__class__.__name__} with new"
-                                f"instance of type {self.__class__.__name__} for "
-                                f"FeatureID=0x{feature_id:02X}")
-        device_descriptor.feature_descriptors[feature_id] = self
+        if feature_id in device_service.feature_services:
+            self.logger.warning(f"Replacing previous instance of type "
+                                f"{device_service.feature_services[feature_id].__class__.__name__} with new"
+                                f"instance of type {self.__class__.__name__} to service FeatureID=0x{feature_id:02X}")
+        device_service.feature_services[feature_id] = self
 
-        self.device_descriptor = device_descriptor  # Reference from feature --> device
+        self.device_service = device_service  # Reference from feature --> device
         self.feature_id = feature_id
 
         if not feature_name:
@@ -700,24 +697,24 @@ class FeatureDescriptorBase:
         self.log_event_threshold = logging.WARNING
 
         # Commands
-        self.command_descriptors = dict()
-        self.cmd_get_property_value = GetPropertyValueCommandDescriptor(self)
-        self.cmd_set_property_value = SetPropertyValueCommandDescriptor(self)
+        self.command_services = dict()
+        self.cmd_get_property_value = GetPropertyValueCommandService(self)
+        self.cmd_set_property_value = SetPropertyValueCommandService(self)
 
         # Events
-        self.event_descriptors = dict()
-        self.evt_state_transition = FeatureStateTransitionEventDescriptor(self)
-        self.evt_log = LogEventDescriptor(self)
+        self.event_services = dict()
+        self.evt_state_transition = FeatureStateTransitionEventService(self)
+        self.evt_log = LogEventService(self)
 
         # Use a dedicated logger for this feature-instance, whose logs will be forwarded as HDC Log-events to the host.
         self.hdc_logger = logging.getLogger(str(uuid.uuid4()))
-        self.hdc_logger.addHandler(HdcLoggingHandler(log_event_descriptor=self.evt_log))
+        self.hdc_logger.addHandler(HdcLoggingHandler(log_event_service=self.evt_log))
 
         # Properties
-        self.property_descriptors = dict()
+        self.property_services = dict()
 
-        self.prop_log_event_threshold = PropertyDescriptorBase(
-            feature_descriptor=self,
+        self.prop_log_event_threshold = PropertyService(
+            feature_service=self,
             property_id=PropID.LOG_EVT_THRESHOLD,
             property_name='LogEventThreshold',
             property_description="Suppresses LogEvents with lower log-levels.",
@@ -726,8 +723,8 @@ class FeatureDescriptorBase:
             property_setter=self.prop_log_event_threshold_setter
         )
 
-        self.prop_feature_state = PropertyDescriptorBase(
-            feature_descriptor=self,
+        self.prop_feature_state = PropertyService(
+            feature_service=self,
             property_id=PropID.FEAT_STATE,
             property_name='FeatureState',
             property_description="Current feature-state",
@@ -762,7 +759,7 @@ class FeatureDescriptorBase:
 
     @property
     def router(self) -> hdcproto.device.router.MessageRouter:
-        return self.device_descriptor.router
+        return self.device_service.router
 
     def feature_state_transition(self, new_feature_state_id: int):  # ToDo: Improve naming: Imperative verb
         if self.state_descriptors is None:
@@ -791,50 +788,50 @@ class FeatureDescriptorBase:
             ] if self.state_descriptors is not None else None,
             "commands": [
                 d.to_idl_dict()
-                for d in sorted(self.command_descriptors.values(), key=lambda d: d.command_id)
+                for d in sorted(self.command_services.values(), key=lambda d: d.command_id)
             ],
             "events": [
                 d.to_idl_dict()
-                for d in sorted(self.event_descriptors.values(), key=lambda d: d.event_id)
+                for d in sorted(self.event_services.values(), key=lambda d: d.event_id)
             ],
             "properties": [
                 d.to_idl_dict()
-                for d in sorted(self.property_descriptors.values(), key=lambda d: d.property_id)
+                for d in sorted(self.property_services.values(), key=lambda d: d.property_id)
             ]
         }
 
 
-class CoreFeatureDescriptorBase(FeatureDescriptorBase):
+class CoreFeatureService(FeatureService):
     def __init__(self,
-                 device_descriptor: DeviceDescriptorBase,
+                 device_service: DeviceService,
                  feature_states: typing.Type[enum.IntEnum] | list[StateDescriptor] | None = None):
         super().__init__(
-            device_descriptor=device_descriptor,
+            device_service=device_service,
             feature_id=FeatureID.CORE.CORE,
             feature_name="Core",
-            feature_class_name=device_descriptor.device_name,
-            feature_class_version=device_descriptor.device_version,
-            feature_description=device_descriptor.device_description,
+            feature_class_name=device_service.device_name,
+            feature_class_version=device_service.device_version,
+            feature_description=device_service.device_description,
             feature_states=feature_states
         )
 
 
-class DeviceDescriptorBase:
+class DeviceService:
     device_name: str
     device_version: semver.VersionInfo | None
     device_description: str | None
     router: hdcproto.device.router.MessageRouter
-    feature_descriptors: dict[int, FeatureDescriptorBase]
+    feature_services: dict[int, FeatureService]
 
     def __init__(self,
                  connection_url: str,
                  device_name: str,
                  device_version: str | semver.VersionInfo | None,
                  device_description: str | None,
-                 core_feature_descriptor_class=CoreFeatureDescriptorBase,
+                 core_feature_service_class=CoreFeatureService,
                  max_req_msg_size: int = 2048):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
-        # Logger-name like: "hdcproto.device.descriptor.MyDeviceDescriptor"
+        # Logger-name like: "hdcproto.device.service.MyDeviceService"
         self.device_name = device_name
 
         if device_version is not None and not isinstance(device_version, semver.VersionInfo):
@@ -847,10 +844,10 @@ class DeviceDescriptorBase:
                                                            max_req_msg_size=max_req_msg_size,
                                                            idl_json_generator=self.to_idl_json)
 
-        self.feature_descriptors = dict()
+        self.feature_services = dict()
 
         # The Core feature is quite essential for basic HDC operation, thus this constructor enforces it
-        self.core = core_feature_descriptor_class(self)
+        self.core = core_feature_service_class(self)
 
     @property
     def is_connected(self):
@@ -866,7 +863,7 @@ class DeviceDescriptorBase:
     def close(self):
         self.router.close()
 
-    def __enter__(self) -> DeviceDescriptorBase:
+    def __enter__(self) -> DeviceService:
         self.connect()
         return self
 
@@ -879,7 +876,7 @@ class DeviceDescriptorBase:
             max_req=self.router.max_req_msg_size,
             features=[
                 d.to_idl_dict()
-                for d in sorted(self.feature_descriptors.values(), key=lambda d: d.feature_id)
+                for d in sorted(self.feature_services.values(), key=lambda d: d.feature_id)
             ]
         )
 

@@ -10,10 +10,10 @@ from hdcproto.device.service import (DeviceService, CoreFeatureService,
                                      FeatureService, EventService, ArgD, RetD)
 
 
-class MinimalDeviceDescriptor(DeviceService):
+class MinimalDeviceService(DeviceService):
     def __init__(self, connection_url: str):
         super().__init__(connection_url,
-                         core_feature_service_class=MinimalCoreDescriptor,
+                         core_feature_service_class=MinimalCoreService,
                          device_name="MinimalCore",
                          device_version="0.0.1",  # Mocking a SemVer for this implementation
                          device_description="Python implementation of the 'Minimal' HDC-device demonstration")
@@ -35,9 +35,9 @@ class MyDivZeroError(HdcCmdException):
         super().__init__(exception_id=0x01, exception_name="MyDivZero")
 
 
-class MinimalCoreDescriptor:
+class MinimalCoreService:
     def __init__(self, device_service: DeviceService):
-        # We could "inherit" from CoreFeatureDescriptor, but we choose "composition", instead, because
+        # We could "inherit" from CoreFeatureService, but we choose "composition", instead, because
         # it allows us to separate more cleanly our custom services from those defined in FeatureService.
         # This is for example useful to keep the autocompletion list short and readable while coding.
         self.hdc = CoreFeatureService(device_service=device_service, feature_states=self.States)
@@ -71,7 +71,7 @@ class MinimalCoreDescriptor:
         )
 
         # Events
-        self.evt_button = ButtonEventDescriptor(feature_service=self.hdc)  # Example of a custom event
+        self.evt_button = ButtonEventService(feature_service=self.hdc)  # Example of a custom event
 
         # Properties
         self.prop_microcontroller_devid = PropertyService(
@@ -147,7 +147,7 @@ class MinimalCoreDescriptor:
         return self.led_blinking_rate
 
 
-class ButtonEventDescriptor(EventService):
+class ButtonEventService(EventService):
     def __init__(self, feature_service: FeatureService):
         super().__init__(feature_service=feature_service,
                          event_id=0x01,
@@ -173,7 +173,7 @@ class ButtonEventDescriptor(EventService):
 
 
 def launch_device(connection_url: str):
-    device = MinimalDeviceDescriptor(connection_url=connection_url)
+    device = MinimalDeviceService(connection_url=connection_url)
     device.main_loop()
 
 

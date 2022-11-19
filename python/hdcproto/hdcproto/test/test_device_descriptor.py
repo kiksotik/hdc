@@ -8,7 +8,7 @@ from hdcproto.device.service import DeviceService, CoreFeatureService
 from hdcproto.transport.mock import MockTransport
 
 
-class TestableDeviceDescriptor(DeviceService):
+class TestableDeviceService(DeviceService):
     def __init__(self):
         # Mock the transport-layer by connecting with the MockTransport class, which allows tests to
         # intercept any HDC-request messages emitted by the proxy classes that are under scrutiny.
@@ -16,10 +16,10 @@ class TestableDeviceDescriptor(DeviceService):
                          device_name="TestDeviceMockup",
                          device_version="0.0.42",
                          device_description="",
-                         core_feature_service_class=TestableCoreDescriptor)
+                         core_feature_service_class=TestableCoreService)
 
 
-class TestableCoreDescriptor(CoreFeatureService):
+class TestableCoreService(CoreFeatureService):
     def __init__(self, device_service: DeviceService):
         super().__init__(device_service=device_service, feature_states=self.States)
 
@@ -33,7 +33,7 @@ class TestableCoreDescriptor(CoreFeatureService):
 
 class TestConnection(unittest.TestCase):
     def test_connect_without_context(self):
-        my_device = TestableDeviceDescriptor()
+        my_device = TestableDeviceService()
 
         self.assertFalse(my_device.is_connected)
         log_text = "Hello there!"
@@ -57,7 +57,7 @@ class TestConnection(unittest.TestCase):
             my_device.core.evt_log.emit(logging.ERROR, log_text)
 
     def test_connect_with_context(self):
-        my_device = TestableDeviceDescriptor()
+        my_device = TestableDeviceService()
 
         self.assertFalse(my_device.is_connected)
         log_text = "Hello there!"
@@ -82,7 +82,7 @@ class TestConnection(unittest.TestCase):
 
 class TestMessages(unittest.TestCase):
     def setUp(self) -> None:
-        self.my_device = TestableDeviceDescriptor()
+        self.my_device = TestableDeviceService()
         self.my_device.connect()
         self.conn_mock: MockTransport = self.my_device.router.transport
 
@@ -114,7 +114,7 @@ class TestMessages(unittest.TestCase):
 
 class TestCommands(unittest.TestCase):
     def setUp(self) -> None:
-        self.my_device = TestableDeviceDescriptor()
+        self.my_device = TestableDeviceService()
         self.my_device.connect()
         self.conn_mock: MockTransport = self.my_device.router.transport
 
@@ -142,7 +142,7 @@ class TestCommands(unittest.TestCase):
 
 class TestExceptionsDefinedByHdc(unittest.TestCase):
     def setUp(self) -> None:
-        self.my_device = TestableDeviceDescriptor()
+        self.my_device = TestableDeviceService()
         self.my_device.connect()
         self.conn_mock: MockTransport = self.my_device.router.transport
 
@@ -185,7 +185,7 @@ class TestExceptionsDefinedByHdc(unittest.TestCase):
 
 class TestCommandErrors(unittest.TestCase):
     def setUp(self) -> None:
-        self.my_device = TestableDeviceDescriptor()
+        self.my_device = TestableDeviceService()
         self.my_device.connect()
         self.conn_mock: MockTransport = self.my_device.router.transport
 
@@ -228,7 +228,7 @@ class TestCommandErrors(unittest.TestCase):
 
 class TestEvents(unittest.TestCase):
     def setUp(self) -> None:
-        self.my_device = TestableDeviceDescriptor()
+        self.my_device = TestableDeviceService()
         self.my_device.connect()
         self.conn_mock: MockTransport = self.my_device.router.transport
 
@@ -249,7 +249,7 @@ class TestEvents(unittest.TestCase):
 
     def test_feature_state_transition_event(self):
         previous_state_id = self.my_device.core.feature_state_id
-        new_feature_state_id = TestableCoreDescriptor.States.READY  # Arbitrary
+        new_feature_state_id = TestableCoreService.States.READY  # Arbitrary
         self.my_device.core.feature_state_transition(new_feature_state_id)
         sent_msg = self.conn_mock.outbound_messages.pop()
         expected_msg = bytes([MessageTypeID.EVENT, FeatureID.CORE, EvtID.FEATURE_STATE_TRANSITION,

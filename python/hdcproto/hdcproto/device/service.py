@@ -24,7 +24,7 @@ class CommandService:
     feature_service: FeatureService
     command_id: int
     command_name: str
-    command_description: str
+    command_doc: str
     command_implementation: typing.Callable[[typing.Any], typing.Any]
     command_arguments: tuple[ArgD, ...]  # ToDo: Attribute optionality. #25
     command_returns: tuple[RetD, ...]  # ToDo: Attribute optionality. #25
@@ -38,7 +38,7 @@ class CommandService:
                  command_id: int,
                  command_name: str,
                  command_implementation: typing.Callable[[typing.Any], typing.Any],
-                 command_description: str | None,
+                 command_doc: str | None,
                  command_arguments: typing.Iterable[ArgD, ...] | None,
                  command_returns: RetD | typing.Iterable[RetD, ...] | None,
                  command_raises_also: typing.Iterable[HdcCmdException | enum.IntEnum] | None):
@@ -92,7 +92,7 @@ class CommandService:
                 exc = HdcCmdException(exc)
             self._register_exception(exc)
 
-        self.command_description = command_description
+        self.command_doc = command_doc
 
         if not command_arguments:
             # Meaning "Has no args".
@@ -127,7 +127,7 @@ class CommandService:
         # Validate signature of implementation to be compatible with HDC args and returns
         self.command_implementation = command_implementation
 
-        description_already_contains_command_signature = command_description.startswith('(')
+        description_already_contains_command_signature = command_doc.startswith('(')
         if not description_already_contains_command_signature:
             cmd_signature = "("
             if not self.command_arguments:
@@ -148,10 +148,10 @@ class CommandService:
                 cmd_signature += ', '.join(f"{ret.dtype.name}{f' ret.name' if ret.name else ''}"
                                            for ret in self.command_returns)
                 cmd_signature += ")"
-            if command_description:
-                self.command_description = cmd_signature + '\n' + command_description
+            if command_doc:
+                self.command_doc = cmd_signature + '\n' + command_doc
             else:
-                self.command_description = cmd_signature
+                self.command_doc = cmd_signature
 
         self.msg_prefix = bytes([int(MessageTypeID.COMMAND),
                                  self.feature_service.feature_id,
@@ -221,7 +221,7 @@ class CommandService:
         return dict(
             id=self.command_id,
             name=self.command_name,
-            doc=self.command_description,
+            doc=self.command_doc,
             args=[arg.to_idl_dict()
                   for arg in self.command_arguments
                   ] if self.command_arguments is not None else None,
@@ -240,7 +240,7 @@ class GetPropertyValueCommandService(CommandService):
                          command_id=CmdID.GET_PROP_VALUE,
                          command_name="GetPropertyValue",
                          command_implementation=self._command_implementation,
-                         command_description="",  # ToDo: Attribute optionality. #25
+                         command_doc="",  # ToDo: Attribute optionality. #25
                          command_arguments=[ArgD(HdcDataType.UINT8, name="PropertyID")],
                          # Returns 'BLOB', because data-type depends on requested property
                          command_returns=[RetD(HdcDataType.BLOB, doc="Actual data-type depends on property")],
@@ -270,7 +270,7 @@ class SetPropertyValueCommandService(CommandService):
                          command_id=CmdID.SET_PROP_VALUE,
                          command_name="SetPropertyValue",
                          command_implementation=self._command_implementation,
-                         command_description="Returned value might differ from NewValue argument, "
+                         command_doc="Returned value might differ from NewValue argument, "
                                              "i.e. because of trimming to valid range or discretization.",
                          # Signature uses 'BLOB', because data-type depends on requested property
                          command_arguments=(ArgD(HdcDataType.UINT8, "PropertyID"),
@@ -308,7 +308,7 @@ class EventService:
     feature_service: FeatureService
     event_id: int
     event_name: str
-    event_description: str
+    event_doc: str
     event_arguments: tuple[ArgD, ...] | None
     msg_prefix: bytes
 
@@ -316,7 +316,7 @@ class EventService:
                  feature_service: FeatureService,
                  event_id: int,
                  event_name: str,
-                 event_description: str | None,
+                 event_doc: str | None,
                  event_arguments: tuple[ArgD, ...] | None):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
@@ -345,9 +345,9 @@ class EventService:
             raise ValueError("Event name must be a non-empty string")  # ToDo: Validate name with RegEx
         self.event_name = event_name
 
-        if event_description is None:
-            event_description = ""
-        self.event_description = event_description
+        if event_doc is None:
+            event_doc = ""
+        self.event_doc = event_doc
 
         if event_arguments is None:
             event_arguments = None
@@ -355,15 +355,15 @@ class EventService:
             raise ValueError("Only last argument may be of a variable-size data-type")
         self.event_arguments = event_arguments
 
-        description_already_contains_event_signature = event_description.startswith('(')
+        description_already_contains_event_signature = event_doc.startswith('(')
         if not description_already_contains_event_signature:
             evt_signature = "("
             evt_signature += ', '.join(f"{arg.dtype.name} {arg.name}" for arg in self.event_arguments)
             evt_signature += ")"
-            if event_description:
-                self.event_description = evt_signature + '\n' + event_description
+            if event_doc:
+                self.event_doc = evt_signature + '\n' + event_doc
             else:
-                self.event_description = evt_signature
+                self.event_doc = evt_signature
 
         self.msg_prefix = bytes([int(MessageTypeID.EVENT),
                                  self.feature_service.feature_id,
@@ -403,7 +403,7 @@ class EventService:
         return dict(
             id=self.event_id,
             name=self.event_name,
-            doc=self.event_description,
+            doc=self.event_doc,
             args=[arg.to_idl_dict()
                   for arg in self.event_arguments])
 
@@ -413,7 +413,7 @@ class LogEventService(EventService):
         super().__init__(feature_service,
                          event_id=EvtID.LOG,
                          event_name="Log",
-                         event_description="Forwards software event log to the host.",
+                         event_doc="Forwards software event log to the host.",
                          event_arguments=(ArgD(HdcDataType.UINT8, 'LogLevel', doc="Same as in Python"),
                                           ArgD(HdcDataType.UTF8, 'LogMsg')))
 
@@ -446,7 +446,7 @@ class FeatureStateTransitionEventService(EventService):
         super().__init__(feature_service,
                          event_id=EvtID.FEATURE_STATE_TRANSITION,
                          event_name="FeatureStateTransition",
-                         event_description="Notifies host about transitions of this feature's state-machine.",
+                         event_doc="Notifies host about transitions of this feature's state-machine.",
                          event_arguments=(ArgD(HdcDataType.UINT8, 'PreviousStateID'),
                                           ArgD(HdcDataType.UINT8, 'CurrentStateID')))
 
@@ -463,7 +463,7 @@ class PropertyService:
     feature_service: FeatureService
     property_id: int
     property_name: str
-    property_description: str
+    property_doc: str
     property_type: HdcDataType
     property_implementation: int | float | str | bytes | HdcDataType | None
     property_getter: typing.Callable[[None], int | float | str | bytes | HdcDataType]
@@ -473,7 +473,7 @@ class PropertyService:
                  feature_service: FeatureService,
                  property_id: int,
                  property_name: str,
-                 property_description: str | None,
+                 property_doc: str | None,
                  property_type: HdcDataType,
                  property_getter: typing.Callable[[], int | float | str | bytes | HdcDataType],
                  property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes | HdcDataType] | None
@@ -504,9 +504,9 @@ class PropertyService:
             raise ValueError("Property name must be a non-empty string")  # ToDo: Validate name with RegEx
         self.property_name = property_name
 
-        if property_description is None:
-            property_description = ""
-        self.property_description = property_description
+        if property_doc is None:
+            property_doc = ""
+        self.property_doc = property_doc
 
         if not isinstance(property_type, HdcDataType):
             raise ValueError("property_type must be specified as HdcDataType")
@@ -526,7 +526,7 @@ class PropertyService:
             dtype=self.property_type.name,
             # ToDo: ValueSize attribute, as in STM32 implementation
             ro=self.property_is_readonly,
-            doc=self.property_description)
+            doc=self.property_doc)
 
 
 class FeatureService:
@@ -534,7 +534,7 @@ class FeatureService:
     feature_name: str
     feature_class_name: str
     feature_class_version: str | semver.VersionInfo | None
-    feature_description: str | None
+    feature_doc: str | None
     device_service: DeviceService
     state_descriptors: dict[int, StateDescriptor] | None
     command_services: dict[int, CommandService]
@@ -549,7 +549,7 @@ class FeatureService:
                  feature_name: str,
                  feature_class_name: str,
                  feature_class_version: str | semver.VersionInfo | None = None,
-                 feature_description: str | None = None,
+                 feature_doc: str | None = None,
                  feature_states: typing.Type[enum.IntEnum] | list[StateDescriptor] | None = None):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.service.MyDeviceService.MyFeatureService"
@@ -583,9 +583,9 @@ class FeatureService:
             feature_class_version = semver.VersionInfo.parse(feature_class_version)
         self.feature_class_version = feature_class_version
 
-        if feature_description is None:
-            feature_description = ""
-        self.feature_description = feature_description
+        if feature_doc is None:
+            feature_doc = ""
+        self.feature_doc = feature_doc
 
         if feature_states is None:
             # Meaning "None documented". Do not confuse with "Has no states", which would be an empty list.
@@ -623,7 +623,7 @@ class FeatureService:
             feature_service=self,
             property_id=PropID.LOG_EVT_THRESHOLD,
             property_name='LogEventThreshold',
-            property_description="Suppresses LogEvents with lower log-levels.",
+            property_doc="Suppresses LogEvents with lower log-levels.",
             property_type=HdcDataType.UINT8,
             property_getter=lambda: self.log_event_threshold,
             property_setter=self.prop_log_event_threshold_setter
@@ -633,7 +633,7 @@ class FeatureService:
             feature_service=self,
             property_id=PropID.FEAT_STATE,
             property_name='FeatureState',
-            property_description="Current feature-state",
+            property_doc="Current feature-state",
             property_type=HdcDataType.UINT8,
             property_getter=lambda: self.feature_state_id,
             property_setter=None  # Not exposing a setter on HDC interface does *not* mean this is immutable. ;-)
@@ -687,7 +687,7 @@ class FeatureService:
             "name": self.feature_name,
             "class": self.feature_class_name,  # ... 'class' is a reserved keyword in Python!
             "version": str(self.feature_class_version) if self.feature_class_version is not None else None,
-            "doc": self.feature_description,
+            "doc": self.feature_doc,
             "states": [
                 d.to_idl_dict()
                 for d in sorted(self.state_descriptors.values(), key=lambda d: d.state_id)
@@ -717,7 +717,7 @@ class CoreFeatureService(FeatureService):
             feature_name="Core",
             feature_class_name=device_service.device_name,
             feature_class_version=device_service.device_version,
-            feature_description=device_service.device_description,
+            feature_doc=device_service.device_doc,
             feature_states=feature_states
         )
 
@@ -725,7 +725,7 @@ class CoreFeatureService(FeatureService):
 class DeviceService:
     device_name: str
     device_version: semver.VersionInfo | None
-    device_description: str | None
+    device_doc: str | None
     router: hdcproto.device.router.MessageRouter
     feature_services: dict[int, FeatureService]
 
@@ -733,7 +733,7 @@ class DeviceService:
                  connection_url: str,
                  device_name: str,
                  device_version: str | semver.VersionInfo | None,
-                 device_description: str | None,
+                 device_doc: str | None,
                  core_feature_service_class=CoreFeatureService,
                  max_req_msg_size: int = 2048):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
@@ -743,7 +743,7 @@ class DeviceService:
         if device_version is not None and not isinstance(device_version, semver.VersionInfo):
             device_version = semver.VersionInfo.parse(device_version)
         self.device_version = device_version
-        self.device_description = device_description
+        self.device_doc = device_doc
         self.logger = logger.getChild(self.__class__.__name__)
 
         self.router = hdcproto.device.router.MessageRouter(connection_url=connection_url,

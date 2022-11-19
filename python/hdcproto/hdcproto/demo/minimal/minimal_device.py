@@ -17,7 +17,7 @@ class MinimalDeviceService(DeviceService):
                          core_feature_service_class=MinimalCoreService,
                          device_name="MinimalCore",
                          device_version="0.0.1",  # Mocking a SemVer for this implementation
-                         device_description="Python implementation of the 'Minimal' HDC-device demonstration")
+                         device_doc="Python implementation of the 'Minimal' HDC-device demonstration")
 
     def main_loop(self):
         self.router.connect()
@@ -52,7 +52,7 @@ class MinimalCoreService:
             feature_service=self.hdc,
             command_id=0x01,
             command_name="Reset",
-            command_description="Reinitializes the whole device.",  # Human-readable docstring
+            command_doc="Reinitializes the whole device.",  # Human-readable docstring
             command_implementation=self.reset,
             command_arguments=None,
             command_returns=None,
@@ -63,7 +63,7 @@ class MinimalCoreService:
             feature_service=self.hdc,
             command_id=0x02,
             command_name="Divide",
-            command_description="Divides numerator by denominator.",  # Human-readable docstring
+            command_doc="Divides numerator by denominator.",  # Human-readable docstring
             command_implementation=self.divide,
             command_arguments=[ArgD(HdcDataType.FLOAT, "numerator"),
                                ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")],
@@ -79,7 +79,7 @@ class MinimalCoreService:
             feature_service=self.hdc,
             property_id=0x10,
             property_name="uC_DEVID",
-            property_description="32bit Device-ID of STM32 microcontroller.",
+            property_doc="32bit Device-ID of STM32 microcontroller.",
             property_type=HdcDataType.UINT32,
             property_getter=lambda: 12345,  # bogus
             property_setter=None
@@ -89,7 +89,7 @@ class MinimalCoreService:
             feature_service=self.hdc,
             property_id=0x11,
             property_name="uC_REVID",
-            property_description="32bit Revision-ID of STM32 microcontroller.",
+            property_doc="32bit Revision-ID of STM32 microcontroller.",
             property_type=HdcDataType.UINT32,
             property_getter=lambda: 67890,  # bogus
             property_setter=None
@@ -99,7 +99,7 @@ class MinimalCoreService:
             feature_service=self.hdc,
             property_id=0x12,
             property_name="uC_UID",
-            property_description="96bit unique-ID of STM32 microcontroller.",
+            property_doc="96bit unique-ID of STM32 microcontroller.",
             property_type=HdcDataType.BLOB,
             property_getter=lambda: bytes(range(12)),  # bogus
             property_setter=None
@@ -109,7 +109,7 @@ class MinimalCoreService:
             feature_service=self.hdc,
             property_id=0x13,
             property_name="LedBlinkingRate",
-            property_description="Blinking frequency of the LED given in Herz.",
+            property_doc="Blinking frequency of the LED given in Herz.",
             property_type=HdcDataType.UINT8,
             property_getter=lambda: self.led_blinking_rate,
             property_setter=self.led_blinking_rate_setter
@@ -153,7 +153,7 @@ class ButtonEventService(EventService):
         super().__init__(feature_service=feature_service,
                          event_id=0x01,
                          event_name="ButtonEvent",
-                         event_description="Notify host about the button being pressed on the device.",
+                         event_doc="Notify host about the button being pressed on the device.",
                          event_arguments=(ArgD(HdcDataType.UINT8, "ButtonID"),
                                           ArgD(HdcDataType.UINT8, "ButtonState")))
 

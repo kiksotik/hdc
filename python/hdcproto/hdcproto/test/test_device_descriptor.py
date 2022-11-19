@@ -15,7 +15,7 @@ class TestableDeviceService(DeviceService):
         super().__init__(connection_url="mock://",
                          device_name="TestDeviceMockup",
                          device_version="0.0.42",
-                         device_description="",
+                         device_doc="",
                          core_feature_service_class=TestableCoreService)
 
 

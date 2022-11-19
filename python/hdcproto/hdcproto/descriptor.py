@@ -72,12 +72,12 @@ class RetD:
 class StateDescriptor:
     state_id: int
     state_name: str
-    state_description: str | None
+    state_doc: str | None
 
     def __init__(self,
                  state_id: int,
                  state_name: str,
-                 state_description: str | None = None):
+                 state_doc: str | None = None):
 
         if not is_valid_uint8(state_id):
             raise ValueError(f"state_id value of {state_id} is beyond valid range from 0x00 to 0xFF")
@@ -88,11 +88,11 @@ class StateDescriptor:
             raise ValueError("State name must be a non-empty string")  # ToDo: Validate name with RegEx
         self.state_name = state_name
 
-        self.state_description = state_description
+        self.state_doc = state_doc
 
     def to_idl_dict(self) -> dict:
         return dict(
             id=self.state_id,
             name=self.state_name,
-            doc=self.state_description
+            doc=self.state_doc
         )

@@ -852,12 +852,12 @@ class PropertyProxy_LogEventThreshold(PropertyProxy_RW_UINT8):
 class StateProxy:
     state_id: int
     state_name: str
-    state_description: str
+    state_doc: str
 
     def __init__(self,
                  state_id: int,
                  state_name: str,
-                 state_description: str | None = None):
+                 state_doc: str | None = None):
 
         if not is_valid_uint8(state_id):
             raise ValueError(f"state_id value of {state_id} is beyond valid range from 0x00 to 0xFF")
@@ -868,7 +868,7 @@ class StateProxy:
             raise ValueError("State name must be a non-empty string")
         self.state_name = state_name
 
-        self.state_description = state_description
+        self.state_doc = state_doc
 
 
 class FeatureProxyBase:

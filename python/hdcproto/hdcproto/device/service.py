@@ -11,11 +11,12 @@ import semver
 import hdcproto.device
 import hdcproto.device.router
 import hdcproto.transport.serialport
-from hdcproto.common import (is_valid_uint8, ExcID, HdcDataType, MessageTypeID, FeatureID, EvtID, PropID,
+from hdcproto.common import (is_valid_uint8, ExcID, HdcDataType, MessageTypeID, FeatureID, PropID,
                              HdcDataTypeError, HdcCmdException, HdcCmdExc_CommandFailed, HdcCmdExc_InvalidArgs,
                              HdcCmdExc_UnknownProperty, )
-from hdcproto.descriptor import ArgD, StateDescriptor, PropertyDescriptor, CommandDescriptor, \
-    GetPropertyValueCommandDescriptor, SetPropertyValueCommandDescriptor
+from hdcproto.descriptor import StateDescriptor, PropertyDescriptor, CommandDescriptor, \
+    GetPropertyValueCommandDescriptor, SetPropertyValueCommandDescriptor, EventDescriptor, LogEventDescriptor, \
+    FeatureStateTransitionEventDescriptor
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.service"
 
@@ -178,69 +179,38 @@ class SetPropertyValueCommandService(CommandService):
 
 
 class EventService:
+    event_descriptor: EventDescriptor
     feature_service: FeatureService
-    event_id: int
-    event_name: str
-    event_doc: str
-    event_arguments: tuple[ArgD, ...] | None
     msg_prefix: bytes
 
     def __init__(self,
-                 feature_service: FeatureService,
-                 event_id: int,
-                 event_name: str,
-                 event_doc: str | None,
-                 event_arguments: tuple[ArgD, ...] | None):
+                 event_descriptor: EventDescriptor,
+                 feature_service: FeatureService):
 
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.service.MyDeviceService.MyFeatureService.MyEventService"
         self.logger = feature_service.logger.getChild(self.__class__.__name__)
 
-        if not is_valid_uint8(event_id):
-            raise ValueError(f"event_id value of {event_id} is beyond valid range from 0x00 to 0xFF")
+        if not isinstance(event_descriptor, EventDescriptor):
+            raise TypeError
+        self.event_descriptor = event_descriptor
 
         self.logger.debug(f"Initializing instance of {self.__class__.__name__} "
-                          f"to service EventID=0x{event_id:02X} "
+                          f"to {event_descriptor} "
                           f"on FeatureID=0x{feature_service.feature_id:02X}")
 
         # Reference from feature --> event
-        if event_id in feature_service.event_services:
+        if event_descriptor.id in feature_service.event_services:
             self.logger.warning(f"Replacing previous instance of type "
-                                f"{feature_service.event_services[event_id].__class__.__name__} with new"
-                                f"instance of type {self.__class__.__name__} to service "
-                                f"EventID=0x{event_id:02X}")
-        feature_service.event_services[event_id] = self
+                                f"{feature_service.event_services[event_descriptor.id].__class__.__name__} with new"
+                                f"instance of type {self.__class__.__name__} to service {event_descriptor}")
+        feature_service.event_services[event_descriptor.id] = self
 
         self.feature_service = feature_service  # Reference from event --> feature
-        self.event_id = event_id
-
-        if not event_name:
-            raise ValueError("Event name must be a non-empty string")  # ToDo: Validate name with RegEx
-        self.event_name = event_name
-
-        if event_doc is None:
-            event_doc = ""
-        self.event_doc = event_doc
-
-        if event_arguments is None:
-            event_arguments = None
-        if any(arg.dtype.is_variable_size() for arg in event_arguments[:-1]):
-            raise ValueError("Only last argument may be of a variable-size data-type")
-        self.event_arguments = event_arguments
-
-        description_already_contains_event_signature = event_doc.startswith('(')
-        if not description_already_contains_event_signature:
-            evt_signature = "("
-            evt_signature += ', '.join(f"{arg.dtype.name} {arg.name}" for arg in self.event_arguments)
-            evt_signature += ")"
-            if event_doc:
-                self.event_doc = evt_signature + '\n' + event_doc
-            else:
-                self.event_doc = evt_signature
 
         self.msg_prefix = bytes([int(MessageTypeID.EVENT),
                                  self.feature_service.feature_id,
-                                 self.event_id])
+                                 self.event_descriptor.id])
 
     @property
     def router(self) -> hdcproto.device.router.MessageRouter:
@@ -260,11 +230,11 @@ class EventService:
         event_message = bytearray(self.msg_prefix)
 
         if event_args is None:
-            assert self.event_arguments is None
+            assert self.event_descriptor.arguments is None
         else:
-            assert len(event_args) == len(self.event_arguments)
+            assert len(event_args) == len(self.event_descriptor.arguments)
 
-            for arg_value, arg_descriptor in zip(event_args, self.event_arguments):
+            for arg_value, arg_descriptor in zip(event_args, self.event_descriptor.arguments):
                 arg_as_raw_bytes = arg_descriptor.dtype.value_to_bytes(arg_value)
                 event_message.extend(arg_as_raw_bytes)
 
@@ -272,27 +242,15 @@ class EventService:
 
         self._send_event_message_raw(event_message=event_message)
 
-    def to_idl_dict(self) -> dict:
-        return dict(
-            id=self.event_id,
-            name=self.event_name,
-            doc=self.event_doc,
-            args=[arg.to_idl_dict()
-                  for arg in self.event_arguments])
-
 
 class LogEventService(EventService):
     def __init__(self, feature_service: FeatureService):
-        super().__init__(feature_service,
-                         event_id=EvtID.LOG,
-                         event_name="Log",
-                         event_doc="Forwards software event log to the host.",
-                         event_arguments=(ArgD(HdcDataType.UINT8, 'LogLevel', doc="Same as in Python"),
-                                          ArgD(HdcDataType.UTF8, 'LogMsg')))
+        super().__init__(event_descriptor=LogEventDescriptor(),
+                         feature_service=feature_service)
 
     def emit(self, log_level: int, log_msg: str) -> None:
         if log_level >= self.feature_service.log_event_threshold:
-            self.logger.info(f"Sending {self.event_name}-event -> ({logging.getLevelName(log_level)}, '{log_msg}')")
+            self.logger.info(f"Sending {self.event_descriptor} -> ({logging.getLevelName(log_level)}, '{log_msg}')")
             self._send_event_message(event_args=[log_level, log_msg])
 
 
@@ -316,19 +274,15 @@ class HdcLoggingHandler(logging.Handler):
 
 class FeatureStateTransitionEventService(EventService):
     def __init__(self, feature_service: FeatureService):
-        super().__init__(feature_service,
-                         event_id=EvtID.FEATURE_STATE_TRANSITION,
-                         event_name="FeatureStateTransition",
-                         event_doc="Notifies host about transitions of this feature's state-machine.",
-                         event_arguments=(ArgD(HdcDataType.UINT8, 'PreviousStateID'),
-                                          ArgD(HdcDataType.UINT8, 'CurrentStateID')))
+        super().__init__(event_descriptor=FeatureStateTransitionEventDescriptor(),
+                         feature_service=feature_service)
 
     def emit(self, previous_state_id: int, current_state_id: int) -> None:
         if not is_valid_uint8(previous_state_id):
             raise ValueError(f"previous_state_id of {previous_state_id} is beyond valid range from 0x00 to 0xFF")
         if not is_valid_uint8(current_state_id):
             raise ValueError(f"current_state_id of {current_state_id} is beyond valid range from 0x00 to 0xFF")
-        self.logger.info(f"Sending {self.event_name}-event -> (0x{previous_state_id:02X}, 0x{current_state_id:02X}')")
+        self.logger.info(f"Sending {self.event_descriptor} -> (0x{previous_state_id:02X}, 0x{current_state_id:02X}')")
         self._send_event_message(event_args=[previous_state_id, current_state_id])
 
 
@@ -544,8 +498,8 @@ class FeatureService:
                 for srv in sorted(self.command_services.values(), key=lambda srv: srv.command_descriptor.id)
             ],
             "events": [
-                d.to_idl_dict()
-                for d in sorted(self.event_services.values(), key=lambda d: d.event_id)
+                srv.event_descriptor.to_idl_dict()
+                for srv in sorted(self.event_services.values(), key=lambda srv: srv.event_descriptor.id)
             ],
             "properties": [
                 srv.property_descriptor.to_idl_dict()

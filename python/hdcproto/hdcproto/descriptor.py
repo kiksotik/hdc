@@ -5,7 +5,7 @@ import typing
 
 from hdcproto.common import (HdcDataType, is_valid_uint8, HdcCmdException, HdcCmdExc_CommandFailed,
                              HdcCmdExc_UnknownFeature, HdcCmdExc_UnknownCommand, HdcCmdExc_InvalidArgs,
-                             HdcCmdExc_NotNow, CmdID, HdcCmdExc_UnknownProperty, HdcCmdExc_RoProperty)
+                             HdcCmdExc_NotNow, CmdID, HdcCmdExc_UnknownProperty, HdcCmdExc_RoProperty, EvtID)
 
 
 class ArgD:
@@ -255,6 +255,81 @@ class SetPropertyValueCommandDescriptor(CommandDescriptor):
             doc="Returned value might differ from NewValue argument, "
                 "i.e. because of trimming to valid range or discretization."
         )
+
+
+class EventDescriptor:
+    id: int
+    name: str
+    arguments: tuple[ArgD, ...] | None
+    doc: str
+
+    def __init__(self,
+                 id_: int,
+                 name: str,
+                 arguments: typing.Iterable[ArgD, ...] | None,
+                 doc: str | None):
+
+        if not is_valid_uint8(id_):
+            raise ValueError(f"id_ value of {id_} is beyond valid range from 0x00 to 0xFF")
+
+        self.id = id_
+
+        if not name:
+            raise ValueError("Event name must be a non-empty string")  # ToDo: Validate name with RegEx
+        self.name = name
+
+        if arguments is None:
+            # ToDo: Attribute optionality. #25
+            arguments = None
+        else:
+            arguments = tuple(arguments)
+            if any(arg.dtype.is_variable_size() for arg in arguments[:-1]):
+                raise ValueError("Only last argument may be of a variable-size data-type")
+        self.arguments = arguments
+
+        if doc is None:
+            # ToDo: Attribute optionality. #25
+            doc = ""
+        description_already_contains_signature = doc.startswith('(')
+        if not description_already_contains_signature:
+            evt_signature = "("
+            evt_signature += ', '.join(f"{arg.dtype.name} {arg.name}" for arg in self.arguments)
+            evt_signature += ")"
+            if doc:
+                doc = evt_signature + '\n' + doc
+            else:
+                doc = evt_signature
+        self.doc = doc
+
+    def __str__(self):
+        return f"Event_0x{self.id}_{self.name}"
+
+    def to_idl_dict(self) -> dict:
+        return dict(
+            id=self.id,
+            name=self.name,
+            doc=self.doc,
+            args=[arg.to_idl_dict()
+                  for arg in self.arguments])
+
+
+class LogEventDescriptor(EventDescriptor):
+    def __init__(self):
+        super().__init__(id_=EvtID.LOG,
+                         name="Log",
+                         arguments=[ArgD(HdcDataType.UINT8, 'LogLevel', doc="Same as in Python"),
+                                    ArgD(HdcDataType.UTF8, 'LogMsg')],
+                         doc="Forwards software event log to the host.")
+
+
+class FeatureStateTransitionEventDescriptor(EventDescriptor):
+    def __init__(self):
+        super().__init__(id_=EvtID.FEATURE_STATE_TRANSITION,
+                         name="FeatureStateTransition",
+                         arguments=(ArgD(HdcDataType.UINT8, 'PreviousStateID'),
+                                    ArgD(HdcDataType.UINT8, 'CurrentStateID')),
+                         doc="Notifies host about transitions of this feature's state-machine."
+                         )
 
 
 class PropertyDescriptor:

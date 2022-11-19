@@ -8,7 +8,7 @@ from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, 
 from hdcproto.device.service import (DeviceService, CoreFeatureService,
                                      CommandService, PropertyService,
                                      FeatureService, EventService)
-from hdcproto.descriptor import ArgD, RetD, PropertyDescriptor, CommandDescriptor
+from hdcproto.descriptor import ArgD, RetD, PropertyDescriptor, CommandDescriptor, EventDescriptor
 
 
 class MinimalDeviceService(DeviceService):
@@ -165,12 +165,15 @@ class MinimalCoreService:
 
 class ButtonEventService(EventService):
     def __init__(self, feature_service: FeatureService):
-        super().__init__(feature_service=feature_service,
-                         event_id=0x01,
-                         event_name="ButtonEvent",
-                         event_doc="Notify host about the button being pressed on the device.",
-                         event_arguments=(ArgD(HdcDataType.UINT8, "ButtonID"),
-                                          ArgD(HdcDataType.UINT8, "ButtonState")))
+        super().__init__(
+            event_descriptor=EventDescriptor(
+                id_=0x01,
+                name="ButtonEvent",
+                arguments=(ArgD(HdcDataType.UINT8, "ButtonID"),
+                           ArgD(HdcDataType.UINT8, "ButtonState")),
+                doc="Notify host about the button being pressed on the device."
+            ),
+            feature_service=feature_service)
 
     def emit(self, button_id: int, button_state: int):
         self._send_event_message([button_id, button_state])

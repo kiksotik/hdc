@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import json
 import typing
 
 import semver
@@ -516,3 +517,58 @@ class FeatureDescriptor:
                 d.to_idl_dict()
                 for d in sorted(self.properties.values(), key=lambda d: d.id)
             ])
+
+
+class DeviceDescriptor:
+    version: str
+    max_req: int
+    features: dict[int, FeatureDescriptor]
+
+    def __init__(self,
+                 version: str,
+                 max_req: int,
+                 features: typing.Iterable[FeatureDescriptor] | None = None):
+
+        self.version = version
+        self.max_req = max_req
+
+        # Properties
+        self.features = dict()
+        if features is None:
+            features = []
+        for d in features:
+            if d.id in self.features.keys():
+                ValueError("features contains duplicate ID values")
+            self.features[d.id] = d
+
+    def to_idl_dict(self) -> dict:
+        return dict(
+            version=self.version,
+            max_req=self.max_req,
+            features=[
+                d.to_idl_dict()
+                for d in sorted(self.features.values(), key=lambda d: d.id)
+            ])
+
+    def to_idl_json(self) -> str:
+        idl_dict = self.to_idl_dict()
+
+        def prune_none_values(d: dict[str, typing.Any]) -> int:
+            """Removes attribute with a None value.
+            Dives recursively into values of type dict and list[dict]"""
+            keys_of_none_items = [key for key, value in d.items() if value is None]
+            num_deleted_items = len(keys_of_none_items)
+            for k in keys_of_none_items:
+                del (d[k])
+            for key, value in d.items():
+                if isinstance(value, dict):
+                    num_deleted_items += prune_none_values(value)
+                elif isinstance(value, list):
+                    for list_item in value:
+                        if isinstance(list_item, dict):
+                            num_deleted_items += prune_none_values(list_item)
+
+            return num_deleted_items
+
+        prune_none_values(idl_dict)
+        return json.dumps(idl_dict)

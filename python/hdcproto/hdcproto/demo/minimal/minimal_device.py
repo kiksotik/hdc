@@ -5,10 +5,10 @@ import time
 from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, HdcCmdException
+from hdcproto.descriptor import ArgD, RetD, PropertyDescriptor, CommandDescriptor, EventDescriptor
 from hdcproto.device.service import (DeviceService, CoreFeatureService,
                                      CommandService, PropertyService,
                                      FeatureService, EventService)
-from hdcproto.descriptor import ArgD, RetD, PropertyDescriptor, CommandDescriptor, EventDescriptor
 
 
 class MinimalDeviceService(DeviceService):

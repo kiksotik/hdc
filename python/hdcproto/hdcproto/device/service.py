@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import enum
-import json
 import logging
 import typing
 import uuid
@@ -17,7 +16,7 @@ from hdcproto.common import (is_valid_uint8, ExcID, HdcDataType, MessageTypeID, 
 from hdcproto.descriptor import StateDescriptor, PropertyDescriptor, CommandDescriptor, \
     GetPropertyValueCommandDescriptor, SetPropertyValueCommandDescriptor, EventDescriptor, LogEventDescriptor, \
     FeatureStateTransitionEventDescriptor, FeatureDescriptor, LogEventThresholdPropertyDescriptor, \
-    FeatureStatePropertyDescriptor
+    FeatureStatePropertyDescriptor, DeviceDescriptor
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.service"
 
@@ -366,6 +365,9 @@ class FeatureService:
 
         self.device_service = device_service  # Reference from feature --> device
 
+        # Ensure the descriptor of the device includes this feature's descriptor
+        self.device_service.device_descriptor.features[feature_descriptor.id] = feature_descriptor
+
         # Actual attributes holding the values for the two mandatory HDC-properties of this feature.
         self._feature_state_id = 0  # ToDo: Should we establish a convention about initializing states to zero? Nah...
         self.log_event_threshold = logging.WARNING
@@ -467,6 +469,8 @@ class DeviceService:
     router: hdcproto.device.router.MessageRouter
     feature_services: dict[int, FeatureService]
 
+    device_descriptor: DeviceDescriptor
+
     def __init__(self,
                  connection_url: str,
                  device_name: str,
@@ -475,18 +479,23 @@ class DeviceService:
                  max_req_msg_size: int = 2048):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.service.MyDeviceService"
-        self.device_name = device_name
+        self.logger = logger.getChild(self.__class__.__name__)
 
+        # Those device attributes will later on be handed down to the Core feature!
+        self.device_name = device_name
         if device_version is not None and not isinstance(device_version, semver.VersionInfo):
             device_version = semver.VersionInfo.parse(device_version)
         self.device_version = device_version
         self.device_doc = device_doc
-        self.logger = logger.getChild(self.__class__.__name__)
+
+        self.device_descriptor = DeviceDescriptor(
+            version=hdcproto.common.HDC_VERSION,
+            max_req=max_req_msg_size
+        )
 
         self.router = hdcproto.device.router.MessageRouter(connection_url=connection_url,
                                                            max_req_msg_size=max_req_msg_size,
-                                                           idl_json_generator=self.to_idl_json)
-
+                                                           idl_json_generator=self.device_descriptor.to_idl_json)
         self.feature_services = dict()
 
     @property
@@ -509,36 +518,3 @@ class DeviceService:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
-
-    def to_idl_dict(self) -> dict:
-        return dict(
-            version=hdcproto.common.HDC_VERSION,
-            max_req=self.router.max_req_msg_size,
-            features=[
-                srv.feature_descriptor.to_idl_dict()
-                for srv in sorted(self.feature_services.values(), key=lambda srv: srv.feature_descriptor.id)
-            ]
-        )
-
-    def to_idl_json(self) -> str:
-        idl_dict = self.to_idl_dict()
-
-        def prune_none_values(d: dict[str, typing.Any]) -> int:
-            """Removes attribute with a None value.
-            Dives recursively into values of type dict and list[dict]"""
-            keys_of_none_items = [key for key, value in d.items() if value is None]
-            num_deleted_items = len(keys_of_none_items)
-            for k in keys_of_none_items:
-                del (d[k])
-            for key, value in d.items():
-                if isinstance(value, dict):
-                    num_deleted_items += prune_none_values(value)
-                elif isinstance(value, list):
-                    for list_item in value:
-                        if isinstance(list_item, dict):
-                            num_deleted_items += prune_none_values(list_item)
-
-            return num_deleted_items
-
-        prune_none_values(idl_dict)
-        return json.dumps(idl_dict)

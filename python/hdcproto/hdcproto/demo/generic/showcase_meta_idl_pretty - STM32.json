@@ -5,7 +5,7 @@
         {
             "id": 0,
             "name": "Core",
-            "class": "MinimalCore",
+            "cls": "MinimalCore",
             "version": "0.0.1",
             "doc": "STM32 C implementation of the 'Minimal' HDC-device demonstration",
             "states": [

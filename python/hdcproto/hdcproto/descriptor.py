@@ -3,9 +3,11 @@ from __future__ import annotations
 import enum
 import typing
 
+import semver
+
 from hdcproto.common import (HdcDataType, is_valid_uint8, HdcCmdException, HdcCmdExc_CommandFailed,
                              HdcCmdExc_UnknownFeature, HdcCmdExc_UnknownCommand, HdcCmdExc_InvalidArgs,
-                             HdcCmdExc_NotNow, CmdID, HdcCmdExc_UnknownProperty, HdcCmdExc_RoProperty, EvtID)
+                             HdcCmdExc_NotNow, CmdID, HdcCmdExc_UnknownProperty, HdcCmdExc_RoProperty, EvtID, PropID)
 
 
 class ArgD:
@@ -372,3 +374,145 @@ class PropertyDescriptor:
             # ToDo: ValueSize attribute, as in STM32 implementation
             ro=self.is_readonly,
             doc=self.doc)
+
+
+class LogEventThresholdPropertyDescriptor(PropertyDescriptor):
+    def __init__(self):
+        super().__init__(
+            id_=PropID.LOG_EVT_THRESHOLD,
+            name='LogEventThreshold',
+            dtype=HdcDataType.UINT8,
+            is_readonly=False,
+            doc="Suppresses LogEvents with lower log-levels."
+        )
+
+
+class FeatureStatePropertyDescriptor(PropertyDescriptor):
+    def __init__(self):
+        super().__init__(
+            id_=PropID.FEAT_STATE,
+            name='FeatureState',
+            dtype=HdcDataType.UINT8,
+            is_readonly=True,
+            doc="Current feature-state"
+        )
+
+
+class FeatureDescriptor:
+    id: int
+    name: str
+    class_name: str
+    class_version: str | semver.VersionInfo | None
+    doc: str | None
+    states: dict[int, StateDescriptor] | None
+    commands: dict[int, CommandDescriptor]
+    events: dict[int, EventDescriptor]
+    properties: dict[int, PropertyDescriptor]
+
+    def __init__(self,
+                 id_: int,
+                 name: str,
+                 class_name: str,
+                 class_version: str | semver.VersionInfo | None = None,
+                 states: typing.Type[enum.IntEnum] | typing.Iterable[StateDescriptor] | None = None,
+                 commands: typing.Iterable[CommandDescriptor] | None = None,
+                 events: typing.Iterable[EventDescriptor] | None = None,
+                 properties: typing.Iterable[PropertyDescriptor] | None = None,
+                 doc: str | None = None):
+
+        if not is_valid_uint8(id_):
+            raise ValueError(f"id_ value of 0x{id_:02X} is beyond valid range from 0x00 to 0xFF")
+        self.id = id_
+
+        if not name:  # ToDo: Validate name with RegEx
+            raise ValueError("name must be a non-empty string")
+        self.name = name
+
+        if not class_name:  # ToDo: Validate name with RegEx
+            raise ValueError("class_name must be a non-empty string")
+        self.class_name = class_name
+
+        if class_version is not None and not isinstance(class_version, semver.VersionInfo):
+            class_version = semver.VersionInfo.parse(class_version)
+        self.class_version = class_version
+
+        if doc is None:
+            doc = ""
+        self.doc = doc
+
+        if states is None:
+            self.states = None
+        else:
+            self.states: dict[int, StateDescriptor] = dict()
+            for d in states:
+                if isinstance(d, enum.IntEnum):
+                    d = StateDescriptor(state_id=d, state_name=d.name)
+                if d.state_id in self.states.keys():
+                    ValueError("states contains duplicate ID values")
+                self.states[d.state_id] = d
+
+        # Commands
+        self.commands = dict()
+        if commands is None:
+            commands = []
+        for d in commands:
+            if d.id in self.commands.keys():
+                ValueError("commands contains duplicate ID values")
+            self.commands[d.id] = d
+        if CmdID.GET_PROP_VALUE not in self.commands.keys():
+            self.commands[CmdID.GET_PROP_VALUE] = GetPropertyValueCommandDescriptor()
+        if CmdID.SET_PROP_VALUE not in self.commands.keys():
+            self.commands[CmdID.SET_PROP_VALUE] = SetPropertyValueCommandDescriptor()
+
+        # Events
+        self.events = dict()
+        if events is None:
+            events = []
+        for d in events:
+            if d.id in self.events.keys():
+                ValueError("events contains duplicate ID values")
+            self.events[d.id] = d
+        if EvtID.FEATURE_STATE_TRANSITION not in self.events.keys():
+            self.events[EvtID.FEATURE_STATE_TRANSITION] = FeatureStateTransitionEventDescriptor()
+        if EvtID.LOG not in self.events.keys():
+            self.events[EvtID.LOG] = self.evt_log = LogEventDescriptor()
+
+        # Properties
+        self.properties = dict()
+        if properties is None:
+            properties = []
+        for d in properties:
+            if d.id in self.properties.keys():
+                ValueError("properties contains duplicate ID values")
+            self.properties[d.id] = d
+        if PropID.LOG_EVT_THRESHOLD not in self.properties.keys():
+            self.properties[PropID.LOG_EVT_THRESHOLD] = LogEventThresholdPropertyDescriptor()
+        if PropID.FEAT_STATE not in self.properties.keys():
+            self.properties[PropID.FEAT_STATE] = FeatureStatePropertyDescriptor()
+
+    def __str__(self):
+        return f"Feature_0x{self.id}_{self.name}"
+
+    def to_idl_dict(self) -> dict:
+        return dict(
+            id=self.id,
+            name=self.name,
+            cls=self.class_name,
+            version=str(self.class_version) if self.class_version is not None else None,
+            doc=self.doc,
+            states=[
+                d.to_idl_dict()
+                for d in sorted(self.states.values(), key=lambda d: d.state_id)
+            ] if self.states is not None else None,
+            commands=[
+                d.to_idl_dict()
+                for d in sorted(self.commands.values(), key=lambda d: d.id)
+            ],
+            events=[
+                d.to_idl_dict()
+                for d in sorted(self.events.values(), key=lambda d: d.id)
+            ],
+            properties=[
+                d.to_idl_dict()
+                for d in sorted(self.properties.values(), key=lambda d: d.id)
+            ])

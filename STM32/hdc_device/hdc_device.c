@@ -1077,7 +1077,7 @@ void HDC_JSON_Feature(const HDC_Descriptor_Feature_t *d, bool* prepend_comma) {
   HDC_JSON_Object_start(prepend_comma);
   HDC_JSON_Attr_int("id", d->FeatureID, prepend_comma);
   HDC_JSON_Attr_str("name", d->FeatureName, prepend_comma);
-  HDC_JSON_Attr_str("class", d->FeatureClassName, prepend_comma);
+  HDC_JSON_Attr_str("cls", d->FeatureClassName, prepend_comma);
   HDC_JSON_Attr_str("version", d->FeatureClassVersion, prepend_comma);
   HDC_JSON_Attr_str("doc", d->FeatureDescription, prepend_comma);
 

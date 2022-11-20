@@ -15,8 +15,8 @@ class TestableDeviceService(DeviceService):
         super().__init__(connection_url="mock://",
                          device_name="TestDeviceMockup",
                          device_version="0.0.42",
-                         device_doc="",
-                         core_feature_service_class=TestableCoreService)
+                         device_doc="")
+        self.core = TestableCoreService(self)
 
 
 class TestableCoreService(CoreFeatureService):
@@ -36,48 +36,44 @@ class TestConnection(unittest.TestCase):
         my_device = TestableDeviceService()
 
         self.assertFalse(my_device.is_connected)
-        log_text = "Hello there!"
         import hdcproto.device.router
-        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):
-            my_device.core.evt_log.emit(logging.ERROR, log_text)
+        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):  # Because not connected
+            my_device.core._evt_state_transition.emit(previous_state_id=1, current_state_id=2)
 
         my_device.connect(connection_url="mock://")
         self.assertTrue(my_device.is_connected)
         conn_mock: MockTransport = my_device.router.transport
         self.assertFalse(conn_mock.outbound_messages)
-        my_device.core.evt_log.emit(logging.ERROR, log_text)
+        my_device.core._evt_state_transition.emit(previous_state_id=1, current_state_id=2)
         self.assertTrue(len(conn_mock.outbound_messages) == 1)
-        expected_evt_msg = bytes([MessageTypeID.EVENT, FeatureID.CORE, EvtID.LOG, logging.ERROR])
-        expected_evt_msg += log_text.encode(encoding='utf-8')
+        expected_evt_msg = bytes([MessageTypeID.EVENT, FeatureID.CORE, EvtID.FEATURE_STATE_TRANSITION, 1, 2])
         self.assertEqual(expected_evt_msg, conn_mock.outbound_messages.pop())
 
         my_device.close()
         self.assertFalse(my_device.is_connected)
-        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):
-            my_device.core.evt_log.emit(logging.ERROR, log_text)
+        with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):  # Because not connected
+            my_device.core._evt_state_transition.emit(previous_state_id=1, current_state_id=2)
 
     def test_connect_with_context(self):
         my_device = TestableDeviceService()
 
         self.assertFalse(my_device.is_connected)
-        log_text = "Hello there!"
         import hdcproto.device.router
         with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):
-            my_device.core.evt_log.emit(logging.ERROR, log_text)
+            my_device.core._evt_state_transition.emit(previous_state_id=1, current_state_id=2)
 
         with my_device:
             self.assertTrue(my_device.is_connected)
             conn_mock: MockTransport = my_device.router.transport
             self.assertFalse(conn_mock.outbound_messages)
-            my_device.core.evt_log.emit(logging.ERROR, log_text)
+            my_device.core._evt_state_transition.emit(previous_state_id=1, current_state_id=2)
             self.assertTrue(len(conn_mock.outbound_messages) == 1)
-            expected_evt_msg = bytes([MessageTypeID.EVENT, FeatureID.CORE, EvtID.LOG, logging.ERROR])
-            expected_evt_msg += log_text.encode(encoding='utf-8')
+            expected_evt_msg = bytes([MessageTypeID.EVENT, FeatureID.CORE, EvtID.FEATURE_STATE_TRANSITION, 1, 2])
             self.assertEqual(expected_evt_msg, conn_mock.outbound_messages.pop())
 
         self.assertFalse(my_device.is_connected)
         with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):
-            my_device.core.evt_log.emit(logging.ERROR, log_text)
+            my_device.core._evt_state_transition.emit(previous_state_id=1, current_state_id=2)
 
 
 class TestMessages(unittest.TestCase):
@@ -248,9 +244,9 @@ class TestEvents(unittest.TestCase):
         self.assertFalse(self.conn_mock.outbound_messages)  # Should suppress it
 
     def test_feature_state_transition_event(self):
-        previous_state_id = self.my_device.core.feature_state_id
+        previous_state_id = self.my_device.core._feature_state_id
         new_feature_state_id = TestableCoreService.States.READY  # Arbitrary
-        self.my_device.core.feature_state_transition(new_feature_state_id)
+        self.my_device.core.switch_state(new_feature_state_id)
         sent_msg = self.conn_mock.outbound_messages.pop()
         expected_msg = bytes([MessageTypeID.EVENT, FeatureID.CORE, EvtID.FEATURE_STATE_TRANSITION,
                               previous_state_id, new_feature_state_id])

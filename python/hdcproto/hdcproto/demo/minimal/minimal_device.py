@@ -14,21 +14,11 @@ from hdcproto.descriptor import ArgD, RetD, PropertyDescriptor, CommandDescripto
 class MinimalDeviceService(DeviceService):
     def __init__(self, connection_url: str):
         super().__init__(connection_url,
-                         core_feature_service_class=MinimalCoreService,
                          device_name="MinimalCore",
                          device_version="0.0.1",  # Mocking a SemVer for this implementation
                          device_doc="Python implementation of the 'Minimal' HDC-device demonstration")
 
-    def main_loop(self):
-        self.router.connect()
-        kb_listener = keyboard.Listener(on_press=self.core.evt_button.press_callback,
-                                        on_release=self.core.evt_button.release_callback)
-        kb_listener.start()
-        kb_listener.join()
-
-        while True:
-            # ToDo: Delayed processing of requests in the app's main thread should be happening here.
-            pass
+        self.core = MinimalCoreService(self)
 
 
 class MyDivZeroError(HdcCmdException):
@@ -36,12 +26,10 @@ class MyDivZeroError(HdcCmdException):
         super().__init__(exception_id=0x01, exception_name="MyDivZero")
 
 
-class MinimalCoreService:
+class MinimalCoreService(CoreFeatureService):
     def __init__(self, device_service: DeviceService):
-        # We could "inherit" from CoreFeatureService, but we choose "composition", instead, because
-        # it allows us to separate more cleanly our custom services from those defined in FeatureService.
-        # This is for example useful to keep the autocompletion list short and readable while coding.
-        self.hdc = CoreFeatureService(device_service=device_service, feature_states=self.States)
+        super().__init__(device_service=device_service,
+                         feature_states=self.States)
 
         # Custom attributes
         self.led_blinking_rate = 5
@@ -56,7 +44,7 @@ class MinimalCoreService:
                 raises_also=None,
                 doc="Reinitializes the whole device.",
             ),
-            feature_service=self.hdc,
+            feature_service=self,
             command_implementation=self.reset,
         )
 
@@ -70,16 +58,15 @@ class MinimalCoreService:
                 raises_also=[MyDivZeroError()],
                 doc="Divides numerator by denominator."
             ),
-            feature_service=self.hdc,
+            feature_service=self,
             command_implementation=self.divide,
         )
 
         # Events
-        self.evt_button = ButtonEventService(feature_service=self.hdc)  # Example of a custom event
+        self.evt_button = ButtonEventService(feature_service=self)  # Example of a custom event
 
         # Properties
         self.prop_microcontroller_devid = PropertyService(
-            feature_service=self.hdc,
             property_descriptor=PropertyDescriptor(
                 id_=0x10,
                 name="uC_DEVID",
@@ -87,12 +74,12 @@ class MinimalCoreService:
                 is_readonly=True,
                 doc="32bit Device-ID of STM32 microcontroller."
             ),
+            feature_service=self,
             property_getter=lambda: 12345,  # bogus
             property_setter=None
         )
 
         self.prop_microcontroller_revid = PropertyService(
-            feature_service=self.hdc,
             property_descriptor=PropertyDescriptor(
                 id_=0x11,
                 name="uC_REVID",
@@ -100,12 +87,12 @@ class MinimalCoreService:
                 is_readonly=True,
                 doc="32bit Revision-ID of STM32 microcontroller."
             ),
+            feature_service=self,
             property_getter=lambda: 67890,  # bogus
             property_setter=None
         )
 
         self.prop_microcontroller_uid = PropertyService(
-            feature_service=self.hdc,
             property_descriptor=PropertyDescriptor(
                 id_=0x12,
                 name="uC_UID",
@@ -113,12 +100,12 @@ class MinimalCoreService:
                 is_readonly=True,
                 doc="96bit unique-ID of STM32 microcontroller."
             ),
+            feature_service=self,
             property_getter=lambda: bytes(range(12)),  # bogus
             property_setter=None
         )
 
         self.prop_led_blinking_rate = PropertyService(
-            feature_service=self.hdc,
             property_descriptor=PropertyDescriptor(
                 id_=0x13,
                 name="LedBlinkingRate",
@@ -126,6 +113,7 @@ class MinimalCoreService:
                 is_readonly=False,
                 doc="Blinking frequency of the LED given in Herz."
             ),
+            feature_service=self,
             property_getter=lambda: self.led_blinking_rate,
             property_setter=self.led_blinking_rate_setter
         )
@@ -139,19 +127,19 @@ class MinimalCoreService:
 
     def reset(self) -> None:
         # ToDo: Would be interesting to experiment with restarting this script and see how the connection behaves.
-        self.hdc.hdc_logger.warning("Just pretending to be restarting the device.")
-        self.hdc.feature_state_transition(new_feature_state_id=self.States.OFF)
+        self.hdc_logger.warning("Just pretending to be restarting the device.")
+        self.switch_state(new_feature_state_id=self.States.OFF)
         time.sleep(0.2)
-        self.hdc.feature_state_transition(new_feature_state_id=self.States.INIT)
+        self.switch_state(new_feature_state_id=self.States.INIT)
         time.sleep(0.2)
-        self.hdc.feature_state_transition(new_feature_state_id=self.States.READY)
+        self.switch_state(new_feature_state_id=self.States.READY)
 
     def divide(self, numerator: float, denominator: float) -> float:
         """The actual implementation of the command"""
         if denominator == 0:
             raise MyDivZeroError()
 
-        self.hdc.hdc_logger.debug(f"Dividing {numerator} by {denominator}.")
+        self.hdc_logger.debug(f"Dividing {numerator} by {denominator}.")
 
         return numerator / denominator
 
@@ -193,7 +181,15 @@ class ButtonEventService(EventService):
 
 def launch_device(connection_url: str):
     device = MinimalDeviceService(connection_url=connection_url)
-    device.main_loop()
+    device.router.connect()
+    kb_listener = keyboard.Listener(on_press=device.core.evt_button.press_callback,
+                                    on_release=device.core.evt_button.release_callback)
+    kb_listener.start()
+    kb_listener.join()
+
+    while True:
+        # ToDo: Delayed processing of requests in the app's main thread should be happening here.
+        pass
 
 
 if __name__ == '__main__':

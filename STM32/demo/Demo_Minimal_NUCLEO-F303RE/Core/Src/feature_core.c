@@ -59,9 +59,7 @@ const HDC_Descriptor_Command_t *Core_HDC_Commands[] = {
     .CommandID = 0x01,       // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .CommandName = "Reset",  // Name of the corresponding, automatically generated API-method in a proxy-class.
     .CommandHandler = &Core_HDC_Cmd_Reset,  // Function pointer to the handler defined above.
-    .CommandDescription =
-        "(VOID) -> VOID\\n"                 // ToDo: Standardize argument and return value documentation.
-        "Reinitializes the whole device."   // Human readable docstring
+    .CommandDescription = "Reinitializes the whole device."   // Human readable docstring
   },
 
 
@@ -72,9 +70,7 @@ const HDC_Descriptor_Command_t *Core_HDC_Commands[] = {
     .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_FLOAT, .name="numerator"},
     .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_FLOAT, .name="denominator", .doc="Beware of the zero!"},
     .ret1 = &(HDC_Descriptor_Ret_t) {.dtype=HDC_DataTypeID_DOUBLE, .doc="Quotient of numerator/denominator"}, // Name of return values can be omitted
-    .CommandDescription =
-        "(FLOAT numerator, FLOAT denominator) -> DOUBLE\\n"
-        "Divides numerator by denominator."    // Human readable docstring
+    .CommandDescription = "Divides numerator by denominator."    // Human readable docstring
   },
 
   // Note how hdc_device driver takes care of all mandatory HDC-commands (GetPropertyValue, SetPropertyValue, ...)
@@ -90,8 +86,7 @@ const HDC_Descriptor_Command_t *Core_HDC_Commands[] = {
 HDC_Descriptor_Event_t Core_HDC_Event_Button = {
       .EventID = 0x01,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
       .EventName = "ButtonEvent",  // Name of the corresponding, automatically generated event handler in a proxy-class.
-      .EventDescription = "(UINT8 ButtonID, UINT8 ButtonState)\\n"
-                          "Notify host about the button being pressed on the device.",
+      .EventDescription = "Notify host about the button being pressed on the device.",
       .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="ButtonID"},
       .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="ButtonState"},
 };

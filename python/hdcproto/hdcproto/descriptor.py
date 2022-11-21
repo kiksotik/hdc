@@ -117,8 +117,8 @@ class CommandDescriptor:
     def __init__(self,
                  id_: int,
                  name: str,
-                 arguments: typing.Iterable[ArgD, ...] | None,
-                 returns: RetD | typing.Iterable[RetD, ...] | None,
+                 arguments: typing.Iterable[ArgD] | None,
+                 returns: RetD | typing.Iterable[RetD] | None,
                  raises_also: typing.Iterable[HdcCmdException | enum.IntEnum] | None,
                  doc: str | None):
 
@@ -175,34 +175,6 @@ class CommandDescriptor:
                 exc = HdcCmdException(exc)
             self._register_exception(exc)
 
-        if doc is None:  # ToDo: Attribute optionality. #25
-            doc = ""
-        description_already_contains_command_signature = doc.startswith('(')
-        if not description_already_contains_command_signature:
-            cmd_signature = "("
-            if not self.arguments:
-                cmd_signature += "VOID"
-            else:
-                cmd_signature += ', '.join(f"{arg.dtype.name} {arg.name}"
-                                           for arg in self.arguments)
-            cmd_signature += ") -> "
-
-            if len(self.returns) == 0:
-                cmd_signature += "VOID"
-            elif len(self.returns) == 1:
-                cmd_signature += f"{self.returns[0].dtype.name}"
-                if self.returns[0].name:
-                    cmd_signature += f" {self.returns[0].name}"
-            else:
-                cmd_signature += "("
-                cmd_signature += ', '.join(f"{ret.dtype.name}{f' ret.name' if ret.name else ''}"
-                                           for ret in self.returns)
-                cmd_signature += ")"
-            if doc:
-                doc = cmd_signature + '\n' + doc
-            else:
-                doc = cmd_signature
-
         self.doc = doc
 
     def _register_exception(self, exception: HdcCmdException) -> None:
@@ -255,8 +227,7 @@ class SetPropertyValueCommandDescriptor(CommandDescriptor):
             returns=[RetD(HdcDataType.BLOB, "ActualNewValue", "May differ from NewValue!")],
             raises_also=[HdcCmdExc_UnknownProperty(),
                          HdcCmdExc_RoProperty()],
-            doc="Returned value might differ from NewValue argument, "
-                "i.e. because of trimming to valid range or discretization."
+            doc=None
         )
 
 
@@ -269,7 +240,7 @@ class EventDescriptor:
     def __init__(self,
                  id_: int,
                  name: str,
-                 arguments: typing.Iterable[ArgD, ...] | None,
+                 arguments: typing.Iterable[ArgD] | None,
                  doc: str | None):
 
         if not is_valid_uint8(id_):
@@ -290,18 +261,6 @@ class EventDescriptor:
                 raise ValueError("Only last argument may be of a variable-size data-type")
         self.arguments = arguments
 
-        if doc is None:
-            # ToDo: Attribute optionality. #25
-            doc = ""
-        description_already_contains_signature = doc.startswith('(')
-        if not description_already_contains_signature:
-            evt_signature = "("
-            evt_signature += ', '.join(f"{arg.dtype.name} {arg.name}" for arg in self.arguments)
-            evt_signature += ")"
-            if doc:
-                doc = evt_signature + '\n' + doc
-            else:
-                doc = evt_signature
         self.doc = doc
 
     def __str__(self):

@@ -30,14 +30,14 @@
                 {
                     "id": 1,
                     "name": "Reset",
-                    "doc": "(VOID) -> VOID\nReinitializes the whole device.",
+                    "doc": "Reinitializes the whole device.",
                     "args": [],
                     "returns": []
                 },
                 {
                     "id": 2,
                     "name": "Divide",
-                    "doc": "(FLOAT numerator, FLOAT denominator) -> DOUBLE\nDivides numerator by denominator.",
+                    "doc": "Divides numerator by denominator.",
                     "args": [
                         {
                             "dtype": "FLOAT",
@@ -59,7 +59,6 @@
                 {
                     "id": 240,
                     "name": "GetPropertyValue",
-                    "doc": "(UINT8 PropertyID) -> BLOB",
                     "args": [
                         {
                             "dtype": "UINT8",
@@ -76,7 +75,6 @@
                 {
                     "id": 241,
                     "name": "SetPropertyValue",
-                    "doc": "(UINT8 PropertyID, BLOB NewValue) -> BLOB ActualNewValue\nReturned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization.",
                     "args": [
                         {
                             "dtype": "UINT8",
@@ -101,7 +99,7 @@
                 {
                     "id": 1,
                     "name": "ButtonEvent",
-                    "doc": "(UINT8 ButtonID, UINT8 ButtonState)\nNotify host about the button being pressed on the device.",
+                    "doc": "Notify host about the button being pressed on the device.",
                     "args": [
                         {
                             "dtype": "UINT8",
@@ -116,7 +114,7 @@
                 {
                     "id": 240,
                     "name": "Log",
-                    "doc": "(UINT8 LogLevel, UTF8 LogMsg)\nForwards software event log to the host.",
+                    "doc": "Forwards software event log to the host.",
                     "args": [
                         {
                             "dtype": "UINT8",
@@ -132,7 +130,7 @@
                 {
                     "id": 241,
                     "name": "FeatureStateTransition",
-                    "doc": "(UINT8 PreviousStateID , UINT8 CurrentStateID)\nNotifies host about transitions of this feature's state-machine.",
+                    "doc": "Notifies host about transitions of this feature's state-machine.",
                     "args": [
                         {
                             "dtype": "UINT8",
@@ -154,7 +152,7 @@
                     "doc": "32bit Device-ID of STM32 microcontroller."
                 },
                 {
-                    "id": 18,
+                    "id": 17,
                     "name": "uC_UID",
                     "dtype": "BLOB",
                     "size": 12,
@@ -162,7 +160,7 @@
                     "doc": "96bit unique-ID of STM32 microcontroller."
                 },
                 {
-                    "id": 19,
+                    "id": 18,
                     "name": "LedBlinkingRate",
                     "dtype": "UINT8",
                     "ro": false,

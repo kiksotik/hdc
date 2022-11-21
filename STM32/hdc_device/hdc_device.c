@@ -660,7 +660,6 @@ const HDC_Descriptor_Command_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
     .CommandID = HDC_CommandID_GetPropertyValue,
     .CommandName = "GetPropertyValue",
     .CommandHandler = &HDC_Cmd_GetPropertyValue,
-    .CommandDescription = "(UINT8 PropertyID) -> BLOB",
     .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="PropertyID"},
     .ret1 = &(HDC_Descriptor_Ret_t) {.dtype=HDC_DataTypeID_BLOB, .doc="Actual data-type depends on property"}
   },
@@ -669,8 +668,6 @@ const HDC_Descriptor_Command_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
     .CommandID = HDC_CommandID_SetPropertyValue,
     .CommandName = "SetPropertyValue",
     .CommandHandler = &HDC_Cmd_SetPropertyValue,
-    .CommandDescription = "(UINT8 PropertyID, BLOB NewValue) -> BLOB ActualNewValue\\n"
-        "Returned value might differ from NewValue argument, i.e. because of trimming to valid range or discretization.",
     .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="PropertyID"},
     .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_BLOB, .name="NewValue", .doc="Actual data-type depends on property"},
     .ret1 = &(HDC_Descriptor_Ret_t) {.dtype=HDC_DataTypeID_BLOB, .name="ActualNewValue", .doc="May differ from NewValue!"},
@@ -683,9 +680,7 @@ const HDC_Descriptor_Command_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
 const HDC_Descriptor_Event_t HDC_Event_Log = {
   .EventID = HDC_EventID_Log,
   .EventName = "Log",
-  .EventDescription =
-      "(UINT8 LogLevel, UTF8 LogMsg)\\n"
-      "Forwards software event log to the host.",
+  .EventDescription = "Forwards software event log to the host.",
   .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="LogLevel", .doc="Same as in Python"},
   .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UTF8, .name="LogMsg"},
 };
@@ -693,9 +688,7 @@ const HDC_Descriptor_Event_t HDC_Event_Log = {
 const HDC_Descriptor_Event_t HDC_Event_FeatureStateTransition = {
   .EventID = HDC_EventID_FeatureStateTransition,
   .EventName = "FeatureStateTransition",
-  .EventDescription =
-      "(UINT8 PreviousStateID , UINT8 CurrentStateID)\\n"
-      "Notifies host about transitions of this feature's state-machine.",
+  .EventDescription = "Notifies host about transitions of this feature's state-machine.",
   .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="PreviousStateID"},
   .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="CurrentStateID"},
 };

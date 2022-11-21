@@ -13,7 +13,7 @@ from hdcproto.device.service import (DeviceService, CoreFeatureService,FeatureSe
 class MyDivZeroError(HdcCmdException):
     """Example of a custom exception that can be raised here and received on the Host"""
     def __init__(self):
-        super().__init__(exception_id=0x01, exception_name="MyDivZero")
+        super().__init__(id=0x01, name="MyDivZero")
 
 
 class MinimalCoreService(CoreFeatureService):
@@ -25,9 +25,9 @@ class MinimalCoreService(CoreFeatureService):
         # Commands
         self.cmd_reset = CommandService(
             command_descriptor=CommandDescriptor(
-                id_=0x01,
+                id=0x01,
                 name="Reset",
-                arguments=None,
+                args=None,
                 returns=None,
                 raises=None,
                 doc="Reinitializes the whole device.",
@@ -38,10 +38,10 @@ class MinimalCoreService(CoreFeatureService):
 
         self.cmd_divide = CommandService(
             command_descriptor=CommandDescriptor(
-                id_=0x02,
+                id=0x02,
                 name="Divide",
-                arguments=[ArgD(HdcDataType.FLOAT, "numerator"),
-                           ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")],
+                args=[ArgD(HdcDataType.FLOAT, "numerator"),
+                      ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")],
                 returns=RetD(HdcDataType.DOUBLE, doc="Quotient of numerator/denominator"),  # May omit name
                 raises=[MyDivZeroError()],
                 doc="Divides numerator by denominator."
@@ -59,7 +59,7 @@ class MinimalCoreService(CoreFeatureService):
         # Example of exposing a constant/immutable UINT32 value as a property
         self.prop_microcontroller_devid = PropertyService(
             property_descriptor=PropertyDescriptor(
-                id_=0x10,
+                id=0x10,
                 name="uC_DEVID",
                 dtype=HdcDataType.UINT32,
                 is_readonly=True,
@@ -73,7 +73,7 @@ class MinimalCoreService(CoreFeatureService):
         # Example of exposing a constant/immutable BLOB value as a property
         self.prop_microcontroller_uid = PropertyService(
             property_descriptor=PropertyDescriptor(
-                id_=0x11,
+                id=0x11,
                 name="uC_UID",
                 dtype=HdcDataType.BLOB,
                 is_readonly=True,
@@ -88,7 +88,7 @@ class MinimalCoreService(CoreFeatureService):
         self.led_blinking_rate = 5  # Instance attribute that's being exposed by the property below
         self.prop_led_blinking_rate = PropertyService(
             property_descriptor=PropertyDescriptor(
-                id_=0x12,
+                id=0x12,
                 name="LedBlinkingRate",
                 dtype=HdcDataType.UINT8,
                 is_readonly=False,
@@ -141,10 +141,10 @@ class ButtonEventService(EventService):
     def __init__(self, feature_service: FeatureService):
         super().__init__(
             event_descriptor=EventDescriptor(
-                id_=0x01,
+                id=0x01,
                 name="ButtonEvent",
-                arguments=(ArgD(HdcDataType.UINT8, "ButtonID"),
-                           ArgD(HdcDataType.UINT8, "ButtonState")),
+                args=(ArgD(HdcDataType.UINT8, "ButtonID"),
+                      ArgD(HdcDataType.UINT8, "ButtonState")),
                 doc="Notify host about the button being pressed on the device."
             ),
             feature_service=feature_service)

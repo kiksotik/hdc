@@ -341,29 +341,30 @@ class HdcCmdException(HdcError):
     exception_doc: str | None
     exception_message: str | None
 
+    # noinspection PyShadowingBuiltins
     def __init__(self,
-                 exception_id: int | enum.IntEnum,
-                 exception_name: str | None = None,
-                 exception_doc: str | None = None,
+                 id: int | enum.IntEnum,
+                 name: str | None = None,
+                 doc: str | None = None,
                  exception_message: str | None = None):
         super().__init__(exception_message=exception_message)
 
-        if not is_valid_uint8(exception_id):
-            raise ValueError(f"exception_id value of {exception_id} is beyond valid range from 0x00 to 0xFF")
+        if not is_valid_uint8(id):
+            raise ValueError(f"exception_id value of {id} is beyond valid range from 0x00 to 0xFF")
 
-        if isinstance(exception_id, enum.IntEnum):
-            if exception_name is None:
-                exception_name = exception_id.name
-            exception_id = int(exception_id)
-        elif exception_name is None:
+        if isinstance(id, enum.IntEnum):
+            if name is None:
+                name = id.name
+            id = int(id)
+        elif name is None:
             raise TypeError("Exception.name may only be omitted if the first argument is an IntEnum")
 
-        if not isinstance(exception_name, str) or len(exception_name) < 1:  # ToDo: Validate name with RegEx
+        if not isinstance(name, str) or len(name) < 1:  # ToDo: Validate name with RegEx
             raise ValueError("Invalid exception_name")
 
-        self.exception_id = exception_id
-        self.exception_name = exception_name
-        self.exception_doc = exception_doc
+        self.exception_id = id
+        self.exception_name = name
+        self.exception_doc = doc
 
     def __str__(self):
         if self.__class__ == HdcCmdException:
@@ -387,8 +388,8 @@ class HdcCmdException(HdcError):
         exc_text = hdc_message[4:].decode(encoding="utf-8", errors="strict")  # Might be empty
 
         if self.__class__ == HdcCmdException:  # Does not apply to subclasses!
-            return HdcCmdException(exception_id=self.exception_id,
-                                   exception_name=self.exception_name,
+            return HdcCmdException(id=self.exception_id,
+                                   name=self.exception_name,
                                    exception_message=exc_text)
 
         # The following is meant to work for any subclass whose constructor just takes a single str argument.
@@ -404,52 +405,56 @@ class HdcCmdException(HdcError):
             doc=self.exception_doc  # This is a crazy experiment.
         )
 
+    @classmethod
+    def from_idl_dict(cls, d: dict) -> HdcCmdException:
+        return cls(**d)
+
 
 # noinspection PyPep8Naming
 class HdcCmdExc_CommandFailed(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.CommandFailed,
+        super().__init__(id=ExcID.CommandFailed,
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
 class HdcCmdExc_UnknownFeature(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.UnknownFeature,
+        super().__init__(id=ExcID.UnknownFeature,
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
 class HdcCmdExc_UnknownCommand(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.UnknownCommand,
+        super().__init__(id=ExcID.UnknownCommand,
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
 class HdcCmdExc_InvalidArgs(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.InvalidArgs,
+        super().__init__(id=ExcID.InvalidArgs,
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
 class HdcCmdExc_NotNow(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.NotNow,
-                         exception_doc="Command can't be executed at this moment.",
+        super().__init__(id=ExcID.NotNow,
+                         doc="Command can't be executed at this moment.",
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
 class HdcCmdExc_UnknownProperty(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.UnknownProperty,
+        super().__init__(id=ExcID.UnknownProperty,
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
 class HdcCmdExc_ReadOnlyProperty(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.ReadOnlyProperty,
+        super().__init__(id=ExcID.ReadOnlyProperty,
                          exception_message=exception_message)

@@ -9,9 +9,9 @@ from hdcproto.util.docgen import build_command_signature
 class TestCommandSignature(unittest.TestCase):
 
     def test_0arg_0ret(self):
-        cmd = CommandDescriptor(id_=0,
+        cmd = CommandDescriptor(id=0,
                                 name="MyCommand",
-                                arguments=[],
+                                args=[],
                                 returns=[],
                                 raises=None,
                                 doc=None)
@@ -21,9 +21,9 @@ class TestCommandSignature(unittest.TestCase):
         )
 
     def test_1arg_1ret(self):
-        cmd = CommandDescriptor(id_=0,
+        cmd = CommandDescriptor(id=0,
                                 name="MyCommand",
-                                arguments=[ArgD(HdcDataType.UINT8, "first_arg")],
+                                args=[ArgD(HdcDataType.UINT8, "first_arg")],
                                 returns=[RetD(HdcDataType.UINT32, "first_ret")],
                                 raises=None,
                                 doc=None)
@@ -33,10 +33,10 @@ class TestCommandSignature(unittest.TestCase):
         )
 
     def test_2arg_2ret(self):
-        cmd = CommandDescriptor(id_=0,
+        cmd = CommandDescriptor(id=0,
                                 name="MyCommand",
-                                arguments=[ArgD(HdcDataType.UINT8, "first_arg"),
-                                           ArgD(HdcDataType.FLOAT, "second_arg")],
+                                args=[ArgD(HdcDataType.UINT8, "first_arg"),
+                                      ArgD(HdcDataType.FLOAT, "second_arg")],
                                 returns=[RetD(HdcDataType.UINT32, "first_ret"),
                                          RetD(HdcDataType.DOUBLE, "second_ret")],
                                 raises=None,
@@ -49,9 +49,9 @@ class TestCommandSignature(unittest.TestCase):
     # ToDo: Attribute optionality. #25
     @unittest.skip
     def test_unspecified(self):
-        cmd = CommandDescriptor(id_=0,
+        cmd = CommandDescriptor(id=0,
                                 name="MyCommand",
-                                arguments=None,
+                                args=None,
                                 returns=None,
                                 raises=None,
                                 doc=None)

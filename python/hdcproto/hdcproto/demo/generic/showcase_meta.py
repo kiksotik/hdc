@@ -47,6 +47,12 @@ def showcase_meta():
     with open('showcase_meta_idl_pretty.json', 'w', encoding='utf-8') as f:
         json.dump(idl_dict, f, ensure_ascii=False, indent=4)
 
+    print(f"Roundtrip IDL conversion JSON -> Python -> JSON: showcase_meta_idl_pretty_roundtrip.json")
+    from hdcproto.descriptor import DeviceDescriptor
+    idl_python = DeviceDescriptor.from_idl_json(idl_json)
+    with open('showcase_meta_idl_pretty_roundtrip.json', 'w', encoding='utf-8') as f:
+        json.dump(idl_python.to_idl_dict(), f, ensure_ascii=False, indent=4)
+
 
 if __name__ == '__main__':
     showcase_meta()

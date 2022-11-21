@@ -76,12 +76,12 @@ class CommandService:
 
     def _command_request_handler(self, request_message: bytes) -> None:
         try:
-            if self.command_descriptor.arguments is None:
+            if self.command_descriptor.args is None:
                 parsed_arguments = None
             else:
                 parsed_arguments = HdcDataType.parse_command_request_msg(
                     request_message=request_message,
-                    expected_data_types=[arg.dtype for arg in self.command_descriptor.arguments])
+                    expected_data_types=[arg.dtype for arg in self.command_descriptor.args])
         except HdcDataTypeError as e:
             raise HdcCmdExc_InvalidArgs(exception_message=str(e))
 
@@ -236,11 +236,11 @@ class EventService:
         event_message = bytearray(self.msg_prefix)
 
         if event_args is None:
-            assert self.event_descriptor.arguments is None
+            assert self.event_descriptor.args is None
         else:
-            assert len(event_args) == len(self.event_descriptor.arguments)
+            assert len(event_args) == len(self.event_descriptor.args)
 
-            for arg_value, arg_descriptor in zip(event_args, self.event_descriptor.arguments):
+            for arg_value, arg_descriptor in zip(event_args, self.event_descriptor.args):
                 arg_as_raw_bytes = arg_descriptor.dtype.value_to_bytes(arg_value)
                 event_message.extend(arg_as_raw_bytes)
 
@@ -456,10 +456,10 @@ class CoreFeatureService(FeatureService):
                  feature_states: typing.Type[enum.IntEnum] | list[StateDescriptor] | None = None):
         super().__init__(
             feature_descriptor=FeatureDescriptor(
-                id_=FeatureID.CORE.CORE,
+                id=FeatureID.CORE.CORE,
                 name="Core",
-                class_name=device_service.device_name,
-                class_version=device_service.device_version,
+                cls=device_service.device_name,
+                version=device_service.device_version,
                 doc=device_service.device_doc,
                 states=feature_states
             ),

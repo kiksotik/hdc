@@ -123,8 +123,8 @@ class TestExceptionConstructor(unittest.TestCase):
     def test_normal_case_without_message(self):
         exc_id = 0xDD
         exc_name = "MyName"
-        exc = HdcCmdException(exception_id=0xDD,
-                              exception_name="MyName")
+        exc = HdcCmdException(id=0xDD,
+                              name="MyName")
         self.assertEqual(exc.exception_name, exc_name)
         self.assertEqual(exc.exception_id, exc_id)
         self.assertIsNone(exc.exception_message)
@@ -133,8 +133,8 @@ class TestExceptionConstructor(unittest.TestCase):
         exc_id = 0xDD
         exc_name = "MyName"
         exc_msg = "This is a text message."
-        exc = HdcCmdException(exception_id=0xDD,
-                              exception_name="MyName",
+        exc = HdcCmdException(id=0xDD,
+                              name="MyName",
                               exception_message=exc_msg)
         self.assertEqual(exc.exception_name, exc_name)
         self.assertEqual(exc.exception_id, exc_id)
@@ -142,31 +142,31 @@ class TestExceptionConstructor(unittest.TestCase):
 
     def test_custom_code_which_is_below_valid_range(self):
         with self.assertRaises(ValueError):
-            HdcCmdException(exception_id=-1,
-                            exception_name="MyName")
+            HdcCmdException(id=-1,
+                            name="MyName")
 
     def test_custom_code_which_is_beyond_valid_range(self):
         with self.assertRaises(ValueError):
-            HdcCmdException(exception_id=256,
-                            exception_name="MyName")
+            HdcCmdException(id=256,
+                            name="MyName")
 
     # ToDo: Test for invalid names, once HDC-spec settles for a naming style.
     def test_custom_code_which_is_available_but_name_is_missing(self):
         with self.assertRaises(ValueError):
-            HdcCmdException(exception_id=256,
-                            exception_name=None)
+            HdcCmdException(id=256,
+                            name=None)
 
         with self.assertRaises(ValueError):
-            HdcCmdException(exception_id=256,
-                            exception_name="")
+            HdcCmdException(id=256,
+                            name="")
 
 
 class TestExceptionCloning(unittest.TestCase):
 
     def test_cloning_baseclass(self):
         custom_exc_id = 0xDD
-        exc_descriptor = HdcCmdException(exception_id=0xDD,
-                                         exception_name="MyName")
+        exc_descriptor = HdcCmdException(id=0xDD,
+                                         name="MyName")
         exception_text = "Text message brought as payload by the HDC-error-message"
         mocked_hdc_error_msg = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE, custom_exc_id])
         mocked_hdc_error_msg += exception_text.encode()
@@ -185,7 +185,7 @@ class TestExceptionCloning(unittest.TestCase):
 
         class MyCustomExceptionClass(HdcCmdException):
             def __init__(self, txt_msg=None):
-                super().__init__(exception_id=custom_exc_id, exception_name=custom_exc_name, exception_message=txt_msg)
+                super().__init__(id=custom_exc_id, name=custom_exc_name, exception_message=txt_msg)
 
         exc_descriptor = MyCustomExceptionClass()
         exception_text = "Text message brought as payload by the HDC-error-message"
@@ -234,8 +234,8 @@ class TestExceptionHandling(unittest.TestCase):
 
         class MyCustomException(HdcCmdException):
             def __init__(self, exception_message=None):
-                super().__init__(exception_id=custom_exc_id,
-                                 exception_name=custom_exc_name,
+                super().__init__(id=custom_exc_id,
+                                 name=custom_exc_name,
                                  exception_message=exception_message)
 
         self.some_command_proxy._register_exception(MyCustomException())

@@ -105,8 +105,8 @@ class CommandProxyBase:
             exc_descriptor = self.command_raises[exception_id]
         except KeyError:
             self.logger.warning(f"Received an unexpected Exception.id=0x{exception_id:02X}. Raising it anyway")
-            exc_descriptor = HdcCmdException(exception_id=exception_id,
-                                             exception_name=f"Exception_0x{exception_id:02X}")
+            exc_descriptor = HdcCmdException(id=exception_id,
+                                             name=f"Exception_0x{exception_id:02X}")
 
         # Use the "descriptor" just as a template to create the actual exception instance being raised.
         exception = exc_descriptor.clone_with_hdc_message(reply_message)

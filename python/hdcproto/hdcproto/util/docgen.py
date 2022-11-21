@@ -25,7 +25,7 @@ def build_ret_single(ret: RetD) -> str:
 
 
 def build_command_signature(cmd: CommandDescriptor) -> str:
-    result = f"{cmd.name}{build_args(cmd.arguments)} -> "
+    result = f"{cmd.name}{build_args(cmd.args)} -> "
     if cmd.returns is None:
         return result + "?"  # ToDo: Attribute optionality. #25
     if len(cmd.returns) == 0:

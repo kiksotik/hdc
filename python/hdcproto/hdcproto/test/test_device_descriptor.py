@@ -244,7 +244,7 @@ class TestEvents(unittest.TestCase):
         self.assertFalse(self.conn_mock.outbound_messages)  # Should suppress it
 
     def test_feature_state_transition_event(self):
-        previous_state_id = self.my_device.core._feature_state_id
+        previous_state_id = self.my_device.core._current_state_id
         new_feature_state_id = TestableCoreService.States.READY  # Arbitrary
         self.my_device.core.switch_state(new_feature_state_id)
         sent_msg = self.conn_mock.outbound_messages.pop()

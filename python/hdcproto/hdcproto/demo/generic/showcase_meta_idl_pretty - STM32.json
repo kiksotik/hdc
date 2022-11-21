@@ -154,13 +154,6 @@
                     "doc": "32bit Device-ID of STM32 microcontroller."
                 },
                 {
-                    "id": 17,
-                    "name": "uC_REVID",
-                    "dtype": "UINT32",
-                    "ro": true,
-                    "doc": "32bit Revision-ID of STM32 microcontroller."
-                },
-                {
                     "id": 18,
                     "name": "uC_UID",
                     "dtype": "BLOB",

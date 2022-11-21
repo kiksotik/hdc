@@ -340,7 +340,7 @@ class FeatureService:
     event_services: dict[int, EventService]
     property_services: dict[int, PropertyService]
 
-    _feature_state_id: int
+    _current_state_id: int
 
     def __init__(self,
                  feature_descriptor: FeatureDescriptor,
@@ -369,7 +369,7 @@ class FeatureService:
         self.device_service.device_descriptor.features[feature_descriptor.id] = feature_descriptor
 
         # Actual attributes holding the values for the two mandatory HDC-properties of this feature.
-        self._feature_state_id = 0  # ToDo: Should we establish a convention about initializing states to zero? Nah...
+        self._current_state_id = 0  # ToDo: Should we establish a convention about initializing states to zero? Nah...
         self.log_event_threshold = logging.WARNING
 
         # Commands
@@ -398,7 +398,7 @@ class FeatureService:
         self._prop_feature_state = PropertyService(
             feature_service=self,
             property_descriptor=FeatureStatePropertyDescriptor(),
-            property_getter=lambda: self._feature_state_id,
+            property_getter=lambda: self._current_state_id,
             property_setter=None  # Not exposing a setter on HDC interface does *not* mean this is immutable. ;-)
         )
 
@@ -430,6 +430,11 @@ class FeatureService:
     def router(self) -> hdcproto.device.router.MessageRouter:
         return self.device_service.router
 
+    @property
+    def current_state_id(self) -> int:
+        """Use the switch_state() method to change the current state."""
+        return self._current_state_id
+
     def switch_state(self, new_feature_state_id: int):
         if self.feature_descriptor.states is None:
             raise RuntimeError("Cannot switch feature state if none were registered for this feature")
@@ -437,10 +442,10 @@ class FeatureService:
         if new_feature_state_id not in self.feature_descriptor.states:
             raise ValueError(f"Unknown state_id {new_feature_state_id}")
 
-        previous_state_id = self._feature_state_id
+        previous_state_id = self._current_state_id
         self.logger.info(f"Transitioning FeatureState from previously 0x{previous_state_id:02X} to "
                          f"now 0x{new_feature_state_id:02X}.")
-        self._feature_state_id = new_feature_state_id
+        self._current_state_id = new_feature_state_id
         self._evt_state_transition.emit(previous_state_id=previous_state_id,
                                         current_state_id=new_feature_state_id)
 

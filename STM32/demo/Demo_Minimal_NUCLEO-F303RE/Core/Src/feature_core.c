@@ -40,8 +40,8 @@ void Core_HDC_Cmd_Divide(const HDC_Descriptor_Feature_t *hHDC_Feature,
     return HDC_CmdReply_Error(HDC_CommandErrorCode_INVALID_ARGS, pRequestMessage);
 
   // ToDo: HDC-library should provide more comfortable ways to parse arguments than this:
-  float numerator   = *((float*)pRequestMessage + 3);
-  float denominator = *((float*)pRequestMessage + 7);
+  float numerator   = *((float*)(pRequestMessage + 3));
+  float denominator = *((float*)(pRequestMessage + 7));
 
   if (denominator == 0.0f)
     return HDC_CmdReply_Error(Core_CmdError_DivByZero, pRequestMessage);
@@ -127,14 +127,6 @@ void Core_HDC_Property_uC_DEVID_get(const HDC_Descriptor_Feature_t *hHDC_Feature
   HDC_CmdReply_UInt32Value(devid, pRequestMessage);
 }
 
-void Core_HDC_Property_uC_REVID_get(const HDC_Descriptor_Feature_t *hHDC_Feature,
-                                    const HDC_Descriptor_Property_t *hHDC_Property,
-                                    const uint8_t* pRequestMessage,
-                                    const uint8_t RequestMessageSize)
-{
-  const uint32_t revid = HAL_GetREVID();
-  HDC_CmdReply_UInt32Value(revid, pRequestMessage);
-}
 
 // Example of how HDC-properties can also be backed by a simple C variable
 uint8_t led_blinking_rate = 5;
@@ -153,16 +145,7 @@ const HDC_Descriptor_Property_t *Core_HDC_Properties[] = {
   },
 
   &(HDC_Descriptor_Property_t ) {
-    .PropertyID = 0x11,          // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
-    .PropertyName = "uC_REVID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
-    .PropertyDataType = HDC_DataTypeID_UINT32,
-    .PropertyIsReadonly = true,
-    .GetPropertyValue = Core_HDC_Property_uC_REVID_get,  // hdc_driver will use this getter to obtain the value.
-    .PropertyDescription = "32bit Revision-ID of STM32 microcontroller."
-  },
-
-  &(HDC_Descriptor_Property_t ) {
-    .PropertyID = 0x12,        // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
+    .PropertyID = 0x11,        // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .PropertyName = "uC_UID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataTypeID_BLOB,
     .PropertyIsReadonly = true,
@@ -172,7 +155,7 @@ const HDC_Descriptor_Property_t *Core_HDC_Properties[] = {
   },
 
   &(HDC_Descriptor_Property_t ) {
-    .PropertyID = 0x13,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
+    .PropertyID = 0x12,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
     .PropertyName = "LedBlinkingRate",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataTypeID_UINT8,
     .PropertyIsReadonly = false,

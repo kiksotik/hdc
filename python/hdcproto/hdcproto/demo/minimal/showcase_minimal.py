@@ -74,9 +74,9 @@ def showcase_minimal():
     try:
         dev.core.cmd_division(numerator=10, denominator=0)
     except MyDivZeroError:
-        demo_logger.info("Caught a custom exception raised by the device and handled in this proxy")
+        demo_logger.info("Dividing 10 by 0 made the device raise a custom exception which was forwarded to this proxy.")
     else:
-        raise RuntimeError("Did not expect not to fail!")
+        raise RuntimeError("Failed to receive the expected custom exception!")
 
     ##################################################################
     # Example of how the host gets property values
@@ -85,7 +85,6 @@ def showcase_minimal():
     demo_logger.info(f"       LogEventThreshold: {dev.core.prop_log_event_threshold.get_value_name()}")
     demo_logger.info("_____________________________________")
     demo_logger.info("Obtain some custom property values...")
-    demo_logger.info(f"   Microcontroller REVID: 0x{dev.core.prop_microcontroller_revid.get():08x}")
     demo_logger.info(f"   Microcontroller DEVID: 0x{dev.core.prop_microcontroller_devid.get():08x}")
     demo_logger.info(f"   Microcontroller   UID: 0x{dev.core.prop_microcontroller_uid.get().hex()}")
 

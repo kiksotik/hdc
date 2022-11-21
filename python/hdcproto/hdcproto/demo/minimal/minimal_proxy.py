@@ -33,9 +33,8 @@ class MinimalCore(CoreFeatureProxyBase):
 
         # Properties
         self.prop_microcontroller_devid = PropertyProxy_RO_UINT32(self, property_id=0x010)
-        self.prop_microcontroller_revid = PropertyProxy_RO_UINT32(self, property_id=0x11)
-        self.prop_microcontroller_uid = PropertyProxy_RO_BLOB(self, property_id=0x12)
-        self.prop_led_blinking_rate = PropertyProxy_RW_UINT8(self, property_id=0x13)
+        self.prop_microcontroller_uid = PropertyProxy_RO_BLOB(self, property_id=0x11)
+        self.prop_led_blinking_rate = PropertyProxy_RW_UINT8(self, property_id=0x12)
 
     class FeatureStateEnum(enum.IntEnum):
         """Custom states of the Core-feature of the Demo_Minimal firmware."""

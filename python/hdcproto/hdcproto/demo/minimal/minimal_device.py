@@ -5,34 +5,22 @@ import time
 from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, HdcCmdException
-from hdcproto.descriptor import ArgD, RetD, PropertyDescriptor, CommandDescriptor, EventDescriptor
-from hdcproto.device.service import (DeviceService, CoreFeatureService,
-                                     CommandService, PropertyService,
-                                     FeatureService, EventService)
-
-
-class MinimalDeviceService(DeviceService):
-    def __init__(self, connection_url: str):
-        super().__init__(connection_url,
-                         device_name="MinimalCore",
-                         device_version="0.0.1",  # Mocking a SemVer for this implementation
-                         device_doc="Python implementation of the 'Minimal' HDC-device demonstration")
-
-        self.core = MinimalCoreService(self)
+from hdcproto.descriptor import CommandDescriptor, EventDescriptor, PropertyDescriptor, ArgD, RetD
+from hdcproto.device.service import (DeviceService, CoreFeatureService,FeatureService, CommandService, EventService,
+                                     PropertyService)
 
 
 class MyDivZeroError(HdcCmdException):
+    """Example of a custom exception that can be raised here and received on the Host"""
     def __init__(self):
         super().__init__(exception_id=0x01, exception_name="MyDivZero")
 
 
 class MinimalCoreService(CoreFeatureService):
+    """The only HDC-feature on this device. Exposes some example commands, events and properties."""
     def __init__(self, device_service: DeviceService):
         super().__init__(device_service=device_service,
                          feature_states=self.States)
-
-        # Custom attributes
-        self.led_blinking_rate = 5
 
         # Commands
         self.cmd_reset = CommandService(
@@ -65,7 +53,10 @@ class MinimalCoreService(CoreFeatureService):
         # Events
         self.evt_button = ButtonEventService(feature_service=self)  # Example of a custom event
 
+        #############
         # Properties
+
+        # Example of exposing a constant/immutable UINT32 value as a property
         self.prop_microcontroller_devid = PropertyService(
             property_descriptor=PropertyDescriptor(
                 id_=0x10,
@@ -75,67 +66,62 @@ class MinimalCoreService(CoreFeatureService):
                 doc="32bit Device-ID of STM32 microcontroller."
             ),
             feature_service=self,
-            property_getter=lambda: 12345,  # bogus
+            property_getter=lambda: 12345,  # bogus value
             property_setter=None
         )
 
-        self.prop_microcontroller_revid = PropertyService(
-            property_descriptor=PropertyDescriptor(
-                id_=0x11,
-                name="uC_REVID",
-                dtype=HdcDataType.UINT32,
-                is_readonly=True,
-                doc="32bit Revision-ID of STM32 microcontroller."
-            ),
-            feature_service=self,
-            property_getter=lambda: 67890,  # bogus
-            property_setter=None
-        )
-
+        # Example of exposing a constant/immutable BLOB value as a property
         self.prop_microcontroller_uid = PropertyService(
             property_descriptor=PropertyDescriptor(
-                id_=0x12,
+                id_=0x11,
                 name="uC_UID",
                 dtype=HdcDataType.BLOB,
                 is_readonly=True,
                 doc="96bit unique-ID of STM32 microcontroller."
             ),
             feature_service=self,
-            property_getter=lambda: bytes(range(12)),  # bogus
+            property_getter=lambda: bytes(range(12)),  # bogus value of a constant/immutable BLOB property
             property_setter=None
         )
 
+        # Example of exposing a mutable UINT8 value as a property
+        self.led_blinking_rate = 5  # Instance attribute that's being exposed by the property below
         self.prop_led_blinking_rate = PropertyService(
             property_descriptor=PropertyDescriptor(
-                id_=0x13,
+                id_=0x12,
                 name="LedBlinkingRate",
                 dtype=HdcDataType.UINT8,
                 is_readonly=False,
                 doc="Blinking frequency of the LED given in Herz."
             ),
             feature_service=self,
-            property_getter=lambda: self.led_blinking_rate,
-            property_setter=self.led_blinking_rate_setter
+            property_getter=lambda: self.led_blinking_rate,  # Attribute
+            property_setter=self.led_blinking_rate_setter  # Setter method implements value validation, etc
         )
 
     @enum.unique
     class States(enum.IntEnum):
+        """Example of custom states used by this feature's state-machine."""
         OFF = 0x00
         INIT = 0x01
         READY = 0x02
         ERROR = 0xFF
 
     def reset(self) -> None:
+        """Actual implementation of the HDC-command. Simulates a restart and shows API of the feature-state"""
         # ToDo: Would be interesting to experiment with restarting this script and see how the connection behaves.
         self.hdc_logger.warning("Just pretending to be restarting the device.")
         self.switch_state(new_feature_state_id=self.States.OFF)
+        assert self.current_state_id == self.States.OFF
         time.sleep(0.2)
         self.switch_state(new_feature_state_id=self.States.INIT)
+        assert self.current_state_id == self.States.INIT
         time.sleep(0.2)
         self.switch_state(new_feature_state_id=self.States.READY)
+        assert self.current_state_id == self.States.READY
 
     def divide(self, numerator: float, denominator: float) -> float:
-        """The actual implementation of the command"""
+        """Actual implementation of the HDC-command"""
         if denominator == 0:
             raise MyDivZeroError()
 
@@ -177,6 +163,16 @@ class ButtonEventService(EventService):
             button_id = ord(key.char)
             if is_valid_uint8(button_id):
                 self.emit(button_id, button_state=0)
+
+
+class MinimalDeviceService(DeviceService):
+    def __init__(self, connection_url: str):
+        super().__init__(connection_url,
+                         device_name="MinimalCore",
+                         device_version="0.0.1",  # Mocking a SemVer for this implementation
+                         device_doc="Python implementation of the 'Minimal' HDC-device demonstration")
+
+        self.core = MinimalCoreService(self)
 
 
 def launch_device(connection_url: str):

@@ -32,13 +32,13 @@ class MessageRouter:
     def __init__(self,
                  connection_url: str,
                  idl_json_generator: typing.Callable[[], str] | None = None,
-                 max_req_msg_size: int = 2048):
+                 max_req: int = 2048):
         self.connection_url = connection_url
         self.idl_json_generator = idl_json_generator
-        if max_req_msg_size < 5:
+        if max_req < 5:
             raise ValueError("Less than 5 bytes surely is wrong! "
                              "(e.g. request of a UINT8 property-setter requires 5 byte)")
-        self.max_req_msg_size = max_req_msg_size  # ToDo: Pass MaxReq limit to the Transport. Issue #19
+        self.max_req_msg_size = max_req  # ToDo: Pass MaxReq limit to the Transport. Issue #19
         self.transport = None
         self.pending_request_message = None
         self.command_request_handlers = dict()
@@ -255,11 +255,11 @@ class MessageRouter:
         error_reply = bytearray(request_message[:3])  # Header: MsgTypeID + FeatureID + CmdID
         is_known_feature = any(ids[0] == feature_id for ids in self.command_request_handlers.keys())
         if is_known_feature:
-            command_error_code = ExcID.UNKNOWN_COMMAND
+            command_error_code = ExcID.UnknownCommand
             logger.warning(f"Failed to route COMMAND request message, because CommandID=0x{command_id:02X} is unknown "
                            f"for FeatureID=0x{feature_id:02X}.")
         else:
-            command_error_code = ExcID.UNKNOWN_FEATURE
+            command_error_code = ExcID.UnknownFeature
             logger.warning(f"Failed to route COMMAND request message, because FeatureID=0x{feature_id:02X} is unknown.")
         error_reply.append(command_error_code)
         error_reply = bytes(error_reply)

@@ -481,7 +481,7 @@ class DeviceService:
                  device_name: str,
                  device_version: str | semver.VersionInfo | None,
                  device_doc: str | None,
-                 max_req_msg_size: int = 2048):
+                 max_req: int = 2048):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.service.MyDeviceService"
         self.logger = logger.getChild(self.__class__.__name__)
@@ -495,11 +495,11 @@ class DeviceService:
 
         self.device_descriptor = DeviceDescriptor(
             version=hdcproto.common.HDC_VERSION,
-            max_req=max_req_msg_size
+            max_req=max_req
         )
 
         self.router = hdcproto.device.router.MessageRouter(connection_url=connection_url,
-                                                           max_req_msg_size=max_req_msg_size,
+                                                           max_req=max_req,
                                                            idl_json_generator=self.device_descriptor.to_idl_json)
         self.feature_services = dict()
 

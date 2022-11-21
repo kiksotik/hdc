@@ -8,7 +8,7 @@ import semver
 
 from hdcproto.common import (HdcDataType, is_valid_uint8, HdcCmdException, HdcCmdExc_CommandFailed,
                              HdcCmdExc_UnknownFeature, HdcCmdExc_UnknownCommand, HdcCmdExc_InvalidArgs,
-                             HdcCmdExc_NotNow, CmdID, HdcCmdExc_UnknownProperty, HdcCmdExc_RoProperty, EvtID, PropID)
+                             HdcCmdExc_NotNow, CmdID, HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty, EvtID, PropID)
 
 
 class ArgD:
@@ -119,7 +119,7 @@ class CommandDescriptor:
                  name: str,
                  arguments: typing.Iterable[ArgD] | None,
                  returns: RetD | typing.Iterable[RetD] | None,
-                 raises_also: typing.Iterable[HdcCmdException | enum.IntEnum] | None,
+                 raises: typing.Iterable[HdcCmdException | enum.IntEnum] | None,
                  doc: str | None):
 
         if not is_valid_uint8(id_):
@@ -160,20 +160,19 @@ class CommandDescriptor:
 
             self.returns = tuple(returns)
 
-        raised_by_all_commands = [
-            HdcCmdExc_CommandFailed(),
-            HdcCmdExc_UnknownFeature(),  # Technically raised by the router, but proxy doesn't care
-            HdcCmdExc_UnknownCommand(),  # Technically raised by the router, but proxy doesn't care
-            HdcCmdExc_InvalidArgs(),
-            HdcCmdExc_NotNow(), ]
-
-        if raises_also is None:
-            raises_also = []
+        if raises is None:
+            raises = []
         self.raises = dict()
-        for exc in raised_by_all_commands + raises_also:
+        for exc in raises:
             if isinstance(exc, enum.IntEnum):
                 exc = HdcCmdException(exc)
             self._register_exception(exc)
+        # Strictly speaking all Commands also bear the potential to raise:
+        #    HdcCmdExc_CommandFailed
+        #    HdcCmdExc_UnknownFeature
+        #    HdcCmdExc_UnknownCommand
+        #    HdcCmdExc_InvalidArgs
+        #  ... but it's not helpful to include those into every command-descriptor
 
         self.doc = doc
 
@@ -211,7 +210,7 @@ class GetPropertyValueCommandDescriptor(CommandDescriptor):
             arguments=[ArgD(HdcDataType.UINT8, name="PropertyID")],
             # Returns 'BLOB', because data-type depends on requested property
             returns=[RetD(HdcDataType.BLOB, doc="Actual data-type depends on property")],
-            raises_also=[HdcCmdExc_UnknownProperty()],
+            raises=[HdcCmdExc_UnknownProperty()],
             doc=None
         )
 
@@ -225,8 +224,8 @@ class SetPropertyValueCommandDescriptor(CommandDescriptor):
             arguments=[ArgD(HdcDataType.UINT8, "PropertyID"),
                        ArgD(HdcDataType.BLOB, "NewValue", "Actual data-type depends on property")],
             returns=[RetD(HdcDataType.BLOB, "ActualNewValue", "May differ from NewValue!")],
-            raises_also=[HdcCmdExc_UnknownProperty(),
-                         HdcCmdExc_RoProperty()],
+            raises=[HdcCmdExc_UnknownProperty(),
+                    HdcCmdExc_ReadOnlyProperty()],
             doc=None
         )
 

@@ -47,13 +47,13 @@ class CmdID(enum.IntEnum):
 class ExcID(enum.IntEnum):
     """Reserved IDs and names of exception IDs used in replies to failed Commands as defined by HDC-spec"""
     NO_ERROR = 0x00
-    COMMAND_FAILED = 0xF0
-    UNKNOWN_FEATURE = 0xF1
-    UNKNOWN_COMMAND = 0xF2
-    INVALID_ARGS = 0xF3
-    NOT_NOW = 0xF4
-    UNKNOWN_PROPERTY = 0xF5
-    RO_PROPERTY = 0xF6
+    CommandFailed = 0xF0
+    UnknownFeature = 0xF1
+    UnknownCommand = 0xF2
+    InvalidArgs = 0xF3
+    NotNow = 0xF4
+    UnknownProperty = 0xF5
+    ReadOnlyProperty = 0xF6
 
     @staticmethod
     def is_custom(command_error_code: int):
@@ -352,9 +352,8 @@ class HdcCmdException(HdcError):
             raise ValueError(f"exception_id value of {exception_id} is beyond valid range from 0x00 to 0xFF")
 
         if isinstance(exception_id, enum.IntEnum):
-            if exception_name is not None:
-                raise TypeError("Exception.name must be omitted if the first argument is an IntEnum")
-            exception_name = exception_id.name
+            if exception_name is None:
+                exception_name = exception_id.name
             exception_id = int(exception_id)
         elif exception_name is None:
             raise TypeError("Exception.name may only be omitted if the first argument is an IntEnum")
@@ -409,35 +408,35 @@ class HdcCmdException(HdcError):
 # noinspection PyPep8Naming
 class HdcCmdExc_CommandFailed(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.COMMAND_FAILED,
+        super().__init__(exception_id=ExcID.CommandFailed,
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
 class HdcCmdExc_UnknownFeature(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.UNKNOWN_FEATURE,
+        super().__init__(exception_id=ExcID.UnknownFeature,
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
 class HdcCmdExc_UnknownCommand(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.UNKNOWN_COMMAND,
+        super().__init__(exception_id=ExcID.UnknownCommand,
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
 class HdcCmdExc_InvalidArgs(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.INVALID_ARGS,
+        super().__init__(exception_id=ExcID.InvalidArgs,
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
 class HdcCmdExc_NotNow(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.NOT_NOW,
+        super().__init__(exception_id=ExcID.NotNow,
                          exception_doc="Command can't be executed at this moment.",
                          exception_message=exception_message)
 
@@ -445,12 +444,12 @@ class HdcCmdExc_NotNow(HdcCmdException):
 # noinspection PyPep8Naming
 class HdcCmdExc_UnknownProperty(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.UNKNOWN_PROPERTY,
+        super().__init__(exception_id=ExcID.UnknownProperty,
                          exception_message=exception_message)
 
 
 # noinspection PyPep8Naming
-class HdcCmdExc_RoProperty(HdcCmdException):
+class HdcCmdExc_ReadOnlyProperty(HdcCmdException):
     def __init__(self, exception_message: str | None = None):
-        super().__init__(exception_id=ExcID.RO_PROPERTY,
+        super().__init__(exception_id=ExcID.ReadOnlyProperty,
                          exception_message=exception_message)

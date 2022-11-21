@@ -127,17 +127,6 @@ typedef enum {
 } HDC_CommandID_t;
 
 typedef enum {
-  HDC_CommandErrorCode_NO_ERROR = 0x00,
-  HDC_CommandErrorCode_COMMAND_FAILED = 0xF0,
-  HDC_CommandErrorCode_UNKNOWN_FEATURE = 0xF1,
-  HDC_CommandErrorCode_UNKNOWN_COMMAND = 0xF2,
-  HDC_CommandErrorCode_INVALID_ARGS = 0xF3,
-  HDC_CommandErrorCode_NOT_NOW = 0xF4,
-  HDC_CommandErrorCode_UNKNOWN_PROPERTY = 0xF5,
-  HDC_CommandErrorCode_RO_PROPERTY = 0xF6,
-} HDC_CommandErrorCode_t;
-
-typedef enum {
   // The ID values (roughly) obey the following mnemonic system:
   //
   // Upper Nibble: Kind of DataType
@@ -206,6 +195,20 @@ typedef struct {
 } HDC_Descriptor_Ret_t;
 
 typedef struct {
+  uint8_t id;
+  char* name;
+  char* doc;
+} HDC_Descriptor_Exc_t;
+
+extern const HDC_Descriptor_Exc_t HDC_Descriptor_Exc_CommandFailed;
+extern const HDC_Descriptor_Exc_t HDC_Descriptor_Exc_UnknownFeature;
+extern const HDC_Descriptor_Exc_t HDC_Descriptor_Exc_UnknownCommand;
+extern const HDC_Descriptor_Exc_t HDC_Descriptor_Exc_InvalidArgs;
+extern const HDC_Descriptor_Exc_t HDC_Descriptor_Exc_NotNow;
+extern const HDC_Descriptor_Exc_t HDC_Descriptor_Exc_UnknownProperty;
+extern const HDC_Descriptor_Exc_t HDC_Descriptor_Exc_ReadOnlyProperty;
+
+typedef struct {
   uint8_t CommandID;
   char* CommandName;
   HDC_CommandHandler_t CommandHandler;
@@ -218,6 +221,8 @@ typedef struct {
   const HDC_Descriptor_Ret_t *ret2;
   const HDC_Descriptor_Ret_t *ret3;
   const HDC_Descriptor_Ret_t *ret4;
+  const HDC_Descriptor_Exc_t **raises;
+  uint8_t numraises;
 } HDC_Descriptor_Command_t;
 
 
@@ -314,19 +319,19 @@ void HDC_CmdReply_Void(
 void HDC_CmdReply_From_Pieces(
     const uint8_t FeatureID,
     const uint8_t CmdID,
-    const HDC_CommandErrorCode_t CommandErrorCode,
+    const uint8_t ExcID,
     const uint8_t* pMsgPayloadPrefix,
     const size_t MsgPayloadPrefixSize,
     const uint8_t* pMsgPayloadSuffix,
     const size_t MsgPayloadSuffixSize);
 
 void HDC_CmdReply_Error_WithDescription(
-    const HDC_CommandErrorCode_t CommandErrorCode,
+    const uint8_t ExcID,
     const char* ErrorDescription,
     const uint8_t* pMsgHeader);
 
 void HDC_CmdReply_Error(  // Without error-description string.
-    const HDC_CommandErrorCode_t CommandErrorCode,
+    const uint8_t ExcID,
     const uint8_t* pMsgHeader);
 
 //////////////////////////////////////////

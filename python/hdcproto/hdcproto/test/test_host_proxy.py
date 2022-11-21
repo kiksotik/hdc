@@ -210,7 +210,7 @@ class TestExceptionHandling(unittest.TestCase):
         self.conn_mock: MockTransport = self.my_proxy.router.transport
 
     def test_raises_predefined_exception(self):
-        predefined_exc_id = ExcID.COMMAND_FAILED
+        predefined_exc_id = ExcID.CommandFailed
         mocked_exc_text = "Terrible!"
         self.assertTrue(predefined_exc_id in self.some_command_proxy.command_raises)
 

@@ -28,8 +28,8 @@ def showcase_meta():
     logging.getLogger("hdcproto.host.proxy").setLevel(logging.WARNING)
 
     ###################
-    # device_proxy = DeviceProxyBase(connection_url="COM10")
-    device_proxy = DeviceProxyBase(connection_url="socket://localhost:55555")
+    device_proxy = DeviceProxyBase(connection_url="COM10")
+    # device_proxy = DeviceProxyBase(connection_url="socket://localhost:55555")
     device_proxy.connect()
 
     print(f"Device is compliant with: '{device_proxy.get_hdc_version_string()}'")

@@ -13,6 +13,11 @@ HDC_Descriptor_Feature_t Core_HDC_Feature;
 ////////////////////////////////////////
 // HDC Stuff
 
+/////////////////////////
+// HDC Custom Exceptions
+HDC_Descriptor_Exc_t Core_HDC_Exc_DivZero = {.id=0x01, .name="MyDivZero"};
+
+
 ///////////////
 // HDC Commands
 
@@ -21,7 +26,7 @@ void Core_HDC_Cmd_Reset(const HDC_Descriptor_Feature_t *hHDC_Feature,
                         const uint8_t* pRequestMessage,
                         const uint8_t Size) {
   if (Size != 3)  // MessageType ; FeatureID ; CommandID
-    return HDC_CmdReply_Error(HDC_CommandErrorCode_INVALID_ARGS, pRequestMessage);
+    return HDC_CmdReply_Error(HDC_Descriptor_Exc_InvalidArgs.id, pRequestMessage);
 
   // Send a void reply before actually resetting the system.
   // Otherwise the HDC-host will timeout while awaiting it.
@@ -37,14 +42,14 @@ void Core_HDC_Cmd_Divide(const HDC_Descriptor_Feature_t *hHDC_Feature,
                          const uint8_t* pRequestMessage,
                          const uint8_t Size) {
   if (Size != 11)  // MessageType ; FeatureID ; CommandID ; FLOAT ; FLOAT
-    return HDC_CmdReply_Error(HDC_CommandErrorCode_INVALID_ARGS, pRequestMessage);
+    return HDC_CmdReply_Error(HDC_Descriptor_Exc_InvalidArgs.id, pRequestMessage);
 
   // ToDo: HDC-library should provide more comfortable ways to parse arguments than this:
   float numerator   = *((float*)(pRequestMessage + 3));
   float denominator = *((float*)(pRequestMessage + 7));
 
   if (denominator == 0.0f)
-    return HDC_CmdReply_Error(Core_CmdError_DivByZero, pRequestMessage);
+    return HDC_CmdReply_Error(Core_HDC_Exc_DivZero.id, pRequestMessage);
 
   double result = numerator / denominator;
 
@@ -70,6 +75,8 @@ const HDC_Descriptor_Command_t *Core_HDC_Commands[] = {
     .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_FLOAT, .name="numerator"},
     .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_FLOAT, .name="denominator", .doc="Beware of the zero!"},
     .ret1 = &(HDC_Descriptor_Ret_t) {.dtype=HDC_DataTypeID_DOUBLE, .doc="Quotient of numerator/denominator"}, // Name of return values can be omitted
+    .raises = &(const HDC_Descriptor_Exc_t*) { &Core_HDC_Exc_DivZero },
+    .numraises = 1,
     .CommandDescription = "Divides numerator by denominator."    // Human readable docstring
   },
 

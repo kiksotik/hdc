@@ -15,7 +15,7 @@ import semver
 import hdcproto.host.router
 from hdcproto.common import (MessageTypeID, FeatureID, CmdID, ExcID, EvtID, PropID, HdcDataType,
                              is_valid_uint8, MetaID, HdcError, HdcCmdException, HdcCmdExc_CommandFailed,
-                             HdcCmdExc_UnknownProperty, HdcCmdExc_RoProperty, HdcCmdExc_UnknownFeature,
+                             HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty, HdcCmdExc_UnknownFeature,
                              HdcCmdExc_UnknownCommand, HdcCmdExc_InvalidArgs, HdcCmdExc_NotNow)
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.proxy"
@@ -185,7 +185,7 @@ class SetPropertyValueCommandProxy(CommandProxyBase):
         super().__init__(feature_proxy,
                          command_id=CmdID.SET_PROP_VALUE,
                          raises_also=[HdcCmdExc_UnknownProperty(),
-                                      HdcCmdExc_RoProperty()])
+                                      HdcCmdExc_ReadOnlyProperty()])
 
     def __call__(self,
                  property_id: int,

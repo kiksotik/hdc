@@ -13,7 +13,7 @@ class TestCommandSignature(unittest.TestCase):
                                 name="MyCommand",
                                 arguments=[],
                                 returns=[],
-                                raises_also=None,
+                                raises=None,
                                 doc=None)
         self.assertEqual(
             build_command_signature(cmd),
@@ -25,7 +25,7 @@ class TestCommandSignature(unittest.TestCase):
                                 name="MyCommand",
                                 arguments=[ArgD(HdcDataType.UINT8, "first_arg")],
                                 returns=[RetD(HdcDataType.UINT32, "first_ret")],
-                                raises_also=None,
+                                raises=None,
                                 doc=None)
         self.assertEqual(
             build_command_signature(cmd),
@@ -39,7 +39,7 @@ class TestCommandSignature(unittest.TestCase):
                                            ArgD(HdcDataType.FLOAT, "second_arg")],
                                 returns=[RetD(HdcDataType.UINT32, "first_ret"),
                                          RetD(HdcDataType.DOUBLE, "second_ret")],
-                                raises_also=None,
+                                raises=None,
                                 doc=None)
         self.assertEqual(
             build_command_signature(cmd),
@@ -53,7 +53,7 @@ class TestCommandSignature(unittest.TestCase):
                                 name="MyCommand",
                                 arguments=None,
                                 returns=None,
-                                raises_also=None,
+                                raises=None,
                                 doc=None)
         self.assertEqual(
             build_command_signature(cmd),

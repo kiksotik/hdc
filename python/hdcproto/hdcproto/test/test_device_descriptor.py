@@ -147,7 +147,7 @@ class TestExceptionsDefinedByHdc(unittest.TestCase):
         cmd_req = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, PropID.LOG_EVT_THRESHOLD])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, ExcID.UNKNOWN_FEATURE])
+        expected_reply = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, ExcID.UnknownFeature])
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_unknown_command(self):
@@ -155,7 +155,7 @@ class TestExceptionsDefinedByHdc(unittest.TestCase):
         cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, PropID.LOG_EVT_THRESHOLD])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, ExcID.UNKNOWN_COMMAND])
+        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, ExcID.UnknownCommand])
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_missing_command_arguments(self):
@@ -163,7 +163,7 @@ class TestExceptionsDefinedByHdc(unittest.TestCase):
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
-                                ExcID.INVALID_ARGS])
+                                ExcID.InvalidArgs])
 
         self.assertSequenceEqual(expected_reply, received_reply[:4])
 
@@ -174,7 +174,7 @@ class TestExceptionsDefinedByHdc(unittest.TestCase):
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
-                                ExcID.INVALID_ARGS])
+                                ExcID.InvalidArgs])
 
         self.assertSequenceEqual(expected_reply, received_reply[:4])
 
@@ -190,7 +190,7 @@ class TestCommandErrors(unittest.TestCase):
         cmd_req = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, PropID.LOG_EVT_THRESHOLD])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, ExcID.UNKNOWN_FEATURE])
+        expected_reply = bytes([MessageTypeID.COMMAND, bogus_feature_id, CmdID.GET_PROP_VALUE, ExcID.UnknownFeature])
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_unknown_command(self):
@@ -198,7 +198,7 @@ class TestCommandErrors(unittest.TestCase):
         cmd_req = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, PropID.LOG_EVT_THRESHOLD])
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
-        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, ExcID.UNKNOWN_COMMAND])
+        expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, bogus_cmd_id, ExcID.UnknownCommand])
         self.assertSequenceEqual(expected_reply, received_reply)
 
     def test_missing_command_arguments(self):
@@ -206,7 +206,7 @@ class TestCommandErrors(unittest.TestCase):
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
-                                ExcID.INVALID_ARGS])
+                                ExcID.InvalidArgs])
 
         self.assertSequenceEqual(expected_reply, received_reply[:4])
 
@@ -217,7 +217,7 @@ class TestCommandErrors(unittest.TestCase):
         self.conn_mock.receive_message(cmd_req)
         received_reply = self.conn_mock.outbound_messages.pop()
         expected_reply = bytes([MessageTypeID.COMMAND, FeatureID.CORE, CmdID.GET_PROP_VALUE,
-                                ExcID.INVALID_ARGS])
+                                ExcID.InvalidArgs])
 
         self.assertSequenceEqual(expected_reply, received_reply[:4])
 

@@ -29,7 +29,7 @@ class MinimalCoreService(CoreFeatureService):
                 name="Reset",
                 arguments=None,
                 returns=None,
-                raises_also=None,
+                raises=None,
                 doc="Reinitializes the whole device.",
             ),
             feature_service=self,
@@ -43,7 +43,7 @@ class MinimalCoreService(CoreFeatureService):
                 arguments=[ArgD(HdcDataType.FLOAT, "numerator"),
                            ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")],
                 returns=RetD(HdcDataType.DOUBLE, doc="Quotient of numerator/denominator"),  # May omit name
-                raises_also=[MyDivZeroError()],
+                raises=[MyDivZeroError()],
                 doc="Divides numerator by denominator."
             ),
             feature_service=self,
@@ -170,7 +170,8 @@ class MinimalDeviceService(DeviceService):
         super().__init__(connection_url,
                          device_name="MinimalCore",
                          device_version="0.0.1",  # Mocking a SemVer for this implementation
-                         device_doc="Python implementation of the 'Minimal' HDC-device demonstration")
+                         device_doc="Python implementation of the 'Minimal' HDC-device demonstration",
+                         max_req=128)
 
         self.core = MinimalCoreService(self)
 

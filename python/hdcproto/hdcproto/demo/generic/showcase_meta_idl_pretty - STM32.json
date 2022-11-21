@@ -1,6 +1,6 @@
 {
     "version": "HDC 1.0.0-alpha.11",
-    "MaxReq": 128,
+    "max_req": 128,
     "features": [
         {
             "id": 0,
@@ -32,7 +32,8 @@
                     "name": "Reset",
                     "doc": "Reinitializes the whole device.",
                     "args": [],
-                    "returns": []
+                    "returns": [],
+                    "raises": []
                 },
                 {
                     "id": 2,
@@ -54,6 +55,12 @@
                             "dtype": "DOUBLE",
                             "doc": "Quotient of numerator/denominator"
                         }
+                    ],
+                    "raises": [
+                        {
+                            "id": 1,
+                            "name": "MyDivZero"
+                        }
                     ]
                 },
                 {
@@ -69,6 +76,12 @@
                         {
                             "dtype": "BLOB",
                             "doc": "Actual data-type depends on property"
+                        }
+                    ],
+                    "raises": [
+                        {
+                            "id": 245,
+                            "name": "UnknownProperty"
                         }
                     ]
                 },
@@ -91,6 +104,16 @@
                             "dtype": "BLOB",
                             "name": "ActualNewValue",
                             "doc": "May differ from NewValue!"
+                        }
+                    ],
+                    "raises": [
+                        {
+                            "id": 245,
+                            "name": "UnknownProperty"
+                        },
+                        {
+                            "id": 246,
+                            "name": "ReadOnlyProperty"
                         }
                     ]
                 }

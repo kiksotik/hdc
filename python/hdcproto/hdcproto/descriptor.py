@@ -463,10 +463,6 @@ class FeatureDescriptor:
             if d.id in self.commands.keys():
                 ValueError("commands contains duplicate ID values")
             self.commands[d.id] = d
-        if CmdID.GET_PROP_VALUE not in self.commands.keys():
-            self.commands[CmdID.GET_PROP_VALUE] = GetPropertyValueCommandDescriptor()
-        if CmdID.SET_PROP_VALUE not in self.commands.keys():
-            self.commands[CmdID.SET_PROP_VALUE] = SetPropertyValueCommandDescriptor()
 
         # Events
         self.events = dict()
@@ -476,10 +472,6 @@ class FeatureDescriptor:
             if d.id in self.events.keys():
                 ValueError("events contains duplicate ID values")
             self.events[d.id] = d
-        if EvtID.FEATURE_STATE_TRANSITION not in self.events.keys():
-            self.events[EvtID.FEATURE_STATE_TRANSITION] = FeatureStateTransitionEventDescriptor()
-        if EvtID.LOG not in self.events.keys():
-            self.events[EvtID.LOG] = self.evt_log = LogEventDescriptor()
 
         # Properties
         self.properties = dict()
@@ -489,10 +481,6 @@ class FeatureDescriptor:
             if d.id in self.properties.keys():
                 ValueError("properties contains duplicate ID values")
             self.properties[d.id] = d
-        if PropID.LOG_EVT_THRESHOLD not in self.properties.keys():
-            self.properties[PropID.LOG_EVT_THRESHOLD] = LogEventThresholdPropertyDescriptor()
-        if PropID.FEAT_STATE not in self.properties.keys():
-            self.properties[PropID.FEAT_STATE] = FeatureStatePropertyDescriptor()
 
     def __str__(self):
         return f"Feature_0x{self.id}_{self.name}"

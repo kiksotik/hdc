@@ -4,7 +4,30 @@ Showcases how a HDC-host can communicate with a HDC-device which is running the 
 import logging
 import time
 
+from hdcproto.common import HdcCmdException
+from hdcproto.descriptor import DeviceDescriptor, FeatureDescriptor, StateDescriptor, EventDescriptor
+from hdcproto.host.proxy import DeviceProxyBase, EventProxyBase
 from minimal_proxy import MinimalDevice, MinimalCore, MyDivZeroError
+
+
+def custom_proxy_factory(descriptor, parent_proxy):
+    if isinstance(descriptor, FeatureDescriptor):
+        descriptor.states = {d.id: d for d in (StateDescriptor(e, e.name) for e in MinimalCore.FeatureStateEnum)}
+        return False  # Instantiate default proxy class with "tampered" descriptor
+
+    if isinstance(descriptor, EventDescriptor) and descriptor.id == 0x01:
+        return EventProxyBase(
+            event_descriptor=EventDescriptor(id=0x01,
+                                             name="DontCare",  # ToDo: Attribute optionality. #25),
+                                             args=None,
+                                             doc=None),
+            feature_proxy=parent_proxy,
+            payload_parser=MinimalCore.ButtonEventPayload)
+
+    if isinstance(descriptor, HdcCmdException) and descriptor.exception_id==0x01:
+        return MyDivZeroError()
+
+    return False  # Instantiate default proxy class
 
 
 def showcase_minimal():
@@ -28,9 +51,11 @@ def showcase_minimal():
 
     #################################################
     # Connect to HDC-device at a specific serial port
-    # dev = MinimalDevice(connection_url="COM10")  # Note how this implements all HDC specifics of a given device type
-    dev = MinimalDevice(connection_url="socket://localhost:55555")
-    dev.router.connect()  # Will fail if your device is connected at a different port.
+    connection_url = "COM10"
+    # connection_url = "socket://localhost:55555"
+    # dev = MinimalDevice()  # Use a hardcoded proxy
+    dev = DeviceProxyBase.connect_and_build(connection_url=connection_url, custom_proxy_factory=custom_proxy_factory)
+    dev.router.connect(connection_url=connection_url)  # Will fail if your device is connected at a different port.
 
     ######################################################################################
     # Example of how "inheritance" mixes-in the stuff defined in DeviceProxyBase into self
@@ -59,20 +84,21 @@ def showcase_minimal():
     demo_logger.info("_____________________________")
     demo_logger.info("Resetting the Core-feature...")
     dev.core.evt_state_transition.logger.setLevel(logging.INFO)  # Note the very granular logging capabilities
+    dev.core.cmd_reset.default_timeout = 5.0
     dev.core.cmd_reset()  # Blocks until it receives reply from HDC-device or the default timeout elapses.
     time.sleep(0.5)  # Allow for some time for the actual firmware reset to happen.
 
     ##################################################################
     # Example of a command with arguments a return value
     demo_logger.info("_____________________________")
-    result = dev.core.cmd_division(numerator=10, denominator=3)
+    result = dev.core.cmd_division(numerator=10.0, denominator=3.0)
     demo_logger.info(f"Dividing 10 by 3 returns {result}")
 
     ##################################################################
     # Example of receiving an exception raised by the device
     demo_logger.info("_____________________________")
     try:
-        dev.core.cmd_division(numerator=10, denominator=0)
+        dev.core.cmd_division(numerator=10.0, denominator=0.0)
     except MyDivZeroError:
         demo_logger.info("Dividing 10 by 0 made the device raise a custom exception which was forwarded to this proxy.")
     else:
@@ -85,8 +111,8 @@ def showcase_minimal():
     demo_logger.info(f"       LogEventThreshold: {dev.core.prop_log_event_threshold.get_value_name()}")
     demo_logger.info("_____________________________________")
     demo_logger.info("Obtain some custom property values...")
-    demo_logger.info(f"   Microcontroller DEVID: 0x{dev.core.prop_microcontroller_devid.get():08x}")
-    demo_logger.info(f"   Microcontroller   UID: 0x{dev.core.prop_microcontroller_uid.get().hex()}")
+    demo_logger.info(f"   Microcontroller DEVID: 0x{dev.core.prop_uc_devid.get():08x}")
+    demo_logger.info(f"   Microcontroller   UID: 0x{dev.core.prop_uc_uid.get().hex()}")
 
     demo_logger.info("_____________________________________________________________________________")
     demo_logger.info("Change LED blinking rate, depending on most recently received button event...")

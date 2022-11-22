@@ -457,7 +457,7 @@ class CoreFeatureService(FeatureService):
         super().__init__(
             feature_descriptor=FeatureDescriptor(
                 id=FeatureID.CORE.CORE,
-                name="Core",
+                name="core",
                 cls=device_service.device_name,
                 version=device_service.device_version,
                 doc=device_service.device_doc,

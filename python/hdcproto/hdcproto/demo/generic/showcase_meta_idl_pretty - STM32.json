@@ -4,7 +4,7 @@
     "features": [
         {
             "id": 0,
-            "name": "Core",
+            "name": "core",
             "cls": "MinimalCore",
             "version": "0.0.1",
             "doc": "STM32 C implementation of the 'Minimal' HDC-device demonstration",
@@ -29,7 +29,7 @@
             "commands": [
                 {
                     "id": 1,
-                    "name": "Reset",
+                    "name": "reset",
                     "doc": "Reinitializes the whole device.",
                     "args": [],
                     "returns": [],
@@ -37,7 +37,7 @@
                 },
                 {
                     "id": 2,
-                    "name": "Divide",
+                    "name": "division",
                     "doc": "Divides numerator by denominator.",
                     "args": [
                         {
@@ -65,11 +65,11 @@
                 },
                 {
                     "id": 240,
-                    "name": "GetPropertyValue",
+                    "name": "get_property_value",
                     "args": [
                         {
                             "dtype": "UINT8",
-                            "name": "PropertyID"
+                            "name": "property_id"
                         }
                     ],
                     "returns": [
@@ -87,22 +87,22 @@
                 },
                 {
                     "id": 241,
-                    "name": "SetPropertyValue",
+                    "name": "set_property_value",
                     "args": [
                         {
                             "dtype": "UINT8",
-                            "name": "PropertyID"
+                            "name": "property_id"
                         },
                         {
                             "dtype": "BLOB",
-                            "name": "NewValue",
+                            "name": "new_value",
                             "doc": "Actual data-type depends on property"
                         }
                     ],
                     "returns": [
                         {
                             "dtype": "BLOB",
-                            "name": "ActualNewValue",
+                            "name": "actual_new_value",
                             "doc": "May differ from NewValue!"
                         }
                     ],
@@ -121,7 +121,7 @@
             "events": [
                 {
                     "id": 1,
-                    "name": "ButtonEvent",
+                    "name": "button",
                     "doc": "Notify host about the button being pressed on the device.",
                     "args": [
                         {
@@ -136,32 +136,32 @@
                 },
                 {
                     "id": 240,
-                    "name": "Log",
+                    "name": "log",
                     "doc": "Forwards software event log to the host.",
                     "args": [
                         {
                             "dtype": "UINT8",
-                            "name": "LogLevel",
+                            "name": "log_level",
                             "doc": "Same as in Python"
                         },
                         {
                             "dtype": "UTF8",
-                            "name": "LogMsg"
+                            "name": "log_msg"
                         }
                     ]
                 },
                 {
                     "id": 241,
-                    "name": "FeatureStateTransition",
+                    "name": "feature_state_transition",
                     "doc": "Notifies host about transitions of this feature's state-machine.",
                     "args": [
                         {
                             "dtype": "UINT8",
-                            "name": "PreviousStateID"
+                            "name": "previous_state_id"
                         },
                         {
                             "dtype": "UINT8",
-                            "name": "CurrentStateID"
+                            "name": "current_state_id"
                         }
                     ]
                 }
@@ -169,14 +169,14 @@
             "properties": [
                 {
                     "id": 16,
-                    "name": "uC_DEVID",
+                    "name": "uc_devid",
                     "dtype": "UINT32",
                     "ro": true,
                     "doc": "32bit Device-ID of STM32 microcontroller."
                 },
                 {
                     "id": 17,
-                    "name": "uC_UID",
+                    "name": "uc_uid",
                     "dtype": "BLOB",
                     "size": 12,
                     "ro": true,
@@ -184,21 +184,21 @@
                 },
                 {
                     "id": 18,
-                    "name": "LedBlinkingRate",
+                    "name": "led_blinking_rate",
                     "dtype": "UINT8",
                     "ro": false,
                     "doc": "Blinking frequency of the LED given in Herz."
                 },
                 {
                     "id": 240,
-                    "name": "LogEventThreshold",
+                    "name": "log_event_threshold",
                     "dtype": "UINT8",
                     "ro": false,
                     "doc": "Suppresses LogEvents with lower log-levels."
                 },
                 {
                     "id": 241,
-                    "name": "FeatureState",
+                    "name": "feature_state",
                     "dtype": "UINT8",
                     "ro": true,
                     "doc": "Current feature-state"

@@ -62,7 +62,7 @@ const HDC_Descriptor_Command_t *Core_HDC_Commands[] = {
 
   &(HDC_Descriptor_Command_t) {
     .CommandID = 0x01,       // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
-    .CommandName = "Reset",  // Name of the corresponding, automatically generated API-method in a proxy-class.
+    .CommandName = "reset",  // Name of the corresponding, automatically generated API-method in a proxy-class.
     .CommandHandler = &Core_HDC_Cmd_Reset,  // Function pointer to the handler defined above.
     .CommandDescription = "Reinitializes the whole device."   // Human readable docstring
   },
@@ -70,7 +70,7 @@ const HDC_Descriptor_Command_t *Core_HDC_Commands[] = {
 
   &(HDC_Descriptor_Command_t) {
     .CommandID = 0x02,        // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
-    .CommandName = "Divide",  // Name of the corresponding, automatically generated API-method in a proxy-class.
+    .CommandName = "division",  // Name of the corresponding, automatically generated API-method in a proxy-class.
     .CommandHandler = &Core_HDC_Cmd_Divide,  // Function pointer to the handler defined above.
     .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_FLOAT, .name="numerator"},
     .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_FLOAT, .name="denominator", .doc="Beware of the zero!"},
@@ -92,7 +92,7 @@ const HDC_Descriptor_Command_t *Core_HDC_Commands[] = {
 // the Core_HDC_Raise_Event_Button() method below can access the EventID it defines.
 HDC_Descriptor_Event_t Core_HDC_Event_Button = {
       .EventID = 0x01,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
-      .EventName = "ButtonEvent",  // Name of the corresponding, automatically generated event handler in a proxy-class.
+      .EventName = "button",  // Name of the corresponding, automatically generated event handler in a proxy-class.
       .EventDescription = "Notify host about the button being pressed on the device.",
       .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="ButtonID"},
       .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="ButtonState"},
@@ -139,7 +139,7 @@ const HDC_Descriptor_Property_t *Core_HDC_Properties[] = {
 
   &(HDC_Descriptor_Property_t ) {
     .PropertyID = 0x10,          // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
-    .PropertyName = "uC_DEVID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
+    .PropertyName = "uc_devid",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataTypeID_UINT32,
     .PropertyIsReadonly = true,
     .GetPropertyValue = Core_HDC_Property_uC_DEVID_get,  // hdc_driver will use this getter to obtain the value.
@@ -148,7 +148,7 @@ const HDC_Descriptor_Property_t *Core_HDC_Properties[] = {
 
   &(HDC_Descriptor_Property_t ) {
     .PropertyID = 0x11,        // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
-    .PropertyName = "uC_UID",  // Name of the corresponding, automatically generated API-property in a proxy-class.
+    .PropertyName = "uc_uid",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataTypeID_BLOB,
     .PropertyIsReadonly = true,
     .pValue = (void*) UID_BASE,  // hdc_driver will use this pointer/address to obtain the value.
@@ -158,7 +158,7 @@ const HDC_Descriptor_Property_t *Core_HDC_Properties[] = {
 
   &(HDC_Descriptor_Property_t ) {
     .PropertyID = 0x12,  // Arbitrary value, but unique within this feature. Values 0xF0 and above are reserved for HDC internals.
-    .PropertyName = "LedBlinkingRate",  // Name of the corresponding, automatically generated API-property in a proxy-class.
+    .PropertyName = "led_blinking_rate",  // Name of the corresponding, automatically generated API-property in a proxy-class.
     .PropertyDataType = HDC_DataTypeID_UINT8,
     .PropertyIsReadonly = false,
     .pValue = &led_blinking_rate,  // hdc_driver will read/write value directly from/to this memory address.
@@ -199,7 +199,7 @@ const HDC_Descriptor_State_t *Core_HDC_States[] = {
 // In this case for the mandatory core-feature of this device.
 HDC_Descriptor_Feature_t Core_HDC_Feature = {
   .FeatureID = HDC_FeatureID_Core,       // A FeatureID of 0x00 is what makes this the mandatory Core-Feature of this device.
-  .FeatureName = "Core",                 // Name of this feature instance --> name of the proxy instance
+  .FeatureName = "core",                 // Name of this feature instance --> name of the proxy instance
   .FeatureClassName = "MinimalCore",     // Name of this feature's implementation
   .FeatureClassVersion = "0.0.1",        // SemVer of this feature's implementation
   .FeatureDescription = "STM32 C implementation of the 'Minimal' HDC-device demonstration",  // Docstring about this feature/device

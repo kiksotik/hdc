@@ -200,7 +200,7 @@ class CommandDescriptor:
         self.raises[exception.exception_id] = exception
 
     def __str__(self):
-        return f"Command_0x{self.id}_{self.name}"
+        return f"Command_0x{self.id:02X}_{self.name}"
 
     def to_idl_dict(self) -> dict:
         return dict(
@@ -234,8 +234,8 @@ class GetPropertyValueCommandDescriptor(CommandDescriptor):
     def __init__(self):
         super().__init__(
             id=CmdID.GET_PROP_VALUE,
-            name="GetPropertyValue",
-            args=[ArgD(HdcDataType.UINT8, name="PropertyID")],
+            name="get_property_value",
+            args=[ArgD(HdcDataType.UINT8, name="property_id")],
             # Returns 'BLOB', because data-type depends on requested property
             returns=[RetD(HdcDataType.BLOB, doc="Actual data-type depends on property")],
             raises=[HdcCmdExc_UnknownProperty()],
@@ -247,11 +247,11 @@ class SetPropertyValueCommandDescriptor(CommandDescriptor):
     def __init__(self):
         super().__init__(
             id=CmdID.SET_PROP_VALUE,
-            name="SetPropertyValue",
+            name="set_property_value",
             # Signature uses 'BLOB', because data-type depends on requested property
-            args=[ArgD(HdcDataType.UINT8, "PropertyID"),
-                  ArgD(HdcDataType.BLOB, "NewValue", "Actual data-type depends on property")],
-            returns=[RetD(HdcDataType.BLOB, "ActualNewValue", "May differ from NewValue!")],
+            args=[ArgD(HdcDataType.UINT8, "property_id"),
+                  ArgD(HdcDataType.BLOB, "new_value", "Actual data-type depends on property")],
+            returns=[RetD(HdcDataType.BLOB, "actual_new_value", "May differ from NewValue!")],
             raises=[HdcCmdExc_UnknownProperty(),
                     HdcCmdExc_ReadOnlyProperty()],
             doc=None
@@ -292,7 +292,7 @@ class EventDescriptor:
         self.doc = doc
 
     def __str__(self):
-        return f"Event_0x{self.id}_{self.name}"
+        return f"Event_0x{self.id:02X}_{self.name}"
 
     def to_idl_dict(self) -> dict:
         return dict(
@@ -313,18 +313,18 @@ class EventDescriptor:
 class LogEventDescriptor(EventDescriptor):
     def __init__(self):
         super().__init__(id=EvtID.LOG,
-                         name="Log",
-                         args=[ArgD(HdcDataType.UINT8, 'LogLevel', doc="Same as in Python"),
-                               ArgD(HdcDataType.UTF8, 'LogMsg')],
+                         name="log",
+                         args=[ArgD(HdcDataType.UINT8, 'log_level', doc="Same as in Python"),
+                               ArgD(HdcDataType.UTF8, 'log_msg')],
                          doc="Forwards software event log to the host.")
 
 
 class FeatureStateTransitionEventDescriptor(EventDescriptor):
     def __init__(self):
         super().__init__(id=EvtID.FEATURE_STATE_TRANSITION,
-                         name="FeatureStateTransition",
-                         args=(ArgD(HdcDataType.UINT8, 'PreviousStateID'),
-                               ArgD(HdcDataType.UINT8, 'CurrentStateID')),
+                         name="feature_state_transition",
+                         args=(ArgD(HdcDataType.UINT8, 'previous_state_id'),
+                               ArgD(HdcDataType.UINT8, 'current_state_id')),
                          doc="Notifies host about transitions of this feature's state-machine."
                          )
 
@@ -360,7 +360,7 @@ class PropertyDescriptor:
         self.doc = None if doc is None else str(doc)
 
     def __str__(self):
-        return f"Property_0x{self.id}_{self.name}"
+        return f"Property_0x{self.id:02X}_{self.name}"
 
     def to_idl_dict(self) -> dict:
         return dict(
@@ -376,6 +376,10 @@ class PropertyDescriptor:
         kwargs = dict(d)  # Clone original instance
         kwargs['dtype'] = HdcDataType[kwargs['dtype']] if 'dtype' in d.keys() else None
         kwargs['is_readonly'] = kwargs.pop('ro')
+        if 'size' in kwargs.keys():
+            # Ignore size attribute which is not yet implemented in Python descriptors
+            # ToDo: Ignore any unexpected attributes in all descriptors!
+            kwargs.pop('size')
         return cls(**kwargs)
 
 
@@ -383,7 +387,7 @@ class LogEventThresholdPropertyDescriptor(PropertyDescriptor):
     def __init__(self):
         super().__init__(
             id=PropID.LOG_EVT_THRESHOLD,
-            name='LogEventThreshold',
+            name='log_event_threshold',
             dtype=HdcDataType.UINT8,
             is_readonly=False,
             doc="Suppresses LogEvents with lower log-levels."
@@ -394,7 +398,7 @@ class FeatureStatePropertyDescriptor(PropertyDescriptor):
     def __init__(self):
         super().__init__(
             id=PropID.FEAT_STATE,
-            name='FeatureState',
+            name='feature_state',
             dtype=HdcDataType.UINT8,
             is_readonly=True,
             doc="Current feature-state"
@@ -483,7 +487,7 @@ class FeatureDescriptor:
             self.properties[d.id] = d
 
     def __str__(self):
-        return f"Feature_0x{self.id}_{self.name}"
+        return f"Feature_0x{self.id:02X}_{self.name}"
 
     def to_idl_dict(self) -> dict:
         return dict(

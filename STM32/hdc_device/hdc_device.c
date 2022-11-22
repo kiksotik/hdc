@@ -668,9 +668,9 @@ const HDC_Descriptor_Command_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
 
   &(HDC_Descriptor_Command_t){
     .CommandID = HDC_CommandID_GetPropertyValue,
-    .CommandName = "GetPropertyValue",
+    .CommandName = "get_property_value",
     .CommandHandler = &HDC_Cmd_GetPropertyValue,
-    .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="PropertyID"},
+    .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="property_id"},
     .ret1 = &(HDC_Descriptor_Ret_t) {.dtype=HDC_DataTypeID_BLOB, .doc="Actual data-type depends on property"},
     .raises = (const HDC_Descriptor_Exc_t*[1]) {&HDC_Descriptor_Exc_UnknownProperty},
     .numraises = 1
@@ -678,11 +678,11 @@ const HDC_Descriptor_Command_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
 
   &(HDC_Descriptor_Command_t){
     .CommandID = HDC_CommandID_SetPropertyValue,
-    .CommandName = "SetPropertyValue",
+    .CommandName = "set_property_value",
     .CommandHandler = &HDC_Cmd_SetPropertyValue,
-    .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="PropertyID"},
-    .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_BLOB, .name="NewValue", .doc="Actual data-type depends on property"},
-    .ret1 = &(HDC_Descriptor_Ret_t) {.dtype=HDC_DataTypeID_BLOB, .name="ActualNewValue", .doc="May differ from NewValue!"},
+    .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="property_id"},
+    .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_BLOB, .name="new_value", .doc="Actual data-type depends on property"},
+    .ret1 = &(HDC_Descriptor_Ret_t) {.dtype=HDC_DataTypeID_BLOB, .name="actual_new_value", .doc="May differ from NewValue!"},
     .raises = (const HDC_Descriptor_Exc_t*[2]) {&HDC_Descriptor_Exc_UnknownProperty, &HDC_Descriptor_Exc_ReadOnlyProperty},
     .numraises = 2
   },
@@ -693,18 +693,18 @@ const HDC_Descriptor_Command_t *HDC_MandatoryCommands[NUM_MANDATORY_COMMANDS] = 
 
 const HDC_Descriptor_Event_t HDC_Event_Log = {
   .EventID = HDC_EventID_Log,
-  .EventName = "Log",
+  .EventName = "log",
   .EventDescription = "Forwards software event log to the host.",
-  .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="LogLevel", .doc="Same as in Python"},
-  .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UTF8, .name="LogMsg"},
+  .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="log_level", .doc="Same as in Python"},
+  .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UTF8, .name="log_msg"},
 };
 
 const HDC_Descriptor_Event_t HDC_Event_FeatureStateTransition = {
   .EventID = HDC_EventID_FeatureStateTransition,
-  .EventName = "FeatureStateTransition",
+  .EventName = "feature_state_transition",
   .EventDescription = "Notifies host about transitions of this feature's state-machine.",
-  .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="PreviousStateID"},
-  .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="CurrentStateID"},
+  .arg1 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="previous_state_id"},
+  .arg2 = &(HDC_Descriptor_Arg_t) {.dtype=HDC_DataTypeID_UINT8, .name="current_state_id"},
 };
 
 const HDC_Descriptor_Event_t *HDC_MandatoryEvents[NUM_MANDATORY_EVENTS] = {
@@ -840,7 +840,7 @@ const HDC_Descriptor_Property_t *HDC_MandatoryProperties[NUM_MANDATORY_PROPERTIE
 
   &(HDC_Descriptor_Property_t ) {
     .PropertyID = HDC_PropertyID_LogEventThreshold,
-    .PropertyName = "LogEventThreshold",
+    .PropertyName = "log_event_threshold",
     .PropertyDataType = HDC_DataTypeID_UINT8,
     .PropertyIsReadonly = false,
     .GetPropertyValue = HDC_Property_LogEventThreshold_get,
@@ -850,7 +850,7 @@ const HDC_Descriptor_Property_t *HDC_MandatoryProperties[NUM_MANDATORY_PROPERTIE
 
   &(HDC_Descriptor_Property_t ) {
     .PropertyID = HDC_PropertyID_FeatureState,
-    .PropertyName = "FeatureState",
+    .PropertyName = "feature_state",
     .PropertyDataType = HDC_DataTypeID_UINT8,
     .PropertyIsReadonly = true,
     .GetPropertyValue = HDC_Property_FeatureState_get,

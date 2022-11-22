@@ -1,6 +1,9 @@
 """
 Host-side API (a.k.a. "proxy classes") to communicate with any device that implements the Demo_Minimal example.
 
+This is the now obsolete way of building a custom proxy class.
+Please use the "proxy factory" & "descriptor-driven" approach, instead.
+
 Device can be::
     - A NUCLEO prototype board running any of the Demo_Minimal STM32 firmware examples.
     - A Python process running the minimal_device.py example.
@@ -10,31 +13,80 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
-from hdcproto.common import HdcDataType, HdcCmdException
-from hdcproto.host.proxy import (DeviceProxyBase, CoreFeatureProxyBase, EventProxyBase,
+from hdcproto.common import HdcDataType, HdcCmdException, FeatureID
+from hdcproto.descriptor import FeatureDescriptor, CommandDescriptor, ArgD, RetD, EventDescriptor, PropertyDescriptor
+from hdcproto.host.proxy import (DeviceProxyBase, EventProxyBase,
                                  PropertyProxy_RO_UINT32, PropertyProxy_RO_BLOB, PropertyProxy_RW_UINT8,
-                                 CommandProxyBase, FeatureProxyBase, VoidWithoutArgsCommandProxy)
+                                 CommandProxyBase, FeatureProxyBase)
 
 
-class MinimalCore(CoreFeatureProxyBase):
+class MinimalCore(FeatureProxyBase):
 
     def __init__(self, device_proxy: DeviceProxyBase):
         super().__init__(
-            device_proxy,
-            # Registration of states allows DeviceProxyBase to resolve names and produce more readable logs
-            states=MinimalCore.FeatureStateEnum)
+            feature_descriptor=FeatureDescriptor(
+                id=FeatureID.CORE,
+                name="core",
+                cls="DontCare",  # ToDo: Attribute optionality. #25
+                # Registration of states allows proxy to resolve names and produce more readable logs
+                states=MinimalCore.FeatureStateEnum
+            ),
+            device_proxy=device_proxy)
 
+        ###########
         # Commands
-        self.cmd_reset = VoidWithoutArgsCommandProxy(self, command_id=0x01)  # A simple command with void signature
+
+        # A simple command with void signature
+        self.cmd_reset = CommandProxyBase(
+            command_descriptor=CommandDescriptor(
+                id=0x01,
+                name="DontCare",  # ToDo: Attribute optionality. #25
+                args=[],
+                returns=[],
+                raises=None  # ToDo: Attribute optionality. #25
+            ),
+            feature_proxy=self)
+
+        # A custom command proxy class can expose a proper call signature (and encapsulate the descriptor)
         self.cmd_division = self.DivisionCommandProxy(self)  # Command with custom signature
 
+        #########
         # Events
-        self.evt_button = EventProxyBase(self, event_id=0x01, payload_parser=self.ButtonEventPayload)
+        self.evt_button = EventProxyBase(
+            event_descriptor=EventDescriptor(id=0x01,
+                                             name="DontCare",  # ToDo: Attribute optionality. #25),
+                                             args=None,
+                                             doc=None),
+            feature_proxy=self,
+            payload_parser=self.ButtonEventPayload)
 
         # Properties
-        self.prop_microcontroller_devid = PropertyProxy_RO_UINT32(self, property_id=0x010)
-        self.prop_microcontroller_uid = PropertyProxy_RO_BLOB(self, property_id=0x11)
-        self.prop_led_blinking_rate = PropertyProxy_RW_UINT8(self, property_id=0x12)
+        self.prop_uc_devid = PropertyProxy_RO_UINT32(
+            property_descriptor=PropertyDescriptor(
+                id=0x010,
+                name="DontCare",  # ToDo: Attribute optionality. #25),
+                # ToDo: The following is redundant!
+                dtype=HdcDataType.UINT32,
+                is_readonly=True),
+            feature_proxy=self)
+
+        self.prop_uc_uid = PropertyProxy_RO_BLOB(
+            property_descriptor=PropertyDescriptor(
+                id=0x011,
+                name="DontCare",  # ToDo: Attribute optionality. #25),
+                # ToDo: The following is redundant!
+                dtype=HdcDataType.BLOB,
+                is_readonly=True),
+            feature_proxy=self)
+
+        self.prop_led_blinking_rate = PropertyProxy_RW_UINT8(
+            property_descriptor=PropertyDescriptor(
+                id=0x012,
+                name="DontCare",  # ToDo: Attribute optionality. #25),
+                # ToDo: The following is redundant!
+                dtype=HdcDataType.UINT8,
+                is_readonly=False),
+            feature_proxy=self)
 
     class FeatureStateEnum(enum.IntEnum):
         """Custom states of the Core-feature of the Demo_Minimal firmware."""
@@ -44,20 +96,29 @@ class MinimalCore(CoreFeatureProxyBase):
         ERROR = 0xFF
 
     class DivisionCommandProxy(CommandProxyBase):
+        """
+        A custom command proxy class can:
+          - expose a proper call signature with named arguments and type hints
+          - Apply custom validation on arguments and return value
+          - Encapsulate the bloated descriptor
+        """
+
         def __init__(self, feature_proxy: FeatureProxyBase):
-            super().__init__(feature_proxy,
-                             command_id=0x02,
-                             raises_also=[MyDivZeroError()])
+            super().__init__(
+                command_descriptor=CommandDescriptor(id=0x02,
+                                                     name="DontCare",  # ToDo: Attribute optionality. #25
+                                                     args=[ArgD(HdcDataType.FLOAT, "numerator"),
+                                                           ArgD(HdcDataType.FLOAT, "denominator")],
+                                                     returns=[RetD(HdcDataType.DOUBLE)],
+                                                     # Let proxy raise custom exception class
+                                                     raises=[MyDivZeroError()]),
+                feature_proxy=feature_proxy)
 
         def __call__(self,
                      numerator: float,
-                     denominator: float,
-                     timeout: float | None = None) -> float:
-            return super()._call_cmd(
-                cmd_args=[(HdcDataType.FLOAT, float(numerator)),
-                          (HdcDataType.FLOAT, float(denominator))],
-                return_types=HdcDataType.DOUBLE,
-                timeout=timeout)
+                     denominator: float) -> float:
+            # Call the baseclass __call__ implementation
+            return super().__call__(float(numerator), float(denominator))
 
     class ButtonEventPayload:
         """Used by the self.evt_button proxy to parse raw event messages into custom event payload objects."""
@@ -89,6 +150,6 @@ class MyDivZeroError(HdcCmdException):
 class MinimalDevice(DeviceProxyBase):
     core: MinimalCore
 
-    def __init__(self, connection_url: str):
+    def __init__(self, connection_url: str | None = None):
         super().__init__(connection_url=connection_url)
         self.core = MinimalCore(self)  # This device only has a Core feature.

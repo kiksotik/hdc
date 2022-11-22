@@ -26,7 +26,7 @@ class MinimalCoreService(CoreFeatureService):
         self.cmd_reset = CommandService(
             command_descriptor=CommandDescriptor(
                 id=0x01,
-                name="Reset",
+                name="reset",
                 args=None,
                 returns=None,
                 raises=None,
@@ -36,10 +36,10 @@ class MinimalCoreService(CoreFeatureService):
             command_implementation=self.reset,
         )
 
-        self.cmd_divide = CommandService(
+        self.cmd_division = CommandService(
             command_descriptor=CommandDescriptor(
                 id=0x02,
-                name="Divide",
+                name="division",
                 args=[ArgD(HdcDataType.FLOAT, "numerator"),
                       ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")],
                 returns=RetD(HdcDataType.DOUBLE, doc="Quotient of numerator/denominator"),  # May omit name
@@ -47,7 +47,7 @@ class MinimalCoreService(CoreFeatureService):
                 doc="Divides numerator by denominator."
             ),
             feature_service=self,
-            command_implementation=self.divide,
+            command_implementation=self.division,
         )
 
         # Events
@@ -57,10 +57,10 @@ class MinimalCoreService(CoreFeatureService):
         # Properties
 
         # Example of exposing a constant/immutable UINT32 value as a property
-        self.prop_microcontroller_devid = PropertyService(
+        self.prop_uc_devid = PropertyService(
             property_descriptor=PropertyDescriptor(
                 id=0x10,
-                name="uC_DEVID",
+                name="uc_devid",
                 dtype=HdcDataType.UINT32,
                 is_readonly=True,
                 doc="32bit Device-ID of STM32 microcontroller."
@@ -71,10 +71,10 @@ class MinimalCoreService(CoreFeatureService):
         )
 
         # Example of exposing a constant/immutable BLOB value as a property
-        self.prop_microcontroller_uid = PropertyService(
+        self.prop_uc_uid = PropertyService(
             property_descriptor=PropertyDescriptor(
                 id=0x11,
-                name="uC_UID",
+                name="uc_uid",
                 dtype=HdcDataType.BLOB,
                 is_readonly=True,
                 doc="96bit unique-ID of STM32 microcontroller."
@@ -89,7 +89,7 @@ class MinimalCoreService(CoreFeatureService):
         self.prop_led_blinking_rate = PropertyService(
             property_descriptor=PropertyDescriptor(
                 id=0x12,
-                name="LedBlinkingRate",
+                name="led_blinking_rate",
                 dtype=HdcDataType.UINT8,
                 is_readonly=False,
                 doc="Blinking frequency of the LED given in Herz."
@@ -120,7 +120,7 @@ class MinimalCoreService(CoreFeatureService):
         self.switch_state(new_feature_state_id=self.States.READY)
         assert self.current_state_id == self.States.READY
 
-    def divide(self, numerator: float, denominator: float) -> float:
+    def division(self, numerator: float, denominator: float) -> float:
         """Actual implementation of the HDC-command"""
         if denominator == 0:
             raise MyDivZeroError()
@@ -142,7 +142,7 @@ class ButtonEventService(EventService):
         super().__init__(
             event_descriptor=EventDescriptor(
                 id=0x01,
-                name="ButtonEvent",
+                name="button",
                 args=(ArgD(HdcDataType.UINT8, "ButtonID"),
                       ArgD(HdcDataType.UINT8, "ButtonState")),
                 doc="Notify host about the button being pressed on the device."

@@ -5,26 +5,27 @@ import logging
 import time
 
 from hdcproto.common import HdcCmdException
-from hdcproto.descriptor import DeviceDescriptor, FeatureDescriptor, StateDescriptor, EventDescriptor
+from hdcproto.descriptor import FeatureDescriptor, StateDescriptor, EventDescriptor
 from hdcproto.host.proxy import DeviceProxyBase, EventProxyBase
 from minimal_proxy import MinimalDevice, MinimalCore, MyDivZeroError
 
 
 def custom_proxy_factory(descriptor, parent_proxy):
     if isinstance(descriptor, FeatureDescriptor):
+        # Example of how to "tweak" / "edit" a descriptor. In this case we inject our custom FeatureStates
         descriptor.states = {d.id: d for d in (StateDescriptor(e, e.name) for e in MinimalCore.FeatureStateEnum)}
-        return False  # Instantiate default proxy class with "tampered" descriptor
+        return False  # Returning False, to produce default proxy, but with the "tweaked" descriptor
 
     if isinstance(descriptor, EventDescriptor) and descriptor.id == 0x01:
         return EventProxyBase(
-            event_descriptor=EventDescriptor(id=0x01,
-                                             name="DontCare",  # ToDo: Attribute optionality. #25),
-                                             args=None,
-                                             doc=None),
+            event_descriptor=descriptor,
             feature_proxy=parent_proxy,
+            # Note how we override default parser with our custom one
             payload_parser=MinimalCore.ButtonEventPayload)
 
-    if isinstance(descriptor, HdcCmdException) and descriptor.exception_id==0x01:
+    if isinstance(descriptor, HdcCmdException) and descriptor.exception_id == 0x01:
+        # Example of how to use a fully customized proxy.
+        # Note that Exceptions are special, because their instances serve all three purposes: descriptor, service, proxy
         return MyDivZeroError()
 
     return False  # Instantiate default proxy class
@@ -53,9 +54,12 @@ def showcase_minimal():
     # Connect to HDC-device at a specific serial port
     connection_url = "COM10"
     # connection_url = "socket://localhost:55555"
-    # dev = MinimalDevice()  # Use a hardcoded proxy
+    demo_logger.info("--------------------------------------------------------------")
+    demo_logger.info(f"About to connect to device at {connection_url}")
+    # dev = MinimalDevice()  # Use a hardcoded proxy, instead of auto-generating it in the line below.
     dev = DeviceProxyBase.connect_and_build(connection_url=connection_url, custom_proxy_factory=custom_proxy_factory)
     dev.router.connect(connection_url=connection_url)  # Will fail if your device is connected at a different port.
+    demo_logger.info(f"Using {'manually-authored' if isinstance(dev, MinimalDevice) else 'auto-generated'} proxy")
 
     ######################################################################################
     # Example of how "inheritance" mixes-in the stuff defined in DeviceProxyBase into self
@@ -84,7 +88,7 @@ def showcase_minimal():
     demo_logger.info("_____________________________")
     demo_logger.info("Resetting the Core-feature...")
     dev.core.evt_state_transition.logger.setLevel(logging.INFO)  # Note the very granular logging capabilities
-    dev.core.cmd_reset.default_timeout = 5.0
+    dev.core.cmd_reset.default_timeout = 5.0  # ToDo: Include timeout in the descriptor? Also per property s/getters?
     dev.core.cmd_reset()  # Blocks until it receives reply from HDC-device or the default timeout elapses.
     time.sleep(0.5)  # Allow for some time for the actual firmware reset to happen.
 

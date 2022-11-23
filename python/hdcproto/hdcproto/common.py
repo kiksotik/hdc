@@ -4,7 +4,7 @@ import enum
 import struct
 import typing
 
-HDC_VERSION = "HDC 1.0.0-alpha.11"  # ToDo: How should we manage the HDC version?
+HDC_VERSION = "HDC 1.0.0-alpha.12"  # ToDo: How should we manage the HDC version?
 
 
 @enum.unique

@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#define HDC_VERSION_STRING "HDC 1.0.0-alpha.11"
+#define HDC_VERSION_STRING "HDC 1.0.0-alpha.12"
 
 /////////////////////////////////////////////////
 // Import and validate user-defined configuration

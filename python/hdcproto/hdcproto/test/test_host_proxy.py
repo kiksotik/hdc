@@ -78,7 +78,7 @@ class TestMessages(unittest.TestCase):
         self.assertEqual(sent_payload, received_payload)
 
     def test_meta_hdc_version(self):
-        mocked_version = 'HDC 1.0.0-alpha.11'
+        mocked_version = 'HDC 1.0.0-alpha.12'
 
         def reply_mocking(req: bytes) -> bytes | None:
             if req[0] == MessageTypeID.META and req[1] == MetaID.HDC_VERSION:
@@ -103,7 +103,7 @@ class TestMessages(unittest.TestCase):
     def test_meta_idl_json(self):
         mocked_idl_json = '''
         {
-            "version": "HDC 1.0.0-alpha.11",
+            "version": "HDC 1.0.0-alpha.12",
             "MaxReq": 128,
             "features": []
         }

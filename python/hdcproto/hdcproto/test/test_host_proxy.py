@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import enum
 import unittest
 
-from hdcproto.common import (ExcID, MessageTypeID, MetaID, HdcCmdExc_CommandFailed, PropID, HdcDataType,
-                             HdcCmdException, FeatureID, CmdID)
-from hdcproto.host.proxy import (DeviceProxyBase, FeatureProxyBase, VoidWithoutArgsCommandProxy,
-                                 PropertyProxy_RW_INT32, EventProxyBase, CoreFeatureProxyBase)
+from hdcproto.common import (ExcID, MessageTypeID, MetaID, PropID, HdcCmdException,
+                             FeatureID, CmdID, HdcCmdExc_UnknownProperty)
+from hdcproto.descriptor import FeatureDescriptor
+from hdcproto.host.proxy import (DeviceProxyBase, FeatureProxyBase, )
 from hdcproto.transport.mock import MockTransport
 
 
@@ -204,15 +203,21 @@ class TestExceptionCloning(unittest.TestCase):
 class TestExceptionHandling(unittest.TestCase):
     def setUp(self) -> None:
         self.my_proxy = TestableDeviceProxy()
-        self.my_proxy.core = CoreFeatureProxyBase(self.my_proxy)
+        self.my_proxy.core = FeatureProxyBase(
+            feature_descriptor=FeatureDescriptor(
+                id=FeatureID.CORE,
+                name="core",
+                cls="DontCare",  # ToDo: Attribute optionality. #25
+            ),
+            device_proxy=self.my_proxy)
         self.some_command_proxy = self.my_proxy.core.cmd_get_property_value
         self.my_proxy.connect()
         self.conn_mock: MockTransport = self.my_proxy.router.transport
 
     def test_raises_predefined_exception(self):
-        predefined_exc_id = ExcID.CommandFailed
+        predefined_exc_id = ExcID.UnknownProperty
         mocked_exc_text = "Terrible!"
-        self.assertTrue(predefined_exc_id in self.some_command_proxy.command_raises)
+        self.assertTrue(predefined_exc_id in self.some_command_proxy.command_descriptor.raises.keys())
 
         def reply_mocking(req: bytes) -> bytes | None:
             if req[:3] == self.some_command_proxy.msg_prefix:
@@ -220,9 +225,8 @@ class TestExceptionHandling(unittest.TestCase):
 
         self.conn_mock.reply_mocking = reply_mocking
 
-        with self.assertRaises(HdcCmdExc_CommandFailed) as cm:
-            self.some_command_proxy(property_id=PropID.LOG_EVT_THRESHOLD,
-                                    property_data_type=HdcDataType.UINT8)
+        with self.assertRaises(HdcCmdExc_UnknownProperty) as cm:
+            self.some_command_proxy(property_id=PropID.LOG_EVT_THRESHOLD)
 
         raised_exception = cm.exception
         self.assertEqual(mocked_exc_text, raised_exception.exception_message)
@@ -238,7 +242,9 @@ class TestExceptionHandling(unittest.TestCase):
                                  name=custom_exc_name,
                                  exception_message=exception_message)
 
-        self.some_command_proxy._register_exception(MyCustomException())
+        # Inject custom exception instance as a descriptor into the command_descriptor
+        custom_exception = MyCustomException()
+        self.some_command_proxy.command_descriptor.raises[custom_exception.exception_id] = custom_exception
 
         def reply_mocking(req: bytes) -> bytes | None:
             if req[:3] == self.some_command_proxy.msg_prefix:
@@ -247,110 +253,12 @@ class TestExceptionHandling(unittest.TestCase):
         self.conn_mock.reply_mocking = reply_mocking
 
         with self.assertRaises(MyCustomException) as cm:
-            self.some_command_proxy(property_id=PropID.LOG_EVT_THRESHOLD,
-                                    property_data_type=HdcDataType.UINT8)
+            self.some_command_proxy(property_id=PropID.LOG_EVT_THRESHOLD)
 
         raised_exception = cm.exception
         self.assertEqual(custom_exc_id, raised_exception.exception_id)
         self.assertEqual(custom_exc_name, raised_exception.exception_name)
         self.assertEqual(mocked_exc_text, raised_exception.exception_message)
-
-    def test_raises_enum_exception(self):
-        mocked_exc_text = "Terrible!"
-
-        class MyCustomExceptions(enum.IntEnum):
-            MY_FIRST_EXCEPTION = 0x01
-            MY_SECOND_EXCEPTION = 0x02
-            MY_THIRD_EXCEPTION = 0x03
-
-        self.some_command_proxy._register_exception(HdcCmdException(MyCustomExceptions.MY_SECOND_EXCEPTION))
-
-        def reply_mocking(req: bytes) -> bytes | None:
-            if req[:3] == self.some_command_proxy.msg_prefix:
-                return self.some_command_proxy.msg_prefix \
-                       + bytes([MyCustomExceptions.MY_SECOND_EXCEPTION]) \
-                       + mocked_exc_text.encode()
-
-        self.conn_mock.reply_mocking = reply_mocking
-
-        with self.assertRaises(HdcCmdException) as cm:
-            self.some_command_proxy(property_id=PropID.LOG_EVT_THRESHOLD,
-                                    property_data_type=HdcDataType.UINT8)
-
-        raised_exception = cm.exception
-        self.assertEqual(raised_exception.__class__, HdcCmdException)
-        self.assertEqual(MyCustomExceptions.MY_SECOND_EXCEPTION, raised_exception.exception_id)
-        self.assertEqual(MyCustomExceptions.MY_SECOND_EXCEPTION.name, raised_exception.exception_name)
-        self.assertEqual(mocked_exc_text, raised_exception.exception_message)
-
-
-class TestIdValidation(unittest.TestCase):
-    def test_validation_of_feature_id(self):
-        my_device = TestableDeviceProxy()
-
-        with self.assertRaises(ValueError):
-            FeatureProxyBase(my_device, feature_id=-1)
-
-        with self.assertRaises(ValueError):
-            FeatureProxyBase(my_device, feature_id=256)
-
-        with self.assertRaises(ValueError):
-            # noinspection PyTypeChecker
-            FeatureProxyBase(my_device, feature_id='42')
-
-        # Does *not* fail with a valid feature_id
-        FeatureProxyBase(my_device, feature_id=0x42)
-
-    def test_validation_of_command_id(self):
-        my_device = TestableDeviceProxy()
-        my_device.core = CoreFeatureProxyBase(my_device)
-
-        with self.assertRaises(ValueError):
-            VoidWithoutArgsCommandProxy(my_device.core, command_id=-1)
-
-        with self.assertRaises(ValueError):
-            VoidWithoutArgsCommandProxy(my_device.core, command_id=256)
-
-        with self.assertRaises(ValueError):
-            # noinspection PyTypeChecker
-            VoidWithoutArgsCommandProxy(my_device.core, command_id='42')
-
-        # Does *not* fail with a valid command_id
-        VoidWithoutArgsCommandProxy(my_device.core, command_id=0x42)
-
-    def test_validation_of_property_id(self):
-        my_device = TestableDeviceProxy()
-        my_device.core = CoreFeatureProxyBase(my_device)
-
-        with self.assertRaises(ValueError):
-            PropertyProxy_RW_INT32(my_device.core, property_id=-1)
-
-        with self.assertRaises(ValueError):
-            PropertyProxy_RW_INT32(my_device.core, property_id=256)
-
-        with self.assertRaises(ValueError):
-            # noinspection PyTypeChecker
-            PropertyProxy_RW_INT32(my_device.core, property_id='42')
-
-        # Does *not* fail with a valid property_id
-        PropertyProxy_RW_INT32(my_device.core, property_id=0x42)
-
-    def test_validation_of_event_id(self):
-        my_device = TestableDeviceProxy()
-        my_device.core = CoreFeatureProxyBase(my_device)
-
-        with self.assertRaises(ValueError):
-            EventProxyBase(my_device.core, event_id=-1)
-
-        with self.assertRaises(ValueError):
-            EventProxyBase(my_device.core, event_id=256)
-
-        with self.assertRaises(ValueError):
-            # noinspection PyTypeChecker
-            EventProxyBase(my_device.core, event_id='42')
-
-        # Does *not* fail with a valid event_id
-        EventProxyBase(my_device.core, event_id=0x42)
 
 
 if __name__ == '__main__':

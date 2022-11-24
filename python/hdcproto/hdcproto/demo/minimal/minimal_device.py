@@ -6,7 +6,7 @@ from pynput import keyboard
 
 from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, HdcCmdException
 from hdcproto.descriptor import CommandDescriptor, EventDescriptor, PropertyDescriptor, ArgD, RetD
-from hdcproto.device.service import (DeviceService, CoreFeatureService,FeatureService, CommandService, EventService,
+from hdcproto.device.service import (DeviceService, CoreFeatureService, FeatureService, CommandService, EventService,
                                      PropertyService)
 
 
@@ -143,14 +143,14 @@ class ButtonEventService(EventService):
             event_descriptor=EventDescriptor(
                 id=0x01,
                 name="button",
-                args=(ArgD(HdcDataType.UINT8, "ButtonID"),
-                      ArgD(HdcDataType.UINT8, "ButtonState")),
+                args=(ArgD(HdcDataType.UINT8, "button_id"),
+                      ArgD(HdcDataType.UINT8, "button_state")),
                 doc="Notify host about the button being pressed on the device."
             ),
             feature_service=feature_service)
 
     def emit(self, button_id: int, button_state: int):
-        self._send_event_message([button_id, button_state])
+        super().emit([button_id, button_state])
 
     def press_callback(self, key: keyboard.Key):
         if isinstance(key, keyboard.KeyCode):

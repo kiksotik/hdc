@@ -232,17 +232,28 @@ class EventService:
 
         self.router.send_event_message(event_message=event_message)
 
-    def _send_event_message(self, event_args: list[typing.Any] | None) -> None:
+    def emit(self, *args, **kwargs) -> None:
         event_message = bytearray(self.msg_prefix)
 
-        if event_args is None:
-            assert self.event_descriptor.args is None
-        else:
-            assert len(event_args) == len(self.event_descriptor.args)
+        expected_args = self.event_descriptor.args
+        num_expected_args = len(expected_args)
 
-            for arg_value, arg_descriptor in zip(event_args, self.event_descriptor.args):
-                arg_as_raw_bytes = arg_descriptor.dtype.value_to_bytes(arg_value)
-                event_message.extend(arg_as_raw_bytes)
+        if len(args) > num_expected_args:
+            raise ValueError(f"Unexpected positional arguments. "
+                             f"Expected {num_expected_args}, but {len(args)} were given.")
+
+        for i, d in enumerate(expected_args):
+            if i < len(args):
+                arg_value = args[i]
+            else:
+                if d.name not in kwargs.keys():
+                    raise ValueError(f"Missing argument {d.name}")
+                arg_value = kwargs.pop(d.name)
+            arg_as_raw_bytes = d.dtype.value_to_bytes(arg_value)
+            event_message.extend(arg_as_raw_bytes)
+
+        if kwargs:
+            raise ValueError(f"Unexpected keyword arguments: {repr(kwargs.keys())}")
 
         event_message = bytes(event_message)
 
@@ -257,7 +268,7 @@ class LogEventService(EventService):
     def emit(self, log_level: int, log_msg: str) -> None:
         if log_level >= self.feature_service.log_event_threshold:
             self.logger.info(f"Sending {self.event_descriptor} -> ({logging.getLevelName(log_level)}, '{log_msg}')")
-            self._send_event_message(event_args=[log_level, log_msg])
+            super().emit(log_level=log_level, log_msg=log_msg)
 
 
 class HdcLoggingHandler(logging.Handler):
@@ -289,7 +300,7 @@ class FeatureStateTransitionEventService(EventService):
         if not is_valid_uint8(current_state_id):
             raise ValueError(f"current_state_id of {current_state_id} is beyond valid range from 0x00 to 0xFF")
         self.logger.info(f"Sending {self.event_descriptor} -> (0x{previous_state_id:02X}, 0x{current_state_id:02X}')")
-        self._send_event_message(event_args=[previous_state_id, current_state_id])
+        super().emit(previous_state_id=previous_state_id, current_state_id=current_state_id)
 
 
 class PropertyService:

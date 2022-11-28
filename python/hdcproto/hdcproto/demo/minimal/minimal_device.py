@@ -150,7 +150,7 @@ class ButtonEventService(EventService):
             feature_service=feature_service)
 
     def emit(self, button_id: int, button_state: int):
-        super().emit([button_id, button_state])
+        super().emit(button_id=button_id, button_state=button_state)
 
     def press_callback(self, key: keyboard.Key):
         if isinstance(key, keyboard.KeyCode):

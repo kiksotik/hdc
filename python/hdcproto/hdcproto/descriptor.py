@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import json
+import logging
 import typing
 
 import semver
@@ -10,6 +11,9 @@ from hdcproto.exception import HdcCmdException, HdcCmdExc_UnknownProperty, HdcCm
 from hdcproto.parse import is_variable_size_dtype
 from hdcproto.spec import (CmdID, EvtID, PropID, DTypeID)
 from hdcproto.validate import is_valid_uint8
+
+
+logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.descriptor"
 
 
 class ArgD:
@@ -45,9 +49,15 @@ class ArgD:
         )
 
     @classmethod
-    def from_idl_dict(cls, d: dict) -> ArgD:
-        kwargs = dict(d)  # Clone original instance
-        kwargs['dtype'] = DTypeID[kwargs['dtype']] if 'dtype' in d.keys() else None
+    def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> ArgD:
+        kwargs = dict(
+            dtype=DTypeID[d['dtype']],  # Convert DType name into IntEnum value!
+            name=d['name'],
+            doc=d.get('doc')  # Optional
+        )
+        unexpected_keys = set(d.keys()) - set(kwargs.keys())
+        if unexpected_keys:
+            logger.warning(f"Ignoring unexpected {cls.__name__} attributes: {repr(unexpected_keys)}")
         return cls(**kwargs)
 
 
@@ -84,9 +94,15 @@ class RetD:
         )
 
     @classmethod
-    def from_idl_dict(cls, d: dict) -> RetD:
-        kwargs = dict(d)  # Clone original instance
-        kwargs['dtype'] = DTypeID[kwargs['dtype']] if 'dtype' in d.keys() else None
+    def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> RetD:
+        kwargs = dict(
+            dtype=DTypeID[d['dtype']],  # Convert DType name into IntEnum value!
+            name=d.get('name'),  # Optional
+            doc=d.get('doc')  # Optional
+        )
+        unexpected_keys = set(d.keys()) - set(kwargs.keys())
+        if unexpected_keys:
+            logger.warning(f"Ignoring unexpected {cls.__name__} attributes: {repr(unexpected_keys)}")
         return cls(**kwargs)
 
 
@@ -120,8 +136,16 @@ class StateDescriptor:
         )
 
     @classmethod
-    def from_idl_dict(cls, d: dict) -> StateDescriptor:
-        return cls(**d)
+    def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> StateDescriptor:
+        kwargs = dict(
+            id=d['id'],
+            name=d['name'],
+            doc=d.get('doc')  # Optional
+        )
+        unexpected_keys = set(d.keys()) - set(kwargs.keys())
+        if unexpected_keys:
+            logger.warning(f"Ignoring unexpected {cls.__name__} attributes: {repr(unexpected_keys)}")
+        return cls(**kwargs)
 
 
 class CommandDescriptor:
@@ -221,14 +245,21 @@ class CommandDescriptor:
         )
 
     @classmethod
-    def from_idl_dict(cls, d: dict) -> CommandDescriptor:
-        kwargs = dict(d)  # Clone original instance
-        kwargs['args'] = [ArgD.from_idl_dict(arg)
-                          for arg in d['args']] if 'args' in d.keys() else None
-        kwargs['returns'] = [RetD.from_idl_dict(ret)
-                             for ret in d['returns']] if 'returns' in d.keys() else None
-        kwargs['raises'] = [HdcCmdException.from_idl_dict(exc)
-                            for exc in d['raises']] if 'raises' in d.keys() else None
+    def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> CommandDescriptor:
+        kwargs = dict(
+            id=d['id'],
+            name=d['name'],
+            args=[ArgD.from_idl_dict(arg)
+                  for arg in d['args']] if 'args' in d.keys() else None,
+            returns=[RetD.from_idl_dict(ret)
+                     for ret in d['returns']] if 'returns' in d.keys() else None,
+            raises=[HdcCmdException.from_idl_dict(exc)
+                    for exc in d['raises']] if 'raises' in d.keys() else None,
+            doc=d.get('doc')
+        )
+        unexpected_keys = set(d.keys()) - set(kwargs.keys())
+        if unexpected_keys:
+            logger.warning(f"Ignoring unexpected {cls.__name__} attributes: {repr(unexpected_keys)}")
         return cls(**kwargs)
 
 
@@ -305,10 +336,17 @@ class EventDescriptor:
                   for arg in self.args])
 
     @classmethod
-    def from_idl_dict(cls, d: dict) -> EventDescriptor:
-        kwargs = dict(d)  # Clone original instance
-        kwargs['args'] = [ArgD.from_idl_dict(arg)
-                          for arg in d['args']] if 'args' in d.keys() else None
+    def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> EventDescriptor:
+        kwargs = dict(
+            id=d['id'],
+            name=d['name'],
+            args=[ArgD.from_idl_dict(arg)
+                  for arg in d['args']] if 'args' in d.keys() else None,
+            doc=d.get('doc')
+        )
+        unexpected_keys = set(d.keys()) - set(kwargs.keys())
+        if unexpected_keys:
+            logger.warning(f"Ignoring unexpected {cls.__name__} attributes: {repr(unexpected_keys)}")
         return cls(**kwargs)
 
 
@@ -374,14 +412,17 @@ class PropertyDescriptor:
             doc=self.doc)
 
     @classmethod
-    def from_idl_dict(cls, d: dict) -> PropertyDescriptor:
-        kwargs = dict(d)  # Clone original instance
-        kwargs['dtype'] = DTypeID[kwargs['dtype']] if 'dtype' in d.keys() else None
-        kwargs['is_readonly'] = kwargs.pop('ro')
-        if 'size' in kwargs.keys():
-            # Ignore size attribute which is not yet implemented in Python descriptors
-            # ToDo: Ignore any unexpected attributes in all descriptors!
-            kwargs.pop('size')
+    def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> PropertyDescriptor:
+        kwargs = dict(
+            id=d['id'],
+            name=d['name'],
+            dtype=DTypeID[d['dtype']],
+            is_readonly=d['ro'],  # Different attribute name!
+            doc=d.get('doc')
+        )
+        unexpected_keys = set(d.keys()) - set(kwargs.keys()) - {'ro'}
+        if unexpected_keys:
+            logger.warning(f"Ignoring unexpected {cls.__name__} attributes: {repr(unexpected_keys)}")
         return cls(**kwargs)
 
 
@@ -516,16 +557,25 @@ class FeatureDescriptor:
             ])
 
     @classmethod
-    def from_idl_dict(cls, d: dict) -> FeatureDescriptor:
-        kwargs = dict(d)  # Clone original instance
-        kwargs['states'] = [StateDescriptor.from_idl_dict(state)
-                            for state in d['states']] if 'states' in d.keys() else None
-        kwargs['commands'] = [CommandDescriptor.from_idl_dict(cmd)
-                              for cmd in d['commands']] if 'commands' in d.keys() else None
-        kwargs['events'] = [EventDescriptor.from_idl_dict(evt)
-                            for evt in d['events']] if 'events' in d.keys() else None
-        kwargs['properties'] = [PropertyDescriptor.from_idl_dict(prop)
-                                for prop in d['properties']] if 'properties' in d.keys() else None
+    def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> FeatureDescriptor:
+        kwargs = dict(
+            id=d['id'],
+            name=d['name'],
+            cls=d['cls'],
+            version=d['version'],
+            states=[StateDescriptor.from_idl_dict(state)
+                    for state in d['states']] if 'states' in d.keys() else None,
+            commands=[CommandDescriptor.from_idl_dict(cmd)
+                      for cmd in d['commands']] if 'commands' in d.keys() else None,
+            events=[EventDescriptor.from_idl_dict(evt)
+                    for evt in d['events']] if 'events' in d.keys() else None,
+            properties=[PropertyDescriptor.from_idl_dict(prop)
+                        for prop in d['properties']] if 'properties' in d.keys() else None,
+            doc=d.get('doc')
+        )
+        unexpected_keys = set(d.keys()) - set(kwargs.keys())
+        if unexpected_keys:
+            logger.warning(f"Ignoring unexpected {cls.__name__} attributes: {repr(unexpected_keys)}")
         return cls(**kwargs)
 
 
@@ -561,10 +611,16 @@ class DeviceDescriptor:
             ])
 
     @classmethod
-    def from_idl_dict(cls, d: dict) -> DeviceDescriptor:
-        kwargs = dict(d)  # Clone original instance
-        kwargs['features'] = [FeatureDescriptor.from_idl_dict(state)
-                              for state in d['features']] if 'features' in d.keys() else None
+    def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> DeviceDescriptor:
+        kwargs = dict(
+            version=d['version'],
+            max_req=d['max_req'],
+            features=[FeatureDescriptor.from_idl_dict(state)
+                      for state in d['features']] if 'features' in d.keys() else None
+        )
+        unexpected_keys = set(d.keys()) - set(kwargs.keys())
+        if unexpected_keys:
+            logger.warning(f"Ignoring unexpected {cls.__name__} attributes: {repr(unexpected_keys)}")
         return cls(**kwargs)
 
     def to_idl_json(self) -> str:

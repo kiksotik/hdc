@@ -1,5 +1,5 @@
 {
-    "version": "HDC 1.0.0-alpha.11",
+    "version": "HDC 1.0.0-alpha.12",
     "max_req": 128,
     "features": [
         {
@@ -126,11 +126,11 @@
                     "args": [
                         {
                             "dtype": "UINT8",
-                            "name": "ButtonID"
+                            "name": "button_id"
                         },
                         {
                             "dtype": "UINT8",
-                            "name": "ButtonState"
+                            "name": "button_state"
                         }
                     ]
                 },

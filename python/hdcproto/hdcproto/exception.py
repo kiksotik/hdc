@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 
-from hdcproto.spec import ExcID
+from hdcproto.spec import ExcID, DTypeID
 from hdcproto.validate import is_valid_uint8
 
 
@@ -66,19 +66,21 @@ class HdcCmdException(HdcError):
 
     def clone_with_hdc_message(self, hdc_message: bytes):
         """
-        Uses this instance as a "descriptor" that serves as a template to create a new instance.
-        But first it validates the given HDC-exception-message to match the expected ID
-        and finally extracts whatever payload the message might contain.
+        Uses this instance as a "descriptor" that serves as a template to create a new instance, which is then
+        initialized further with information extracted from the given HDC-exception-message.
+        Verifies that the given message matches the expected exception-ID.
 
-        Override this implementation in any subclass that may
-        need to parse custom data from the given message.
+        Override this implementation in any subclass that may need to parse custom data from the given message.
         """
-        exc_id = hdc_message[3]
-        if exc_id != self.exception_id:
-            raise ValueError(f"Mismatching Exception-id in HDC reply message. "
-                             f"Expected 0x{self.exception_id:02X}, but received 0x{exc_id:02X}")
+        from hdcproto.parse import parse_payload  # Postponed import to avoid circular dependency
 
-        exc_text = hdc_message[4:].decode(encoding="utf-8", errors="strict")  # Might be empty
+        (exc_id,
+         exc_text) = parse_payload(raw_payload=hdc_message[3:],  # Strip 3 leading bytes: MsgID + FeatureID + CmdID
+                                   expected_data_types=[DTypeID.UINT8,  # Forth byte is ExcID
+                                                        DTypeID.UTF8])  # Remainder is Exception text and may be empty
+        if exc_id != self.exception_id:
+            raise ValueError(f"Mismatching Exception-ID in HDC reply message. "
+                             f"Expected 0x{self.exception_id:02X}, but received 0x{exc_id:02X}")
 
         if self.__class__ == HdcCmdException:  # Does not apply to subclasses!
             return HdcCmdException(id=self.exception_id,

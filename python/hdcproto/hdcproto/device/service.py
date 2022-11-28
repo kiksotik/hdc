@@ -224,16 +224,6 @@ class EventService:
     def router(self) -> hdcproto.device.router.MessageRouter:
         return self.feature_service.device_service.router
 
-    def _send_event_message_raw(self, event_message: bytes) -> None:
-        if not isinstance(event_message, (bytes, bytearray)):
-            raise TypeError()
-
-        if len(event_message) < len(self.msg_prefix) \
-                or event_message[:len(self.msg_prefix)] != self.msg_prefix:
-            raise ValueError()
-
-        self.router.send_event_message(event_message=event_message)
-
     def emit(self, *args, **kwargs) -> None:
         event_message = bytearray(self.msg_prefix)
 
@@ -259,7 +249,7 @@ class EventService:
 
         event_message = bytes(event_message)
 
-        self._send_event_message_raw(event_message=event_message)
+        self.router.send_event_message(event_message=event_message)
 
 
 class LogEventService(EventService):

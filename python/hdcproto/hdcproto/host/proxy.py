@@ -209,7 +209,8 @@ class EventProxyBase:
     def default_event_payload_parser(self, event_message: bytes):
         """Warning: This will be executed from within the SerialTransport.receiver_thread"""
         if self.event_descriptor.args is None:  # ToDo: Attribute optionality. #25
-            raw_payload = event_message[3:]  # Strip 3 leading bytes: MsgID + FeatureID + EvtID
+            raw_payload = parse_event_payload(event_message=event_message,
+                                              expected_data_types=DTypeID.BLOB)  # Raw payload as BLOB
             return raw_payload
 
         expected_data_types = [arg_descriptor.dtype for arg_descriptor in self.event_descriptor.args]
@@ -236,8 +237,10 @@ class LogEventProxy(EventProxyBase):
         def __init__(self, event_message: bytes):
             """Warning: This will be executed from within the SerialTransport.receiver_thread"""
             self.received_at = datetime.utcnow()
-            self.log_level = event_message[3]
-            self.log_message = event_message[4:].decode(encoding="utf-8", errors="strict")
+            (self.log_level,
+             self.log_message) = parse_event_payload(event_message=event_message,
+                                                     expected_data_types=[DTypeID.UINT8,
+                                                                          DTypeID.UTF8])
 
     def set_log_threshold(self, log_level: int) -> None:
         """
@@ -268,8 +271,10 @@ class StateTransitionEventProxy(EventProxyBase):
         def __init__(self, event_message: bytes):
             """Warning: This will be executed from within the SerialTransport.receiver_thread"""
             self.received_at = datetime.utcnow()
-            self.previous_state_id = event_message[3]
-            self.current_state_id = event_message[4]
+            (self.previous_state_id,
+             self.current_state_id) = parse_event_payload(event_message=event_message,
+                                                          expected_data_types=[DTypeID.UINT8,
+                                                                               DTypeID.UINT8])
 
     def event_payload_handler(self, event_payload: StateTransitionEventProxy.StateTransitionEventPayload):
         self.logger.info(f"%s → %s",
@@ -326,9 +331,7 @@ class PropertyProxyBase:
         age_of_cached_value = time.perf_counter() - self._timestamp_of_cached_value
         if age_of_cached_value > freshness or self._cached_value is None:
             self.logger.debug(f"Getting value of {self.property_descriptor}")
-            property_value_as_blob = self.feature_proxy.cmd_get_property_value(
-                property_id=self.property_descriptor.id
-            )
+            property_value_as_blob = self.feature_proxy.cmd_get_property_value(property_id=self.property_descriptor.id)
             property_value = bytes_to_value(self.property_descriptor.dtype, property_value_as_blob)
             self.logger.info(f"Getter of {self.property_descriptor} returns {property_value}")
             self.update_cached_value(property_value)

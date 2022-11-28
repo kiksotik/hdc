@@ -3,8 +3,8 @@ import json
 import logging
 import unittest
 
-from hdcproto.common import (MessageTypeID, FeatureID, EvtID, CmdID, PropID, ExcID, MetaID, HDC_VERSION)
 from hdcproto.device.service import DeviceService, CoreFeatureService
+from hdcproto.spec import (MessageTypeID, FeatureID, EvtID, CmdID, PropID, ExcID, MetaID, HDC_VERSION)
 from hdcproto.transport.mock import MockTransport
 
 

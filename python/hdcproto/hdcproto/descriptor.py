@@ -6,8 +6,10 @@ import typing
 
 import semver
 
-from hdcproto.common import (CmdID, EvtID, PropID, HdcDataType, is_valid_uint8, HdcCmdException,
-                             HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty)
+from hdcproto.exception import HdcCmdException, HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty
+from hdcproto.parse import is_variable_size_dtype
+from hdcproto.spec import (CmdID, EvtID, PropID, DTypeID)
+from hdcproto.validate import is_valid_uint8
 
 
 class ArgD:
@@ -16,16 +18,16 @@ class ArgD:
 
     As used to describe the arguments that an HDC-Command takes or that an HDC-Event carries.
     """
-    dtype: HdcDataType
+    dtype: DTypeID
     name: str
     doc: str | None
 
     def __init__(self,
-                 dtype: HdcDataType,
+                 dtype: DTypeID,
                  name: str,
                  doc: str | None = None):
 
-        if not isinstance(dtype, HdcDataType):
+        if not isinstance(dtype, DTypeID):
             raise ValueError
         self.dtype = dtype
 
@@ -45,7 +47,7 @@ class ArgD:
     @classmethod
     def from_idl_dict(cls, d: dict) -> ArgD:
         kwargs = dict(d)  # Clone original instance
-        kwargs['dtype'] = HdcDataType[kwargs['dtype']] if 'dtype' in d.keys() else None
+        kwargs['dtype'] = DTypeID[kwargs['dtype']] if 'dtype' in d.keys() else None
         return cls(**kwargs)
 
 
@@ -55,16 +57,16 @@ class RetD:
 
     Describes the value(s) that an HDC-Command returns.
     """
-    dtype: HdcDataType
+    dtype: DTypeID
     name: str | None
     doc: str | None
 
     def __init__(self,
-                 dtype: HdcDataType,
+                 dtype: DTypeID,
                  name: str | None = None,
                  doc: str | None = None):
 
-        if not isinstance(dtype, HdcDataType):
+        if not isinstance(dtype, DTypeID):
             raise ValueError
         self.dtype = dtype
 
@@ -84,7 +86,7 @@ class RetD:
     @classmethod
     def from_idl_dict(cls, d: dict) -> RetD:
         kwargs = dict(d)  # Clone original instance
-        kwargs['dtype'] = HdcDataType[kwargs['dtype']] if 'dtype' in d.keys() else None
+        kwargs['dtype'] = DTypeID[kwargs['dtype']] if 'dtype' in d.keys() else None
         return cls(**kwargs)
 
 
@@ -155,7 +157,7 @@ class CommandDescriptor:
             if any(not isinstance(arg, ArgD) for arg in args):
                 raise TypeError("command_arguments must be an iterable of ArgD objects")
 
-            if any(arg.dtype.is_variable_size() for arg in args[:-1]):
+            if any(is_variable_size_dtype(arg.dtype) for arg in args[:-1]):
                 raise ValueError("Only last argument may be of a variable-size data-type")
 
             self.args = tuple(args)
@@ -172,7 +174,7 @@ class CommandDescriptor:
             if any(not isinstance(ret, RetD) for ret in returns):
                 raise TypeError("command_returns must be an iterable of RetD objects")
 
-            if any(ret.dtype.is_variable_size() for ret in returns[:-1]):
+            if any(is_variable_size_dtype(ret.dtype) for ret in returns[:-1]):
                 raise ValueError("Only last return value may be of a variable-size data-type")
 
             self.returns = tuple(returns)
@@ -235,9 +237,9 @@ class GetPropertyValueCommandDescriptor(CommandDescriptor):
         super().__init__(
             id=CmdID.GET_PROP_VALUE,
             name="get_property_value",
-            args=[ArgD(HdcDataType.UINT8, name="property_id")],
+            args=[ArgD(DTypeID.UINT8, name="property_id")],
             # Returns 'BLOB', because data-type depends on requested property
-            returns=[RetD(HdcDataType.BLOB, doc="Actual data-type depends on property")],
+            returns=[RetD(DTypeID.BLOB, doc="Actual data-type depends on property")],
             raises=[HdcCmdExc_UnknownProperty()],
             doc=None
         )
@@ -249,9 +251,9 @@ class SetPropertyValueCommandDescriptor(CommandDescriptor):
             id=CmdID.SET_PROP_VALUE,
             name="set_property_value",
             # Signature uses 'BLOB', because data-type depends on requested property
-            args=[ArgD(HdcDataType.UINT8, "property_id"),
-                  ArgD(HdcDataType.BLOB, "new_value", "Actual data-type depends on property")],
-            returns=[RetD(HdcDataType.BLOB, "actual_new_value", "May differ from NewValue!")],
+            args=[ArgD(DTypeID.UINT8, "property_id"),
+                  ArgD(DTypeID.BLOB, "new_value", "Actual data-type depends on property")],
+            returns=[RetD(DTypeID.BLOB, "actual_new_value", "May differ from NewValue!")],
             raises=[HdcCmdExc_UnknownProperty(),
                     HdcCmdExc_ReadOnlyProperty()],
             doc=None
@@ -285,7 +287,7 @@ class EventDescriptor:
             args = None
         else:
             args = tuple(args)
-            if any(arg.dtype.is_variable_size() for arg in args[:-1]):
+            if any(is_variable_size_dtype(arg.dtype) for arg in args[:-1]):
                 raise ValueError("Only last argument may be of a variable-size data-type")
         self.args = args
 
@@ -314,8 +316,8 @@ class LogEventDescriptor(EventDescriptor):
     def __init__(self):
         super().__init__(id=EvtID.LOG,
                          name="log",
-                         args=[ArgD(HdcDataType.UINT8, 'log_level', doc="Same as in Python"),
-                               ArgD(HdcDataType.UTF8, 'log_msg')],
+                         args=[ArgD(DTypeID.UINT8, 'log_level', doc="Same as in Python"),
+                               ArgD(DTypeID.UTF8, 'log_msg')],
                          doc="Forwards software event log to the host.")
 
 
@@ -323,8 +325,8 @@ class FeatureStateTransitionEventDescriptor(EventDescriptor):
     def __init__(self):
         super().__init__(id=EvtID.FEATURE_STATE_TRANSITION,
                          name="feature_state_transition",
-                         args=(ArgD(HdcDataType.UINT8, 'previous_state_id'),
-                               ArgD(HdcDataType.UINT8, 'current_state_id')),
+                         args=(ArgD(DTypeID.UINT8, 'previous_state_id'),
+                               ArgD(DTypeID.UINT8, 'current_state_id')),
                          doc="Notifies host about transitions of this feature's state-machine."
                          )
 
@@ -332,7 +334,7 @@ class FeatureStateTransitionEventDescriptor(EventDescriptor):
 class PropertyDescriptor:
     id: int
     name: str
-    dtype: HdcDataType
+    dtype: DTypeID
     is_readonly: bool
     doc: str | None
 
@@ -340,7 +342,7 @@ class PropertyDescriptor:
     def __init__(self,
                  id: int,
                  name: str,
-                 dtype: HdcDataType,
+                 dtype: DTypeID,
                  is_readonly: bool,
                  doc: str | None = None):
 
@@ -352,8 +354,8 @@ class PropertyDescriptor:
             raise ValueError("name must be a non-empty string")
         self.name = str(name)
 
-        if not isinstance(dtype, HdcDataType):
-            raise ValueError("dtype must be specified as HdcDataType")
+        if not isinstance(dtype, DTypeID):
+            raise ValueError("dtype must be specified as DTypeID")
         self.dtype = dtype
 
         self.is_readonly = bool(is_readonly)
@@ -374,7 +376,7 @@ class PropertyDescriptor:
     @classmethod
     def from_idl_dict(cls, d: dict) -> PropertyDescriptor:
         kwargs = dict(d)  # Clone original instance
-        kwargs['dtype'] = HdcDataType[kwargs['dtype']] if 'dtype' in d.keys() else None
+        kwargs['dtype'] = DTypeID[kwargs['dtype']] if 'dtype' in d.keys() else None
         kwargs['is_readonly'] = kwargs.pop('ro')
         if 'size' in kwargs.keys():
             # Ignore size attribute which is not yet implemented in Python descriptors
@@ -388,7 +390,7 @@ class LogEventThresholdPropertyDescriptor(PropertyDescriptor):
         super().__init__(
             id=PropID.LOG_EVT_THRESHOLD,
             name='log_event_threshold',
-            dtype=HdcDataType.UINT8,
+            dtype=DTypeID.UINT8,
             is_readonly=False,
             doc="Suppresses LogEvents with lower log-levels."
         )
@@ -399,7 +401,7 @@ class FeatureStatePropertyDescriptor(PropertyDescriptor):
         super().__init__(
             id=PropID.FEAT_STATE,
             name='feature_state',
-            dtype=HdcDataType.UINT8,
+            dtype=DTypeID.UINT8,
             is_readonly=True,
             doc="Current feature-state"
         )

@@ -13,11 +13,13 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
-from hdcproto.common import HdcDataType, HdcCmdException, FeatureID
 from hdcproto.descriptor import FeatureDescriptor, CommandDescriptor, ArgD, RetD, EventDescriptor, PropertyDescriptor
+from hdcproto.exception import HdcCmdException
 from hdcproto.host.proxy import (DeviceProxyBase, EventProxyBase,
                                  PropertyProxy_RO_UINT32, PropertyProxy_RO_BLOB, PropertyProxy_RW_UINT8,
                                  CommandProxyBase, FeatureProxyBase)
+from hdcproto.parse import parse_event_payload
+from hdcproto.spec import FeatureID, DTypeID
 
 
 class MinimalCore(FeatureProxyBase):
@@ -66,7 +68,7 @@ class MinimalCore(FeatureProxyBase):
                 id=0x010,
                 name="DontCare",  # ToDo: Attribute optionality. #25),
                 # ToDo: The following is redundant!
-                dtype=HdcDataType.UINT32,
+                dtype=DTypeID.UINT32,
                 is_readonly=True),
             feature_proxy=self)
 
@@ -75,7 +77,7 @@ class MinimalCore(FeatureProxyBase):
                 id=0x011,
                 name="DontCare",  # ToDo: Attribute optionality. #25),
                 # ToDo: The following is redundant!
-                dtype=HdcDataType.BLOB,
+                dtype=DTypeID.BLOB,
                 is_readonly=True),
             feature_proxy=self)
 
@@ -84,7 +86,7 @@ class MinimalCore(FeatureProxyBase):
                 id=0x012,
                 name="DontCare",  # ToDo: Attribute optionality. #25),
                 # ToDo: The following is redundant!
-                dtype=HdcDataType.UINT8,
+                dtype=DTypeID.UINT8,
                 is_readonly=False),
             feature_proxy=self)
 
@@ -107,9 +109,9 @@ class MinimalCore(FeatureProxyBase):
             super().__init__(
                 command_descriptor=CommandDescriptor(id=0x02,
                                                      name="DontCare",  # ToDo: Attribute optionality. #25
-                                                     args=[ArgD(HdcDataType.FLOAT, "numerator"),
-                                                           ArgD(HdcDataType.FLOAT, "denominator")],
-                                                     returns=[RetD(HdcDataType.DOUBLE)],
+                                                     args=[ArgD(DTypeID.FLOAT, "numerator"),
+                                                           ArgD(DTypeID.FLOAT, "denominator")],
+                                                     returns=[RetD(DTypeID.DOUBLE)],
                                                      # Let proxy raise custom exception class
                                                      raises=[MyDivZeroError()]),
                 feature_proxy=feature_proxy)
@@ -133,9 +135,9 @@ class MinimalCore(FeatureProxyBase):
             #     self.button_state = event_message[4]
 
             # Otherwise, it might be better to do this:
-            self.button_id, self.button_state = HdcDataType.parse_event_msg(
+            self.button_id, self.button_state = parse_event_payload(
                 event_message=event_message,
-                expected_data_types=[HdcDataType.UINT8, HdcDataType.UINT8]
+                expected_data_types=[DTypeID.UINT8, DTypeID.UINT8]
             )
 
 

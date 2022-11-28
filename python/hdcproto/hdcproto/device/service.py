@@ -10,13 +10,15 @@ import semver
 import hdcproto.device
 import hdcproto.device.router
 import hdcproto.transport.serialport
-from hdcproto.common import (is_valid_uint8, ExcID, HdcDataType, MessageTypeID, FeatureID,
-                             HdcDataTypeError, HdcCmdException, HdcCmdExc_CommandFailed, HdcCmdExc_InvalidArgs,
-                             HdcCmdExc_UnknownProperty, )
 from hdcproto.descriptor import StateDescriptor, PropertyDescriptor, CommandDescriptor, \
     GetPropertyValueCommandDescriptor, SetPropertyValueCommandDescriptor, EventDescriptor, LogEventDescriptor, \
     FeatureStateTransitionEventDescriptor, FeatureDescriptor, LogEventThresholdPropertyDescriptor, \
     FeatureStatePropertyDescriptor, DeviceDescriptor
+from hdcproto.exception import HdcDataTypeError, HdcCmdException, HdcCmdExc_CommandFailed, HdcCmdExc_InvalidArgs, \
+    HdcCmdExc_UnknownProperty
+from hdcproto.parse import value_to_bytes, bytes_to_value, parse_command_request_payload
+from hdcproto.spec import (ExcID, MessageTypeID, FeatureID, DTypeID, HDC_VERSION)
+from hdcproto.validate import is_valid_uint8
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.service"
 
@@ -79,7 +81,7 @@ class CommandService:
             if self.command_descriptor.args is None:
                 parsed_arguments = None
             else:
-                parsed_arguments = HdcDataType.parse_command_request_msg(
+                parsed_arguments = parse_command_request_payload(
                     request_message=request_message,
                     expected_data_types=[arg.dtype for arg in self.command_descriptor.args])
         except HdcDataTypeError as e:
@@ -120,7 +122,7 @@ class CommandService:
 
         for i, return_descriptor in enumerate(self.command_descriptor.returns):
             ret_value = return_values[i]
-            reply.extend(return_descriptor.dtype.value_to_bytes(ret_value))
+            reply.extend(value_to_bytes(return_descriptor.dtype, ret_value))
         reply = bytes(reply)
         self.router.send_reply_for_pending_request(reply)
 
@@ -141,7 +143,7 @@ class GetPropertyValueCommandService(CommandService):
             raise HdcCmdExc_UnknownProperty()
 
         prop_value = prop_service.property_getter()
-        value_as_bytes = prop_service.property_descriptor.dtype.value_to_bytes(prop_value)
+        value_as_bytes = value_to_bytes(prop_service.property_descriptor.dtype, prop_value)
 
         self.logger.info(f"Replying with {self.command_descriptor.name}({prop_service.property_descriptor}) "
                          f"-> {repr(prop_value)}")
@@ -166,12 +168,12 @@ class SetPropertyValueCommandService(CommandService):
 
         prop_type = prop_service.property_descriptor.dtype
         try:
-            new_value = prop_type.bytes_to_value(new_value_as_bytes)
+            new_value = bytes_to_value(prop_type, new_value_as_bytes)
             actual_new_value = prop_service.property_setter(new_value)
         except (HdcDataTypeError, ValueError) as e:
             raise HdcCmdExc_InvalidArgs(exception_message=str(e))
 
-        actual_new_value_as_bytes = prop_type.value_to_bytes(actual_new_value)
+        actual_new_value_as_bytes = value_to_bytes(prop_type, actual_new_value)
 
         self.logger.log(level=logging.INFO if new_value == actual_new_value else logging.WARNING,
                         msg=f"Replying with {self.command_descriptor.name}"
@@ -249,7 +251,7 @@ class EventService:
                 if d.name not in kwargs.keys():
                     raise ValueError(f"Missing argument {d.name}")
                 arg_value = kwargs.pop(d.name)
-            arg_as_raw_bytes = d.dtype.value_to_bytes(arg_value)
+            arg_as_raw_bytes = value_to_bytes(d.dtype, arg_value)
             event_message.extend(arg_as_raw_bytes)
 
         if kwargs:
@@ -306,14 +308,14 @@ class FeatureStateTransitionEventService(EventService):
 class PropertyService:
     property_descriptor: PropertyDescriptor
     feature_service: FeatureService
-    property_getter: typing.Callable[[None], int | float | str | bytes | HdcDataType]
-    property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes | HdcDataType] | None
+    property_getter: typing.Callable[[None], int | float | str | bytes | DTypeID]
+    property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes | DTypeID] | None
 
     def __init__(self,
                  property_descriptor: PropertyDescriptor,
                  feature_service: FeatureService,
-                 property_getter: typing.Callable[[], int | float | str | bytes | HdcDataType],
-                 property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes | HdcDataType] | None
+                 property_getter: typing.Callable[[], int | float | str | bytes | DTypeID],
+                 property_setter: typing.Callable[[int | float | str | bytes], int | float | str | bytes | DTypeID] | None
                  ):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.service.MyDeviceService.MyFeatureService.MyPropertyService"
@@ -505,7 +507,7 @@ class DeviceService:
         self.device_doc = device_doc
 
         self.device_descriptor = DeviceDescriptor(
-            version=hdcproto.common.HDC_VERSION,
+            version=HDC_VERSION,
             max_req=max_req
         )
 

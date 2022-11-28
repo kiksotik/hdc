@@ -1,8 +1,7 @@
-
 import unittest
 
-from hdcproto.common import HdcDataType
 from hdcproto.descriptor import CommandDescriptor, ArgD, RetD
+from hdcproto.spec import DTypeID
 from hdcproto.util.docgen import build_command_signature
 
 
@@ -23,8 +22,8 @@ class TestCommandSignature(unittest.TestCase):
     def test_1arg_1ret(self):
         cmd = CommandDescriptor(id=0,
                                 name="MyCommand",
-                                args=[ArgD(HdcDataType.UINT8, "first_arg")],
-                                returns=[RetD(HdcDataType.UINT32, "first_ret")],
+                                args=[ArgD(DTypeID.UINT8, "first_arg")],
+                                returns=[RetD(DTypeID.UINT32, "first_ret")],
                                 raises=None,
                                 doc=None)
         self.assertEqual(
@@ -35,10 +34,10 @@ class TestCommandSignature(unittest.TestCase):
     def test_2arg_2ret(self):
         cmd = CommandDescriptor(id=0,
                                 name="MyCommand",
-                                args=[ArgD(HdcDataType.UINT8, "first_arg"),
-                                      ArgD(HdcDataType.FLOAT, "second_arg")],
-                                returns=[RetD(HdcDataType.UINT32, "first_ret"),
-                                         RetD(HdcDataType.DOUBLE, "second_ret")],
+                                args=[ArgD(DTypeID.UINT8, "first_arg"),
+                                      ArgD(DTypeID.FLOAT, "second_arg")],
+                                returns=[RetD(DTypeID.UINT32, "first_ret"),
+                                         RetD(DTypeID.DOUBLE, "second_ret")],
                                 raises=None,
                                 doc=None)
         self.assertEqual(

@@ -4,20 +4,24 @@ import time
 
 from pynput import keyboard
 
-from hdcproto.common import HdcDataType, is_valid_uint8, HdcCmdExc_InvalidArgs, HdcCmdException
 from hdcproto.descriptor import CommandDescriptor, EventDescriptor, PropertyDescriptor, ArgD, RetD
 from hdcproto.device.service import (DeviceService, CoreFeatureService, FeatureService, CommandService, EventService,
                                      PropertyService)
+from hdcproto.exception import HdcCmdException, HdcCmdExc_InvalidArgs
+from hdcproto.spec import DTypeID
+from hdcproto.validate import is_valid_uint8
 
 
 class MyDivZeroError(HdcCmdException):
     """Example of a custom exception that can be raised here and received on the Host"""
+
     def __init__(self):
         super().__init__(id=0x01, name="MyDivZero")
 
 
 class MinimalCoreService(CoreFeatureService):
     """The only HDC-feature on this device. Exposes some example commands, events and properties."""
+
     def __init__(self, device_service: DeviceService):
         super().__init__(device_service=device_service,
                          feature_states=self.States)
@@ -40,9 +44,9 @@ class MinimalCoreService(CoreFeatureService):
             command_descriptor=CommandDescriptor(
                 id=0x02,
                 name="division",
-                args=[ArgD(HdcDataType.FLOAT, "numerator"),
-                      ArgD(HdcDataType.FLOAT, "denominator", "Beware of the zero!")],
-                returns=RetD(HdcDataType.DOUBLE, doc="Quotient of numerator/denominator"),  # May omit name
+                args=[ArgD(DTypeID.FLOAT, "numerator"),
+                      ArgD(DTypeID.FLOAT, "denominator", "Beware of the zero!")],
+                returns=RetD(DTypeID.DOUBLE, doc="Quotient of numerator/denominator"),  # May omit name
                 raises=[MyDivZeroError()],
                 doc="Divides numerator by denominator."
             ),
@@ -61,7 +65,7 @@ class MinimalCoreService(CoreFeatureService):
             property_descriptor=PropertyDescriptor(
                 id=0x10,
                 name="uc_devid",
-                dtype=HdcDataType.UINT32,
+                dtype=DTypeID.UINT32,
                 is_readonly=True,
                 doc="32bit Device-ID of STM32 microcontroller."
             ),
@@ -75,7 +79,7 @@ class MinimalCoreService(CoreFeatureService):
             property_descriptor=PropertyDescriptor(
                 id=0x11,
                 name="uc_uid",
-                dtype=HdcDataType.BLOB,
+                dtype=DTypeID.BLOB,
                 is_readonly=True,
                 doc="96bit unique-ID of STM32 microcontroller."
             ),
@@ -90,7 +94,7 @@ class MinimalCoreService(CoreFeatureService):
             property_descriptor=PropertyDescriptor(
                 id=0x12,
                 name="led_blinking_rate",
-                dtype=HdcDataType.UINT8,
+                dtype=DTypeID.UINT8,
                 is_readonly=False,
                 doc="Blinking frequency of the LED given in Herz."
             ),
@@ -143,8 +147,8 @@ class ButtonEventService(EventService):
             event_descriptor=EventDescriptor(
                 id=0x01,
                 name="button",
-                args=(ArgD(HdcDataType.UINT8, "button_id"),
-                      ArgD(HdcDataType.UINT8, "button_state")),
+                args=(ArgD(DTypeID.UINT8, "button_id"),
+                      ArgD(DTypeID.UINT8, "button_state")),
                 doc="Notify host about the button being pressed on the device."
             ),
             feature_service=feature_service)

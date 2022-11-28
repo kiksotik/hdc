@@ -13,15 +13,17 @@ from datetime import datetime
 import semver
 
 import hdcproto.host.router
-from hdcproto.common import (MessageTypeID, is_valid_uint8, CmdID, ExcID, EvtID, PropID, HdcDataType,
-                             MetaID, HdcError, HdcCmdException, HdcCmdExc_CommandFailed,
-                             HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty, HdcCmdExc_UnknownFeature,
-                             HdcCmdExc_UnknownCommand, HdcCmdExc_InvalidArgs, HdcCmdExc_NotNow)
 from hdcproto.descriptor import (DeviceDescriptor, FeatureDescriptor, CommandDescriptor, EventDescriptor,
                                  PropertyDescriptor, FeatureStatePropertyDescriptor,
                                  LogEventThresholdPropertyDescriptor, GetPropertyValueCommandDescriptor,
                                  SetPropertyValueCommandDescriptor, LogEventDescriptor,
                                  FeatureStateTransitionEventDescriptor)
+from hdcproto.exception import (HdcError, HdcCmdException, HdcCmdExc_CommandFailed, HdcCmdExc_UnknownFeature,
+                                HdcCmdExc_UnknownCommand, HdcCmdExc_InvalidArgs, HdcCmdExc_NotNow,
+                                HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty)
+from hdcproto.parse import value_to_bytes, bytes_to_value, parse_command_reply_payload, parse_event_payload
+from hdcproto.spec import (MessageTypeID, CmdID, ExcID, EvtID, PropID, MetaID, DTypeID)
+from hdcproto.validate import is_valid_uint8
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.proxy"
 
@@ -111,7 +113,7 @@ class CommandProxyBase:
                 if d.name not in kwargs.keys():
                     raise ValueError(f"Missing argument {d.name}")
                 arg_value = kwargs.pop(d.name)
-            arg_as_raw_bytes = d.dtype.value_to_bytes(arg_value)
+            arg_as_raw_bytes = value_to_bytes(d.dtype, arg_value)
             request_message.extend(arg_as_raw_bytes)
 
         if kwargs:
@@ -128,8 +130,8 @@ class CommandProxyBase:
             expected_return_dtypes = expected_return_dtypes[0]  # Tell parser to produce a scalar result!
 
         try:
-            return_values = HdcDataType.parse_command_reply_msg(reply_message=reply_message,
-                                                                expected_data_types=expected_return_dtypes)
+            return_values = parse_command_reply_payload(reply_message=reply_message,
+                                                        expected_data_types=expected_return_dtypes)
         except ValueError as e:
             raise HdcError(f"Failed to parse reply to {self.command_descriptor}, because: {e}")
 
@@ -214,7 +216,7 @@ class EventProxyBase:
         if len(expected_data_types) == 1:
             expected_data_types = expected_data_types[0]  # Tell parser to produce a scalar result!
 
-        return HdcDataType.parse_event_msg(
+        return parse_event_payload(
             event_message=event_message,
             expected_data_types=expected_data_types
         )
@@ -281,7 +283,7 @@ class PropertyProxyBase:
     feature_proxy: FeatureProxyBase
     default_freshness: float
     default_timeout: float
-    _cached_value: bool | int | float | str | bytes | HdcDataType | None
+    _cached_value: bool | int | float | str | bytes | DTypeID | None
     _timestamp_of_cached_value: float
 
     def __init__(self,
@@ -310,13 +312,13 @@ class PropertyProxyBase:
         self._cached_value = None
         self._timestamp_of_cached_value = 0.0
 
-    def update_cached_value(self, new_value: bool | int | float | str | bytes | HdcDataType):
+    def update_cached_value(self, new_value: bool | int | float | str | bytes | DTypeID):
         self._cached_value = new_value
         self._timestamp_of_cached_value = time.perf_counter()
 
     def _get(self,
              freshness: float | None = None
-             ) -> bool | int | float | str | bytes | HdcDataType:
+             ) -> bool | int | float | str | bytes | DTypeID:
 
         if freshness is None:
             freshness = self.default_freshness
@@ -327,7 +329,7 @@ class PropertyProxyBase:
             property_value_as_blob = self.feature_proxy.cmd_get_property_value(
                 property_id=self.property_descriptor.id
             )
-            property_value = self.property_descriptor.dtype.bytes_to_value(property_value_as_blob)
+            property_value = bytes_to_value(self.property_descriptor.dtype, property_value_as_blob)
             self.logger.info(f"Getter of {self.property_descriptor} returns {property_value}")
             self.update_cached_value(property_value)
         else:
@@ -339,15 +341,15 @@ class PropertyProxyBase:
         return self._cached_value
 
     def _set(self,
-             new_value: bool | int | float | str | bytes | HdcDataType
-             ) -> bool | int | float | str | bytes | HdcDataType:
+             new_value: bool | int | float | str | bytes | DTypeID
+             ) -> bool | int | float | str | bytes | DTypeID:
 
         self.logger.info(f"Setting {self.property_descriptor} to a value of {new_value}")
 
         if self.property_descriptor.is_readonly:
             raise RuntimeError()
 
-        new_value_as_blob = self.property_descriptor.dtype.value_to_bytes(new_value)
+        new_value_as_blob = value_to_bytes(self.property_descriptor.dtype, new_value)
 
         # Note how the value returned with the reply is the actual value set on
         # the device, and it may differ from the value sent in the request!
@@ -355,7 +357,7 @@ class PropertyProxyBase:
             self.property_descriptor.id,
             new_value_as_blob)
 
-        property_value = self.property_descriptor.dtype.bytes_to_value(property_value_as_blob)
+        property_value = bytes_to_value(self.property_descriptor.dtype, property_value_as_blob)
 
         self.update_cached_value(property_value)
 
@@ -536,20 +538,20 @@ class PropertyProxy_RW_BLOB(PropertyProxyBase):
 
 # noinspection PyPep8Naming
 class PropertyProxy_RO_DTYPE(PropertyProxyBase):
-    """Yes, this is confusing: It's a proxy for a property whose *value* is a HdcDataType"""
+    """Yes, this is confusing: It's a proxy for a property whose *value* is a DTypeID"""
 
-    def get(self, freshness: float | None = None) -> HdcDataType:
+    def get(self, freshness: float | None = None) -> DTypeID:
         return self._get(freshness=freshness)
 
 
 # noinspection PyPep8Naming
 class PropertyProxy_RW_DTYPE(PropertyProxyBase):
-    """Yes, this is confusing: It's a proxy for a property whose *value* is a HdcDataType"""
+    """Yes, this is confusing: It's a proxy for a property whose *value* is a DTypeID"""
 
-    def get(self, freshness: float | None = None) -> HdcDataType:
+    def get(self, freshness: float | None = None) -> DTypeID:
         return self._get(freshness=freshness)
 
-    def set(self, new_value: HdcDataType) -> HdcDataType:
+    def set(self, new_value: DTypeID) -> DTypeID:
         return self._set(new_value=new_value)
 
 
@@ -747,7 +749,7 @@ class DeviceProxyBase:
         if not reply_payload:
             raise HdcError("Device did not know how to reply")
 
-        return HdcDataType.UINT32.bytes_to_value(reply_payload)
+        return bytes_to_value(DTypeID.UINT32, reply_payload)
 
     def get_idl_json(self, timeout: float = 2.0):  # Increased timeout, because IDL-JSON can take a while to transmit
         """Returns a JSON string representation of the device's HDC API."""
@@ -891,56 +893,6 @@ class DeviceProxyBase:
             prop_proxy_class = getattr(sys.modules[__name__], class_name)
             return prop_proxy_class(property_descriptor=descriptor, feature_proxy=parent_proxy)
 
-            # if descriptor.is_readonly:
-            #     if descriptor.dtype == HdcDataType.UINT8:
-            #         return PropertyProxy_RO_UINT8(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.UINT16:
-            #         return PropertyProxy_RO_UINT16(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.UINT32:
-            #         return PropertyProxy_RO_UINT32(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.INT8:
-            #         return PropertyProxy_RO_INT8(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.INT16:
-            #         return PropertyProxy_RO_INT16(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.INT32:
-            #         return PropertyProxy_RO_INT32(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.FLOAT:
-            #         return PropertyProxy_RO_FLOAT(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.DOUBLE:
-            #         return PropertyProxy_RO_DOUBLE(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.UTF8:
-            #         return PropertyProxy_RO_UTF8(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.BOOL:
-            #         return PropertyProxy_RO_BOOL(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.BLOB:
-            #         return PropertyProxy_RO_BLOB(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.DTYPE:
-            #         return PropertyProxy_RO_DTYPE(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            # else:
-            #     if descriptor.dtype == HdcDataType.UINT8:
-            #         return PropertyProxy_RW_UINT8(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.UINT16:
-            #         return PropertyProxy_RW_UINT16(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.UINT32:
-            #         return PropertyProxy_RW_UINT32(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.INT8:
-            #         return PropertyProxy_RW_INT8(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.INT16:
-            #         return PropertyProxy_RW_INT16(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.INT32:
-            #         return PropertyProxy_RW_INT32(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.FLOAT:
-            #         return PropertyProxy_RW_FLOAT(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.DOUBLE:
-            #         return PropertyProxy_RW_DOUBLE(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.UTF8:
-            #         return PropertyProxy_RW_UTF8(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.BOOL:
-            #         return PropertyProxy_RW_BOOL(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.BLOB:
-            #         return PropertyProxy_RW_BLOB(property_descriptor=descriptor, feature_proxy=parent_proxy)
-            #     if descriptor.dtype == HdcDataType.DTYPE:
-            #         return PropertyProxy_RW_DTYPE(property_descriptor=descriptor, feature_proxy=parent_proxy)
         ##############
         # Exceptions
         # Special case, because HdcCmdException and its subclasses serve as descriptor, service *and* proxy !

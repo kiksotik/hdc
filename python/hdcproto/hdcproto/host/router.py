@@ -7,8 +7,10 @@ import logging
 import threading
 import typing
 
-from hdcproto.common import MessageTypeID, is_valid_uint8, HdcError
+from hdcproto.exception import HdcError
+from hdcproto.spec import MessageTypeID
 from hdcproto.transport.base import TransportBase
+from hdcproto.validate import is_valid_uint8, is_custom_id
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.router"
 
@@ -152,7 +154,7 @@ class MessageRouter:
             self._handle_requested_reply(message)
         elif message_type_id == MessageTypeID.EVENT:
             self._handle_event_message(message)
-        elif MessageTypeID.is_custom(message_type_id=message_type_id):
+        elif is_custom_id(message_type_id=message_type_id):
             self._handle_custom_message(message)
         else:
             # ToDo: Should we fail silently, instead, to be forward-compatible with future versions of HDC-spec?

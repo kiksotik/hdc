@@ -4,8 +4,8 @@ Showcases how a HDC-host can communicate with a HDC-device which is running the 
 import logging
 import time
 
-from hdcproto.common import HdcCmdException
 from hdcproto.descriptor import FeatureDescriptor, StateDescriptor, EventDescriptor
+from hdcproto.exception import HdcCmdException
 from hdcproto.host.proxy import DeviceProxyBase, EventProxyBase
 from minimal_proxy import MinimalDevice, MinimalCore, MyDivZeroError
 

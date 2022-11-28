@@ -6,9 +6,11 @@ from __future__ import annotations
 import logging
 import typing
 
-from hdcproto.common import MessageTypeID, is_valid_uint8, ExcID, HDC_VERSION, MetaID, \
-    HdcDataType, HdcCmdException
+from hdcproto.exception import HdcCmdException
+from hdcproto.parse import value_to_bytes
+from hdcproto.spec import MessageTypeID, ExcID, HDC_VERSION, MetaID, DTypeID
 from hdcproto.transport.base import TransportBase
+from hdcproto.validate import is_valid_uint8, is_custom_id
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.router"
 
@@ -155,7 +157,7 @@ class MessageRouter:
 
         message_type_id = message[0]
 
-        if MessageTypeID.is_custom(message_type_id=message_type_id):
+        if is_custom_id(message_type_id=message_type_id):
             self._handle_custom_message(message)
             return
 
@@ -248,7 +250,7 @@ class MessageRouter:
             except HdcCmdException as e:  # Translate it into a command-error-reply
                 cmd_reply_message = bytes([MessageTypeID.COMMAND, feature_id, command_id, e.exception_id])
                 if e.exception_message:
-                    cmd_reply_message += HdcDataType.UTF8.value_to_bytes(e.exception_message)
+                    cmd_reply_message += value_to_bytes(DTypeID.UTF8, e.exception_message)
                 return self.send_reply_for_pending_request(cmd_reply_message)
 
         # ... else, there's no handler for this command
@@ -268,7 +270,7 @@ class MessageRouter:
     def _handle_custom_message(self, message: bytes) -> None:
         """Warning: This will be executed from within the SerialTransport.receiver_thread"""
         message_type_id = message[0]
-        assert MessageTypeID.is_custom(message_type_id)
+        assert is_custom_id(message_type_id)
         if message_type_id in self.custom_message_handlers:
             logger.info("Routing custom message request to its handler.")
             return self.custom_message_handlers[message_type_id](message)

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from hdcproto.common import (ExcID, MessageTypeID, MetaID, PropID, HdcCmdException,
-                             FeatureID, CmdID, HdcCmdExc_UnknownProperty)
 from hdcproto.descriptor import FeatureDescriptor
+from hdcproto.exception import HdcCmdException, HdcCmdExc_UnknownProperty
 from hdcproto.host.proxy import (DeviceProxyBase, FeatureProxyBase, )
+from hdcproto.spec import (ExcID, MessageTypeID, MetaID, PropID, FeatureID, CmdID)
 from hdcproto.transport.mock import MockTransport
 
 

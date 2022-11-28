@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import typing
 
 from hdcproto.spec import ExcID, DTypeID
 from hdcproto.validate import is_valid_uint8
@@ -16,6 +17,13 @@ class HdcError(Exception):
 
 class HdcDataTypeError(HdcError):
     pass
+
+
+def prune_none_values(d: typing.MutableMapping[str, typing.Any]) -> None:
+    """Removes elements with a None value"""
+    keys_of_none_items = [key for key, value in d.items() if value is None]
+    for k in keys_of_none_items:
+        del (d[k])
 
 
 class HdcCmdException(HdcError):
@@ -94,11 +102,13 @@ class HdcCmdException(HdcError):
         return self.__class__(exc_text)
 
     def to_idl_dict(self):
-        return dict(
+        result = dict(
             id=self.exception_id,
             name=self.exception_name,
             doc=self.exception_doc  # This is a crazy experiment.
         )
+        prune_none_values(result)
+        return result
 
     @classmethod
     def from_idl_dict(cls, d: dict) -> HdcCmdException:

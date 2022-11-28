@@ -16,6 +16,13 @@ from hdcproto.validate import is_valid_uint8
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.descriptor"
 
 
+def prune_none_values(d: typing.MutableMapping[str, typing.Any]) -> None:
+    """Removes elements with a None value"""
+    keys_of_none_items = [key for key, value in d.items() if value is None]
+    for k in keys_of_none_items:
+        del (d[k])
+
+
 class ArgD:
     """
     Argument descriptor
@@ -42,11 +49,13 @@ class ArgD:
         self.doc = doc
 
     def to_idl_dict(self) -> dict:
-        return dict(
+        result = dict(
             dtype=self.dtype.name,
             name=self.name,
             doc=self.doc
         )
+        prune_none_values(result)
+        return result
 
     @classmethod
     def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> ArgD:
@@ -87,11 +96,13 @@ class RetD:
         self.doc = doc
 
     def to_idl_dict(self) -> dict:
-        return dict(
+        result = dict(
             dtype=self.dtype.name,
             name=self.name,
             doc=self.doc
         )
+        prune_none_values(result)
+        return result
 
     @classmethod
     def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> RetD:
@@ -129,11 +140,13 @@ class StateDescriptor:
         self.doc = doc
 
     def to_idl_dict(self) -> dict:
-        return dict(
+        result = dict(
             id=self.id,
             name=self.name,
             doc=self.doc
         )
+        prune_none_values(result)
+        return result
 
     @classmethod
     def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> StateDescriptor:
@@ -229,7 +242,7 @@ class CommandDescriptor:
         return f"Command_0x{self.id:02X}_{self.name}"
 
     def to_idl_dict(self) -> dict:
-        return dict(
+        result = dict(
             id=self.id,
             name=self.name,
             doc=self.doc,
@@ -243,6 +256,8 @@ class CommandDescriptor:
                     for exc in sorted(self.raises.values(), key=lambda d: d.exception_id)
                     ] if self.raises is not None else None
         )
+        prune_none_values(result)
+        return result
 
     @classmethod
     def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> CommandDescriptor:
@@ -328,12 +343,15 @@ class EventDescriptor:
         return f"Event_0x{self.id:02X}_{self.name}"
 
     def to_idl_dict(self) -> dict:
-        return dict(
+        result = dict(
             id=self.id,
             name=self.name,
             doc=self.doc,
             args=[arg.to_idl_dict()
-                  for arg in self.args])
+                  for arg in self.args]
+        )
+        prune_none_values(result)
+        return result
 
     @classmethod
     def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> EventDescriptor:
@@ -403,13 +421,16 @@ class PropertyDescriptor:
         return f"Property_0x{self.id:02X}_{self.name}"
 
     def to_idl_dict(self) -> dict:
-        return dict(
+        result = dict(
             id=self.id,
             name=self.name,
             dtype=self.dtype.name,
             # ToDo: ValueSize attribute, as in STM32 implementation
             ro=self.is_readonly,
-            doc=self.doc)
+            doc=self.doc
+        )
+        prune_none_values(result)
+        return result
 
     @classmethod
     def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> PropertyDescriptor:
@@ -533,7 +554,7 @@ class FeatureDescriptor:
         return f"Feature_0x{self.id:02X}_{self.name}"
 
     def to_idl_dict(self) -> dict:
-        return dict(
+        result = dict(
             id=self.id,
             name=self.name,
             cls=self.class_name,
@@ -554,7 +575,10 @@ class FeatureDescriptor:
             properties=[
                 d.to_idl_dict()
                 for d in sorted(self.properties.values(), key=lambda d: d.id)
-            ])
+            ]
+        )
+        prune_none_values(result)
+        return result
 
     @classmethod
     def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> FeatureDescriptor:
@@ -602,13 +626,14 @@ class DeviceDescriptor:
             self.features[d.id] = d
 
     def to_idl_dict(self) -> dict:
-        return dict(
+        result = dict(
             version=self.version,
             max_req=self.max_req,
-            features=[
-                d.to_idl_dict()
-                for d in sorted(self.features.values(), key=lambda d: d.id)
-            ])
+            features=[d.to_idl_dict()
+                      for d in sorted(self.features.values(), key=lambda d: d.id)]
+        )
+        prune_none_values(result)
+        return result
 
     @classmethod
     def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> DeviceDescriptor:
@@ -625,25 +650,6 @@ class DeviceDescriptor:
 
     def to_idl_json(self) -> str:
         idl_dict = self.to_idl_dict()
-
-        def prune_none_values(d: dict[str, typing.Any]) -> int:
-            """Removes attribute with a None value.
-            Dives recursively into values of type dict and list[dict]"""
-            keys_of_none_items = [key for key, value in d.items() if value is None]
-            num_deleted_items = len(keys_of_none_items)
-            for k in keys_of_none_items:
-                del (d[k])
-            for key, value in d.items():
-                if isinstance(value, dict):
-                    num_deleted_items += prune_none_values(value)
-                elif isinstance(value, list):
-                    for list_item in value:
-                        if isinstance(list_item, dict):
-                            num_deleted_items += prune_none_values(list_item)
-
-            return num_deleted_items
-
-        prune_none_values(idl_dict)
         return json.dumps(idl_dict)
 
     @classmethod

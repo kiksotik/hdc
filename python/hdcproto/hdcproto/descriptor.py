@@ -348,7 +348,7 @@ class EventDescriptor:
             name=self.name,
             doc=self.doc,
             args=[arg.to_idl_dict()
-                  for arg in self.args]
+                  for arg in self.args] if self.args is not None else None,
         )
         prune_none_values(result)
         return result

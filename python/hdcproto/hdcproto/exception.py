@@ -4,7 +4,7 @@ import enum
 import typing
 
 from hdcproto.spec import ExcID, DTypeID
-from hdcproto.validate import validate_uint8
+from hdcproto.validate import validate_uint8, validate_mandatory_name
 
 
 class HdcError(Exception):
@@ -57,11 +57,8 @@ class HdcCmdException(HdcError):
         elif name is None:
             raise ValueError("Exception.name may only be omitted if the first argument is an IntEnum")
 
-        if not isinstance(name, str) or len(name) < 1:  # ToDo: Validate name with RegEx
-            raise ValueError("Invalid exception_name")
-
         self.exception_id = validate_uint8(id)
-        self.exception_name = name
+        self.exception_name = validate_mandatory_name(name)
         self.exception_doc = doc
 
     def __str__(self):

@@ -10,7 +10,7 @@ import semver
 from hdcproto.exception import HdcCmdException, HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty
 from hdcproto.parse import is_variable_size_dtype
 from hdcproto.spec import (CmdID, EvtID, PropID, DTypeID)
-from hdcproto.validate import validate_uint8
+from hdcproto.validate import validate_uint8, validate_mandatory_name, validate_optional_name
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.descriptor"
 
@@ -41,9 +41,7 @@ class ArgD:
             raise ValueError
         self.dtype = dtype
 
-        if not name:
-            raise ValueError("Argument name must be a non-empty string")  # ToDo: Validate name with RegEx
-        self.name = name
+        self.name = validate_mandatory_name(name)
 
         self.doc = doc
 
@@ -88,9 +86,7 @@ class RetD:
             raise ValueError
         self.dtype = dtype
 
-        if name is not None and len(name) < 1:
-            raise ValueError("Return Value name must be a non-empty string")  # ToDo: Validate name with RegEx
-        self.name = name
+        self.name = validate_optional_name(name)
 
         self.doc = doc
 
@@ -128,10 +124,7 @@ class StateDescriptor:
                  doc: str | None = None):
 
         self.id = validate_uint8(id)
-
-        if not name:
-            raise ValueError("name must be a non-empty string")  # ToDo: Validate name with RegEx
-        self.name = name
+        self.name = validate_mandatory_name(name)
 
         self.doc = doc
 
@@ -175,10 +168,7 @@ class CommandDescriptor:
                  doc: str | None = None):
 
         self.id = validate_uint8(id)
-
-        if not name:  # ToDo: Validate name with RegEx
-            raise ValueError("name must be a non-empty string")
-        self.name = name
+        self.name = validate_mandatory_name(name)
 
         if not args:
             # ToDo: Attribute optionality. #25
@@ -314,10 +304,7 @@ class EventDescriptor:
                  doc: str | None):
 
         self.id = validate_uint8(id)
-
-        if not name:
-            raise ValueError("Event name must be a non-empty string")  # ToDo: Validate name with RegEx
-        self.name = name
+        self.name = validate_mandatory_name(name)
 
         if args is None:
             # ToDo: Attribute optionality. #25
@@ -394,10 +381,7 @@ class PropertyDescriptor:
                  doc: str | None = None):
 
         self.id = validate_uint8(id)
-
-        if not name:  # ToDo: Validate name with RegEx
-            raise ValueError("name must be a non-empty string")
-        self.name = str(name)
+        self.name = validate_mandatory_name(name)
 
         if not isinstance(dtype, DTypeID):
             raise ValueError("dtype must be specified as DTypeID")
@@ -482,14 +466,8 @@ class FeatureDescriptor:
                  doc: str | None = None):
 
         self.id = validate_uint8(id)
-
-        if not name:  # ToDo: Validate name with RegEx
-            raise ValueError("name must be a non-empty string")
-        self.name = name
-
-        if not cls:  # ToDo: Validate name with RegEx
-            raise ValueError("cls must be a non-empty string")
-        self.class_name = cls
+        self.name = validate_mandatory_name(name)
+        self.class_name = validate_mandatory_name(cls)
 
         if version is not None and not isinstance(version, semver.VersionInfo):
             version = semver.VersionInfo.parse(version)

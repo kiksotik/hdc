@@ -18,7 +18,7 @@ from hdcproto.exception import HdcDataTypeError, HdcCmdException, HdcCmdExc_Comm
     HdcCmdExc_UnknownProperty
 from hdcproto.parse import value_to_bytes, bytes_to_value, parse_command_request_payload
 from hdcproto.spec import (ExcID, MessageTypeID, FeatureID, DTypeID, HDC_VERSION)
-from hdcproto.validate import is_valid_uint8
+from hdcproto.validate import validate_uint8
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.service"
 
@@ -287,10 +287,8 @@ class FeatureStateTransitionEventService(EventService):
                          feature_service=feature_service)
 
     def emit(self, previous_state_id: int, current_state_id: int) -> None:
-        if not is_valid_uint8(previous_state_id):
-            raise ValueError(f"previous_state_id of {previous_state_id} is beyond valid range from 0x00 to 0xFF")
-        if not is_valid_uint8(current_state_id):
-            raise ValueError(f"current_state_id of {current_state_id} is beyond valid range from 0x00 to 0xFF")
+        validate_uint8(previous_state_id)
+        validate_uint8(current_state_id)
         self.logger.info(f"Sending {self.event_descriptor} -> (0x{previous_state_id:02X}, 0x{current_state_id:02X}')")
         super().emit(previous_state_id=previous_state_id, current_state_id=current_state_id)
 

@@ -10,7 +10,7 @@ import typing
 from hdcproto.exception import HdcError
 from hdcproto.spec import MessageTypeID
 from hdcproto.transport.base import TransportBase
-from hdcproto.validate import is_valid_uint8, is_custom_id
+from hdcproto.validate import is_custom_id, validate_uint8
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.router"
 
@@ -82,11 +82,7 @@ class MessageRouter:
                                        feature_id: int,
                                        event_id: int,
                                        event_handler: typing.Callable[[bytes], None]) -> None:
-        if not is_valid_uint8(feature_id):
-            raise ValueError(f"feature_id value of {feature_id} is beyond valid range from 0x00 to 0xFF")
-        if not is_valid_uint8(event_id):
-            raise ValueError(f"event_id value of {event_id} is beyond valid range from 0x00 to 0xFF")
-        key = (feature_id, event_id)
+        key = (validate_uint8(feature_id), validate_uint8(event_id))
         if key in self.event_message_handlers:
             logger.warning(f"Replacing the event-message handler for "
                            f"FeatureID=0x{feature_id:02X} / EventID=0x{event_id:02X}")
@@ -103,8 +99,7 @@ class MessageRouter:
         Warning: Whenever a custom message type was explicitly requested via send_request_and_get_reply(), then
         its reply *must* be handled by _handle_requested_reply(), otherwise the former will time-out and fail.
         """
-        if not is_valid_uint8(message_type_id):
-            raise ValueError(f"message_type_id value of {message_type_id} is beyond valid range from 0x00 to 0xFF")
+        validate_uint8(message_type_id)
         if message_type_id in self.custom_message_handlers:
             logger.warning(f"Replacing the custom-message handler for MessageTypeID=0x{message_type_id:02X}")
         self.custom_message_handlers[message_type_id] = event_handler

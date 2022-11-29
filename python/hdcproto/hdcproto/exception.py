@@ -4,7 +4,7 @@ import enum
 import typing
 
 from hdcproto.spec import ExcID, DTypeID
-from hdcproto.validate import is_valid_uint8
+from hdcproto.validate import validate_uint8
 
 
 class HdcError(Exception):
@@ -50,20 +50,17 @@ class HdcCmdException(HdcError):
                  exception_message: str | None = None):
         super().__init__(exception_message=exception_message)
 
-        if not is_valid_uint8(id):
-            raise ValueError(f"exception_id value of {id} is beyond valid range from 0x00 to 0xFF")
-
         if isinstance(id, enum.IntEnum):
             if name is None:
                 name = id.name
             id = int(id)
         elif name is None:
-            raise TypeError("Exception.name may only be omitted if the first argument is an IntEnum")
+            raise ValueError("Exception.name may only be omitted if the first argument is an IntEnum")
 
         if not isinstance(name, str) or len(name) < 1:  # ToDo: Validate name with RegEx
             raise ValueError("Invalid exception_name")
 
-        self.exception_id = id
+        self.exception_id = validate_uint8(id)
         self.exception_name = name
         self.exception_doc = doc
 

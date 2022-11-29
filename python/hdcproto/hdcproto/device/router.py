@@ -10,7 +10,7 @@ from hdcproto.exception import HdcCmdException
 from hdcproto.parse import value_to_bytes
 from hdcproto.spec import MessageTypeID, ExcID, HDC_VERSION, MetaID, DTypeID
 from hdcproto.transport.base import TransportBase
-from hdcproto.validate import is_valid_uint8, is_custom_id
+from hdcproto.validate import is_custom_id, validate_uint8
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.router"
 
@@ -93,11 +93,7 @@ class MessageRouter:
                  It's up to each individual handler to either reply straight away from within said thread, or
                  to delay its reply into another context, i.e. main application thread.
         """
-        if not is_valid_uint8(feature_id):
-            raise ValueError(f"feature_id value of {feature_id} is beyond valid range from 0x00 to 0xFF")
-        if not is_valid_uint8(command_id):
-            raise ValueError(f"command_id value of {command_id} is beyond valid range from 0x00 to 0xFF")
-        key = (feature_id, command_id)
+        key = (validate_uint8(feature_id), validate_uint8(command_id))
         if key in self.command_request_handlers:
             logger.warning(f"Replacing the event-message handler for "
                            f"FeatureID=0x{feature_id:02X} / CommandID=0x{command_id:02X}")
@@ -114,8 +110,7 @@ class MessageRouter:
         Although custom messages are exempt from obeying the strict Request-Reply sequence which HDC-spec mandates for
         any other kind of message type, it's the application's responsibility to
         """
-        if not is_valid_uint8(message_type_id):
-            raise ValueError(f"message_type_id value of {message_type_id} is beyond valid range from 0x00 to 0xFF")
+        validate_uint8(message_type_id)
         if message_type_id in self.custom_message_handlers:
             logger.warning(f"Replacing the custom-message handler for MessageTypeID=0x{message_type_id:02X}")
         self.custom_message_handlers[message_type_id] = event_handler

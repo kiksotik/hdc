@@ -10,8 +10,7 @@ import semver
 from hdcproto.exception import HdcCmdException, HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty
 from hdcproto.parse import is_variable_size_dtype
 from hdcproto.spec import (CmdID, EvtID, PropID, DTypeID)
-from hdcproto.validate import is_valid_uint8
-
+from hdcproto.validate import validate_uint8
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.descriptor"
 
@@ -128,10 +127,7 @@ class StateDescriptor:
                  name: str,
                  doc: str | None = None):
 
-        if not is_valid_uint8(id):
-            raise ValueError(f"id value of {id} is beyond valid range from 0x00 to 0xFF")
-
-        self.id = id
+        self.id = validate_uint8(id)
 
         if not name:
             raise ValueError("name must be a non-empty string")  # ToDo: Validate name with RegEx
@@ -178,9 +174,7 @@ class CommandDescriptor:
                  raises: typing.Iterable[HdcCmdException | enum.IntEnum] | None,
                  doc: str | None = None):
 
-        if not is_valid_uint8(id):
-            raise ValueError(f"id value of {id} is beyond valid range from 0x00 to 0xFF")
-        self.id = id
+        self.id = validate_uint8(id)
 
         if not name:  # ToDo: Validate name with RegEx
             raise ValueError("name must be a non-empty string")
@@ -319,10 +313,7 @@ class EventDescriptor:
                  args: typing.Iterable[ArgD] | None,
                  doc: str | None):
 
-        if not is_valid_uint8(id):
-            raise ValueError(f"id value of {id} is beyond valid range from 0x00 to 0xFF")
-
-        self.id = id
+        self.id = validate_uint8(id)
 
         if not name:
             raise ValueError("Event name must be a non-empty string")  # ToDo: Validate name with RegEx
@@ -402,9 +393,7 @@ class PropertyDescriptor:
                  is_readonly: bool,
                  doc: str | None = None):
 
-        if not is_valid_uint8(id):
-            raise ValueError(f"id value of {id} is beyond valid range from 0x00 to 0xFF")
-        self.id = int(id)
+        self.id = validate_uint8(id)
 
         if not name:  # ToDo: Validate name with RegEx
             raise ValueError("name must be a non-empty string")
@@ -492,9 +481,7 @@ class FeatureDescriptor:
                  properties: typing.Iterable[PropertyDescriptor] | None = None,
                  doc: str | None = None):
 
-        if not is_valid_uint8(id):
-            raise ValueError(f"id value of 0x{id:02X} is beyond valid range from 0x00 to 0xFF")
-        self.id = id
+        self.id = validate_uint8(id)
 
         if not name:  # ToDo: Validate name with RegEx
             raise ValueError("name must be a non-empty string")

@@ -1,15 +1,17 @@
 import unittest
 
-from hdcproto.validate import validate_uint8, is_valid_name, validate_mandatory_name, validate_optional_name
+from hdcproto.spec import DTypeID
+from hdcproto.validate import validate_uint8, is_valid_name, validate_mandatory_name, validate_optional_name, \
+    validate_dtype, is_valid_dtype
 
 
 class TestUint8Validator(unittest.TestCase):
 
     def test_min(self):
-        validate_uint8(0)
+        self.assertEqual(0, validate_uint8(0))
 
     def test_max(self):
-        validate_uint8(255)
+        self.assertEqual(255, validate_uint8(255))
 
     def test_below(self):
         with self.assertRaises(ValueError):
@@ -35,6 +37,43 @@ class TestUint8Validator(unittest.TestCase):
             validate_uint8("128")
 
 
+class TestDTypeIdValidator(unittest.TestCase):
+
+    def test_valid_dtype(self):
+        for dt in DTypeID:
+            with self.subTest(dt_value=dt):
+                self.assertTrue(is_valid_dtype(dt))
+                self.assertEqual(dt, validate_dtype(dt))
+
+    def test_valid_int(self):
+        for dt in DTypeID:
+            int_value = int(dt)
+            with self.subTest(int_value=int_value):
+                self.assertTrue(is_valid_dtype(int_value))
+                self.assertEqual(int_value, validate_dtype(int_value))
+
+    def test_valid_str(self):
+        for dt in DTypeID:
+            str_value = dt.name
+            with self.subTest(str_value=str_value):
+                self.assertTrue(is_valid_dtype(str_value))
+                self.assertEqual(DTypeID[str_value], validate_dtype(str_value))
+
+    # noinspection PyTypeChecker
+    def test_invalid(self):
+        with self.assertRaises(TypeError):
+            validate_dtype(1.0)  # Invalid type
+
+        with self.assertRaises(ValueError):
+            validate_dtype(42)  # Undefined ID
+
+        with self.assertRaises(ValueError):
+            validate_dtype(256)  # Invalid UINT8
+
+        with self.assertRaises(ValueError):
+            validate_dtype('banana')  # Undefined name
+
+
 class TestNameValidator(unittest.TestCase):
 
     def test_valid_names(self):
@@ -49,9 +88,10 @@ class TestNameValidator(unittest.TestCase):
             "_"
         ]
         for name in valid_names:
-            self.assertTrue(is_valid_name(name))
-            self.assertEqual(name, validate_mandatory_name(name))
-            self.assertEqual(name, validate_optional_name(name))
+            with self.subTest(name=name):
+                self.assertTrue(is_valid_name(name))
+                self.assertEqual(name, validate_mandatory_name(name))
+                self.assertEqual(name, validate_optional_name(name))
 
     def test_invalid_names(self):
         invalid_names = [
@@ -65,13 +105,14 @@ class TestNameValidator(unittest.TestCase):
             "MyNämé"
         ]
         for name in invalid_names:
-            self.assertFalse(is_valid_name(name))
+            with self.subTest(name=name):
+                self.assertFalse(is_valid_name(name))
 
-            with self.assertRaises(ValueError):
-                validate_mandatory_name(name)
+                with self.assertRaises(ValueError):
+                    validate_mandatory_name(name)
 
-            with self.assertRaises(ValueError):
-                validate_optional_name(name)
+                with self.assertRaises(ValueError):
+                    validate_optional_name(name)
 
     # noinspection PyTypeChecker
     def test_invalid_name_type(self):
@@ -82,14 +123,15 @@ class TestNameValidator(unittest.TestCase):
             42.42
         ]
         for name in invalid_names:
-            with self.assertRaises(TypeError):
-                is_valid_name(name)
+            with self.subTest(name=name):
+                with self.assertRaises(TypeError):
+                    is_valid_name(name)
 
-            with self.assertRaises(TypeError):
-                validate_mandatory_name(name)
+                with self.assertRaises(TypeError):
+                    validate_mandatory_name(name)
 
-            with self.assertRaises(TypeError):
-                validate_optional_name(name)
+                with self.assertRaises(TypeError):
+                    validate_optional_name(name)
 
     # noinspection PyTypeChecker
     def test_name_optionality(self):

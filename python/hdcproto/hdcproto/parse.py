@@ -5,10 +5,13 @@ import typing
 
 from hdcproto.exception import HdcDataTypeError
 from hdcproto.spec import DTypeID
+from hdcproto.validate import validate_dtype
 
 
 def dtype_struct_format(dtype: DTypeID) -> str | None:
     """Format character used to (de-)serialize this data type with the struct.pack() and struct.unpack() methods"""
+    validate_dtype(dtype)
+
     if dtype == DTypeID.BOOL:
         return "?"
     if dtype == DTypeID.UINT8:
@@ -41,6 +44,8 @@ def dtype_size(dtype: DTypeID) -> int | None:
     Number of bytes of the given data type.
     Returns None for variable size types, e.g. UTF8 or BLOB
     """
+    validate_dtype(dtype)
+
     fmt = dtype_struct_format(dtype)
     if fmt is None:
         return None
@@ -49,10 +54,12 @@ def dtype_size(dtype: DTypeID) -> int | None:
 
 
 def is_variable_size_dtype(dtype: DTypeID) -> bool:
+    validate_dtype(dtype)
     return dtype_size(dtype) is None
 
 
 def value_to_bytes(dtype: DTypeID, value: int | float | str | bytes | DTypeID) -> bytes:
+    validate_dtype(dtype)
     if isinstance(value, str):
         if dtype == DTypeID.UTF8:
             return value.encode(encoding="utf-8", errors="strict")
@@ -107,6 +114,8 @@ def value_to_bytes(dtype: DTypeID, value: int | float | str | bytes | DTypeID) -
 
 
 def bytes_to_value(dtype, value_as_bytes: bytes) -> int | float | str | bytes | DTypeID:
+    validate_dtype(dtype)
+
     if dtype == DTypeID.UTF8:
         return value_as_bytes.decode(encoding="utf-8", errors="strict")
 

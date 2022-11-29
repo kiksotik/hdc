@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+from hdcproto.spec import DTypeID
+
 
 def is_valid_uint8(value_to_check: int) -> bool:
     if not isinstance(value_to_check, int):
@@ -19,6 +21,40 @@ def validate_uint8(value_to_check: int) -> int:
     if not is_valid_uint8(value_to_check):
         raise ValueError(f"Value {value_to_check} is beyond valid range from 0x00 to 0xFF")
     return value_to_check
+
+
+def is_valid_dtype(dtype_to_check: DTypeID | int | str) -> bool:
+    if isinstance(dtype_to_check, DTypeID):
+        return True
+
+    try:
+        if isinstance(dtype_to_check, int):
+            _ = DTypeID(dtype_to_check)
+            return True
+
+        if isinstance(dtype_to_check, str):
+            _ = DTypeID[dtype_to_check]
+            return True
+    except (ValueError, KeyError):
+        return False
+
+    raise TypeError(f"Expected DTypeID or int or str, but got {dtype_to_check.__class__.__name__}")
+
+
+def validate_dtype(dtype_to_check: DTypeID | int | str) -> DTypeID:
+    if isinstance(dtype_to_check, DTypeID):
+        return dtype_to_check
+
+    try:
+        if isinstance(dtype_to_check, int):
+            return DTypeID(dtype_to_check)  # May raise a ValueError
+
+        if isinstance(dtype_to_check, str):
+            return DTypeID[dtype_to_check]  # May raise a KeyError
+    except (ValueError, KeyError):
+        raise ValueError(f"The value {repr(dtype_to_check)} is not a valid DTypeID, nor an equivalent ID or name")
+
+    raise TypeError(f"Expected DTypeID or int or str, but got {dtype_to_check.__class__.__name__}")
 
 
 regex_name = re.compile("^[a-zA-Z_][a-zA-Z_0-9]*$")  # ToDo: Should HDC-spec allow Unicode in identifiers?

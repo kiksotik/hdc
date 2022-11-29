@@ -10,7 +10,7 @@ import semver
 from hdcproto.exception import HdcCmdException, HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty
 from hdcproto.parse import is_variable_size_dtype
 from hdcproto.spec import (CmdID, EvtID, PropID, DTypeID)
-from hdcproto.validate import validate_uint8, validate_mandatory_name, validate_optional_name
+from hdcproto.validate import validate_uint8, validate_mandatory_name, validate_optional_name, validate_dtype
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.descriptor"
 
@@ -33,16 +33,11 @@ class ArgD:
     doc: str | None
 
     def __init__(self,
-                 dtype: DTypeID,
+                 dtype: DTypeID | str | int,
                  name: str,
                  doc: str | None = None):
-
-        if not isinstance(dtype, DTypeID):
-            raise ValueError
-        self.dtype = dtype
-
+        self.dtype = validate_dtype(dtype)
         self.name = validate_mandatory_name(name)
-
         self.doc = doc
 
     def to_idl_dict(self) -> dict:
@@ -57,7 +52,7 @@ class ArgD:
     @classmethod
     def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> ArgD:
         kwargs = dict(
-            dtype=DTypeID[d['dtype']],  # Convert DType name into IntEnum value!
+            dtype=d['dtype'],  # Constructor will convert str into IntEnum value
             name=d['name'],
             doc=d.get('doc')  # Optional
         )
@@ -78,16 +73,11 @@ class RetD:
     doc: str | None
 
     def __init__(self,
-                 dtype: DTypeID,
+                 dtype: DTypeID | str | int,
                  name: str | None = None,
                  doc: str | None = None):
-
-        if not isinstance(dtype, DTypeID):
-            raise ValueError
-        self.dtype = dtype
-
+        self.dtype = validate_dtype(dtype)
         self.name = validate_optional_name(name)
-
         self.doc = doc
 
     def to_idl_dict(self) -> dict:
@@ -102,7 +92,7 @@ class RetD:
     @classmethod
     def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> RetD:
         kwargs = dict(
-            dtype=DTypeID[d['dtype']],  # Convert DType name into IntEnum value!
+            dtype=d['dtype'],  # Constructor will convert str into IntEnum value
             name=d.get('name'),  # Optional
             doc=d.get('doc')  # Optional
         )
@@ -376,19 +366,15 @@ class PropertyDescriptor:
     def __init__(self,
                  id: int,
                  name: str,
-                 dtype: DTypeID,
+                 dtype: DTypeID | str | int,
                  is_readonly: bool,
                  doc: str | None = None):
 
         self.id = validate_uint8(id)
         self.name = validate_mandatory_name(name)
-
-        if not isinstance(dtype, DTypeID):
-            raise ValueError("dtype must be specified as DTypeID")
-        self.dtype = dtype
-
+        self.dtype = validate_dtype(dtype)
         self.is_readonly = bool(is_readonly)
-        self.doc = None if doc is None else str(doc)
+        self.doc = doc
 
     def __str__(self):
         return f"Property_0x{self.id:02X}_{self.name}"

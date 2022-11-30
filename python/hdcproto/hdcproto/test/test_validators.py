@@ -1,8 +1,11 @@
 import unittest
 
+import semver
+
 from hdcproto.spec import DTypeID
-from hdcproto.validate import validate_uint8, is_valid_name, validate_mandatory_name, validate_optional_name, \
-    validate_dtype, is_valid_dtype
+from hdcproto.validate import (validate_uint8, is_valid_name, validate_mandatory_name, validate_optional_name,
+                               validate_dtype, is_valid_dtype, is_valid_version, validate_mandatory_version,
+                               validate_optional_version)
 
 
 class TestUint8Validator(unittest.TestCase):
@@ -143,3 +146,74 @@ class TestNameValidator(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             is_valid_name(None)
+
+
+class TestVersionValidator(unittest.TestCase):
+
+    def test_valid_versions(self):
+        valid_versions = [
+            "1.0.0",
+            "0.0.0",
+            "42.42.42",
+            "42.42.42-alpha.22"
+        ]
+        for version_str in valid_versions:
+            with self.subTest(version=version_str):
+                version_info = semver.VersionInfo.parse(version_str)
+                self.assertTrue(is_valid_version(version_info))
+                self.assertEqual(version_info, validate_mandatory_version(version_info))
+                self.assertEqual(version_info, validate_optional_version(version_info))
+
+                self.assertTrue(is_valid_version(version_str))
+                self.assertEqual(version_str, str(validate_mandatory_version(version_str)))
+                self.assertEqual(version_str, str(validate_optional_version(version_str)))
+
+    def test_invalid_versions(self):
+        invalid_versions = [
+            "",
+            "1",
+            "1.1",
+            "1.1.1.1",
+            "1.1.1 ",
+            " 1.1.1",
+            "v1.1.1"
+        ]
+        for version_str in invalid_versions:
+            with self.subTest(version=version_str):
+                self.assertFalse(is_valid_version(version_str))
+
+                with self.assertRaises(ValueError):
+                    validate_mandatory_version(version_str)
+
+                with self.assertRaises(ValueError):
+                    validate_optional_version(version_str)
+
+    # noinspection PyTypeChecker
+    def test_invalid_version_type(self):
+        invalid_versions = [
+            True,
+            False,
+            42,
+            42.42
+        ]
+        for version_str in invalid_versions:
+            with self.subTest(version=version_str):
+                with self.assertRaises(TypeError):
+                    is_valid_version(version_str)
+
+                with self.assertRaises(TypeError):
+                    validate_mandatory_version(version_str)
+
+                with self.assertRaises(TypeError):
+                    validate_optional_version(version_str)
+
+    # noinspection PyTypeChecker
+    def test_version_optionality(self):
+
+        self.assertEqual(None, validate_optional_version(None))
+
+        with self.assertRaises(TypeError):
+            validate_mandatory_version(None)
+
+        with self.assertRaises(TypeError):
+            is_valid_version(None)

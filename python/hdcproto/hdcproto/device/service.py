@@ -18,7 +18,7 @@ from hdcproto.exception import HdcDataTypeError, HdcCmdException, HdcCmdExc_Comm
     HdcCmdExc_UnknownProperty
 from hdcproto.parse import value_to_bytes, bytes_to_value, parse_command_request_payload
 from hdcproto.spec import (ExcID, MessageTypeID, FeatureID, DTypeID, HDC_VERSION)
-from hdcproto.validate import validate_uint8
+from hdcproto.validate import validate_uint8, validate_optional_version, validate_mandatory_name
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.service"
 
@@ -488,10 +488,8 @@ class DeviceService:
         self.logger = logger.getChild(self.__class__.__name__)
 
         # Those device attributes will later on be handed down to the Core feature!
-        self.device_name = device_name
-        if device_version is not None and not isinstance(device_version, semver.VersionInfo):
-            device_version = semver.VersionInfo.parse(device_version)
-        self.device_version = device_version
+        self.device_name = validate_mandatory_name(device_name)
+        self.device_version = validate_optional_version(device_version)
         self.device_doc = device_doc
 
         self.device_descriptor = DeviceDescriptor(

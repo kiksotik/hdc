@@ -10,7 +10,8 @@ import semver
 from hdcproto.exception import HdcCmdException, HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty
 from hdcproto.parse import is_variable_size_dtype
 from hdcproto.spec import (CmdID, EvtID, PropID, DTypeID)
-from hdcproto.validate import validate_uint8, validate_mandatory_name, validate_optional_name, validate_dtype
+from hdcproto.validate import (validate_uint8, validate_mandatory_name, validate_optional_name, validate_dtype,
+                               validate_optional_version)
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.descriptor"
 
@@ -112,10 +113,8 @@ class StateDescriptor:
                  id: int,
                  name: str,
                  doc: str | None = None):
-
         self.id = validate_uint8(id)
         self.name = validate_mandatory_name(name)
-
         self.doc = doc
 
     def to_idl_dict(self) -> dict:
@@ -156,7 +155,6 @@ class CommandDescriptor:
                  returns: RetD | typing.Iterable[RetD] | None,
                  raises: typing.Iterable[HdcCmdException | enum.IntEnum] | None,
                  doc: str | None = None):
-
         self.id = validate_uint8(id)
         self.name = validate_mandatory_name(name)
 
@@ -292,7 +290,6 @@ class EventDescriptor:
                  name: str,
                  args: typing.Iterable[ArgD] | None,
                  doc: str | None):
-
         self.id = validate_uint8(id)
         self.name = validate_mandatory_name(name)
 
@@ -369,7 +366,6 @@ class PropertyDescriptor:
                  dtype: DTypeID | str | int,
                  is_readonly: bool,
                  doc: str | None = None):
-
         self.id = validate_uint8(id)
         self.name = validate_mandatory_name(name)
         self.dtype = validate_dtype(dtype)
@@ -454,10 +450,7 @@ class FeatureDescriptor:
         self.id = validate_uint8(id)
         self.name = validate_mandatory_name(name)
         self.class_name = validate_mandatory_name(cls)
-
-        if version is not None and not isinstance(version, semver.VersionInfo):
-            version = semver.VersionInfo.parse(version)
-        self.class_version = version
+        self.class_version = validate_optional_version(version)
 
         if doc is None:
             doc = ""
@@ -563,7 +556,6 @@ class DeviceDescriptor:
                  version: str,
                  max_req: int,
                  features: typing.Iterable[FeatureDescriptor] | None = None):
-
         self.version = version
         self.max_req = max_req
 

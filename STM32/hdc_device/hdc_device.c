@@ -255,7 +255,6 @@ void HDC_Compose_Packets_From_Stream(
   if (is_starting_composition) {
     // Initialize new message composition
     assert_param(pDataStart == NULL);
-    assert_param(is_composing == false);
     DataSize = 0;  // Do not confuse the remainder of the code-flow!
     // Allocation of TX buffer happens further below
   }
@@ -263,7 +262,6 @@ void HDC_Compose_Packets_From_Stream(
   bool is_finished_composing = (DataSize == -2);
   if (is_finished_composing) {
     assert_param(pDataStart == NULL);
-    assert_param(is_composing == true);
     DataSize = 0;  // Do not confuse the remainder of the code-flow!
     // Flushing of current packet happens further below
   }
@@ -287,9 +285,9 @@ void HDC_Compose_Packets_From_Stream(
     bool is_packet_full = (available_packet_payload==0) && !is_starting_composition;
 
     if (is_packet_full || is_finished_composing) {
-      // First byte of the packet is the size of the payload
-      uint8_t packet_size = pPktEnd - pPktStart - 1;
-      *pPktStart = packet_size;
+      // First byte of the packet is the payload-size (PS) byte
+      uint8_t payload_size = pPktEnd - pPktStart - 1;  // Minus one, because PS byte itself is *not* considered as payload
+      *pPktStart = payload_size;  // First byte of the packet is the PS (PayloadSize) byte
       // Penultimate byte of the packet is the two's complement checksum
       uint8_t checksum = 0;
       for (uint8_t *p=pPktStart+1 ; p<pPktEnd ; p++)

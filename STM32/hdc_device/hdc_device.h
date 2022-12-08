@@ -314,7 +314,7 @@ void HDC_Flush(void);
 // HDC replies to Command requests
 
 void HDC_CmdReply_Void(
-    const uint8_t* pMsgHeader);
+    const uint8_t* pRequestMessage);
 
 void HDC_CmdReply_From_Pieces(
     const uint8_t FeatureID,
@@ -328,36 +328,38 @@ void HDC_CmdReply_From_Pieces(
 void HDC_CmdReply_Error_WithDescription(
     const uint8_t ExcID,
     const char* ErrorDescription,
-    const uint8_t* pMsgHeader);
+    const uint8_t* pRequestMessage);
 
 void HDC_CmdReply_Error(  // Without error-description string.
     const uint8_t ExcID,
-    const uint8_t* pMsgHeader);
+    const uint8_t* pRequestMessage);
 
 //////////////////////////////////////////
 // HDC replies to PropertyGet/Set requests
 
-void HDC_CmdReply_BlobValue(const uint8_t* pBlob, const size_t BlobSize, const uint8_t* pMsgHeader);
+void HDC_CmdReply_BlobValue(const uint8_t* pBlob, const size_t BlobSize, const uint8_t* pRequestMessage);
 
-void HDC_CmdReply_BoolValue(const bool value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_BoolValue(const bool value, const uint8_t* pRequestMessage);
 
-void HDC_CmdReply_UInt8Value(const uint8_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_UInt8Value(const uint8_t value, const uint8_t* pRequestMessage);
 
-void HDC_CmdReply_UInt16Value(const uint16_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_UInt16Value(const uint16_t value, const uint8_t* pRequestMessage);
 
-void HDC_CmdReply_UInt32Value(const uint32_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_UInt32Value(const uint32_t value, const uint8_t* pRequestMessage);
 
-void HDC_CmdReply_Int8Value(const int8_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_Int8Value(const int8_t value, const uint8_t* pRequestMessage);
 
-void HDC_CmdReply_Int16Value(const int16_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_Int16Value(const int16_t value, const uint8_t* pRequestMessage);
 
-void HDC_CmdReply_Int32Value(const int32_t value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_Int32Value(const int32_t value, const uint8_t* pRequestMessage);
 
-void HDC_CmdReply_FloatValue(const float value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_FloatValue(const float value, const uint8_t* pRequestMessage);
 
-void HDC_CmdReply_DoubleValue(const double value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_DoubleValue(const double value, const uint8_t* pRequestMessage);
 
-void HDC_CmdReply_StringValue(const char* value, const uint8_t* pMsgHeader);
+void HDC_CmdReply_StringValue(const char* value, const uint8_t* pRequestMessage);
+
+void HDC_CmdReply_DTypeValue(const HDC_DataTypeID_t value, const uint8_t* pRequestMessage);
 
 ////////////////////
 // Raising of events

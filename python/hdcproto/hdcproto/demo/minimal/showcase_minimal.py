@@ -10,27 +10,6 @@ from hdcproto.host.proxy import DeviceProxyBase, EventProxyBase
 from minimal_proxy import MinimalDevice, MinimalCore, MyDivZeroError
 
 
-def custom_proxy_factory(descriptor, parent_proxy):
-    if isinstance(descriptor, FeatureDescriptor):
-        # Example of how to "tweak" / "edit" a descriptor. In this case we inject our custom FeatureStates
-        descriptor.states = {d.id: d for d in (StateDescriptor(e, e.name) for e in MinimalCore.FeatureStateEnum)}
-        return False  # Returning False, to produce default proxy, but with the "tweaked" descriptor
-
-    if isinstance(descriptor, EventDescriptor) and descriptor.id == 0x01:
-        return EventProxyBase(
-            event_descriptor=descriptor,
-            feature_proxy=parent_proxy,
-            # Note how we override default parser with our custom one
-            payload_parser=MinimalCore.ButtonEventPayload)
-
-    if isinstance(descriptor, HdcCmdException) and descriptor.exception_id == 0x01:
-        # Example of how to use a fully customized proxy.
-        # Note that Exceptions are special, because their instances serve all three purposes: descriptor, service, proxy
-        return MyDivZeroError()
-
-    return False  # Instantiate default proxy class
-
-
 def showcase_minimal():
     #########################################################
     # This example uses python logging to explain the
@@ -51,12 +30,16 @@ def showcase_minimal():
     logging.getLogger("hdcproto.host.proxy").setLevel(logging.NOTSET)
 
     #################################################
-    # Connect to HDC-device at a specific serial port
-    connection_url = "COM10"
-    # connection_url = "socket://localhost:55555"
+    # Connect to HDC-device via proxy objects
+    connection_url = "COM10"  # Either NUCLEO32 test board at a specific serial port
+    # connection_url = "socket://localhost:55555"  # ... or the Python mockup device at a specific TCP port
     demo_logger.info("--------------------------------------------------------------")
     demo_logger.info(f"About to connect to device at {connection_url}")
-    # dev = MinimalDevice()  # Use a hardcoded proxy, instead of auto-generating it in the line below.
+    # There's two fundamentally different ways to create the proxy objects of the API
+    #    - Either hardcoded proxy classes, as authored manually or authored by the design tool code-generator:
+    # dev = MinimalDevice()
+    #    - ... or dynamically generated proxy objects, bootstrapped directly from
+    #      the descriptors reported by the device and using the generic proxy baseclass implementations:
     dev = DeviceProxyBase.connect_and_build(connection_url=connection_url, custom_proxy_factory=custom_proxy_factory)
     dev.router.connect(connection_url=connection_url)  # Will fail if your device is connected at a different port.
     demo_logger.info(f"Using {'manually-authored' if isinstance(dev, MinimalDevice) else 'auto-generated'} proxy")
@@ -93,7 +76,7 @@ def showcase_minimal():
     time.sleep(0.5)  # Allow for some time for the actual firmware reset to happen.
 
     ##################################################################
-    # Example of a command with arguments a return value
+    # Example of a command with arguments and return value
     demo_logger.info("_____________________________")
     result = dev.core.cmd_division(numerator=10.0, denominator=3.0)
     demo_logger.info(f"Dividing 10 by 3 returns {result}")
@@ -144,6 +127,31 @@ def showcase_minimal():
 
     finally:
         dev.router.close()
+
+
+def custom_proxy_factory(descriptor, parent_proxy):
+    if isinstance(descriptor, EventDescriptor) and descriptor.id == 0x01:
+        # Example of how to instantiate the default proxy class, but passing
+        # different arguments to the constructor.
+        return EventProxyBase(
+            event_descriptor=descriptor,
+            feature_proxy=parent_proxy,
+            # Note how we override default parser with our custom one
+            payload_parser=MinimalCore.ButtonEventPayload)
+
+    if isinstance(descriptor, HdcCmdException) and descriptor.exception_id == 0x01:
+        # Example of how to instantiate a custom proxy class.
+        # Note that Exceptions are somewhat special, because their
+        # instances fulfill all three roles in HDC: descriptor, service, proxy
+        return MyDivZeroError()
+
+    if isinstance(descriptor, FeatureDescriptor):
+        # Example of how to "tweak" / "edit" a descriptor.
+        # In this case we inject our custom FeatureStates
+        descriptor.states = {d.id: d for d in (StateDescriptor(e, e.name) for e in MinimalCore.FeatureStateEnum)}
+        return False  # Returning False, to produce default proxy, but with the "tweaked" descriptor
+
+    return False  # Otherwise, instantiate default proxy class
 
 
 if __name__ == '__main__':

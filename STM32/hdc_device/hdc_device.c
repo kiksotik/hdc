@@ -335,19 +335,19 @@ void HDC_Compose_Packets_From_Buffer(const uint8_t* pData, const uint16_t DataSi
 
 /*
  * A more convenient way to packetize one Command- or Event-message in a single call.
- * Besides passing the four header bytes as individual values, the message payload can
+ * Besides passing the four header bytes as individual values, the command/event payload can
  * be supplied as two chunks (prefix & suffix), which is convenient in many use-cases.
- * The ExcID argument will only be used to compose Command-messages.
+ * The ExcID argument will only be used when composing a Command-message.
  */
 void HDC_Compose_Message_From_Pieces(
     const uint8_t MsgType,
     const uint8_t FeatureID,
     const uint8_t CmdOrEvtID,
     const uint8_t ExcID,
-    const uint8_t* pMsgPayloadPrefix,
-    const size_t MsgPayloadPrefixSize,
-    const uint8_t* pMsgPayloadSuffix,
-    const size_t MsgPayloadSuffixSize)
+    const uint8_t* pPayloadPrefix,
+    const size_t PayloadPrefixSize,
+    const uint8_t* pPayloadSuffix,
+    const size_t PayloadSuffixSize)
 {
   HDC_Compose_Packets_From_Stream(NULL, -1);        // Initialize packet composition
   HDC_Compose_Packets_From_Stream(&MsgType, 1);     // Msg[0] = MessageTypeID
@@ -357,11 +357,11 @@ void HDC_Compose_Message_From_Pieces(
   if (MsgType == HDC_MessageTypeID_Command)
       HDC_Compose_Packets_From_Stream(&ExcID, 1);   // Msg[3] = ExceptionID
 
-  if (MsgPayloadPrefixSize > 0)
-    HDC_Compose_Packets_From_Stream(pMsgPayloadPrefix, MsgPayloadPrefixSize);  // Append first chunk of the message payload
+  if (PayloadPrefixSize > 0)
+    HDC_Compose_Packets_From_Stream(pPayloadPrefix, PayloadPrefixSize);  // Append first chunk of the payload of the cmd or evt
 
-  if (MsgPayloadSuffixSize > 0)
-    HDC_Compose_Packets_From_Stream(pMsgPayloadSuffix, MsgPayloadSuffixSize);  // Append second chunk of the message payload
+  if (PayloadSuffixSize > 0)
+    HDC_Compose_Packets_From_Stream(pPayloadSuffix, PayloadSuffixSize);  // Append second chunk of the payload of the cmd or evt
 
   HDC_Compose_Packets_From_Stream(NULL, -2);  // Finalize packet composition
 }
@@ -715,11 +715,11 @@ const HDC_Descriptor_Event_t *HDC_MandatoryEvents[NUM_MANDATORY_EVENTS] = {
 // Event API
 
 void HDC_EvtMsg(const HDC_Descriptor_Feature_t *hHDC_Feature,
-                     const uint8_t EventID,
-                     const uint8_t* pEvtPayloadPrefix,
-                     const size_t EvtPayloadPrefixSize,
-                     const uint8_t* pEvtPayloadSuffix,
-                     const size_t EvtPayloadSuffixSize) {
+                const uint8_t EventID,
+                const uint8_t* pEvtPayloadPrefix,
+                const size_t EvtPayloadPrefixSize,
+                const uint8_t* pEvtPayloadSuffix,
+                const size_t EvtPayloadSuffixSize) {
 
   if (hHDC_Feature == NULL)
     // Default to Core-Feature, which by convention is the first array item.

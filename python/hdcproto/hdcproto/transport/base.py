@@ -6,7 +6,7 @@ from urllib.parse import urlparse, ParseResult
 
 class TransportBase:
     """
-    Base class of any transport capable to sending and receiving messages to/from a device.
+    Base class of any transport capable of sending and receiving messages to/from a device.
     """
     connection_url: str
     message_received_handler: typing.Callable[[bytes], None]

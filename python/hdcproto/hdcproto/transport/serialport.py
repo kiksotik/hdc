@@ -25,6 +25,8 @@ class SerialTransport(TransportBase):
 
     Warning: Message handler callbacks will be called directly from a dedicated data-receiver-thread!
     """
+    pyserial_url: str
+    baudrate: int
     _serial_port: serial.Serial | None
     _receiver_thread: threading.Thread | None
     _keep_thread_alive: bool
@@ -34,27 +36,34 @@ class SerialTransport(TransportBase):
     TIMEOUT_READ = 0.5  # Period of time after which we can be sure that an incoming data burst is completed
 
     def __init__(self,
-                 connection_url: str,
-                 message_received_handler: typing.Callable[[bytes], None],
-                 connection_lost_handler: typing.Callable[[Exception | None], None]):
-        super().__init__(connection_url=connection_url,
-                         message_received_handler=message_received_handler,
-                         connection_lost_handler=connection_lost_handler)
+                 pyserial_url: str,
+                 baudrate: int = 115200):
+        self.pyserial_url = pyserial_url
+        self.baudrate = baudrate
+        self.message_received_handler = None
+        self.connection_lost_handler = None
         self._serial_port = None  # Will be initialized on connection
         self._receiver_thread = None  # Will be initialized on connection
         self._keep_thread_alive = True
         self._packetizer = Packetizer()
         self._writing_lock = threading.RLock()
 
-    def connect(self) -> None:
+    def connect(self,
+                message_received_handler: typing.Callable[[bytes], None],
+                connection_lost_handler: typing.Callable[[Exception | None], None]
+                ) -> None:
         if self.is_connected:
             raise RuntimeError("Already connected")
 
-        logger.info(f"Connecting to {self.connection_url}")
-        self._serial_port = serial.serial_for_url(self.connection_url, timeout=self.TIMEOUT_READ, baudrate=115200)
+        logger.info(f"Connecting to {self.pyserial_url}")
+        self._serial_port = serial.serial_for_url(url=self.pyserial_url,
+                                                  timeout=self.TIMEOUT_READ,
+                                                  baudrate=self.baudrate)
         self._receiver_thread = threading.Thread(target=self._receiver_thread_loop,
                                                  kwargs={'transport': self},
                                                  daemon=True)
+        self.message_received_handler = message_received_handler
+        self.connection_lost_handler = connection_lost_handler
         self._keep_thread_alive = True
         self._receiver_thread.start()
 
@@ -107,18 +116,13 @@ class SerialTransport(TransportBase):
             self._serial_port.close()
             self._serial_port = None
 
-    def __enter__(self) -> SerialTransport:
-        """Enter context handler. May raise RuntimeError in case the connection could not be created."""
-        self.connect()
-        return self
+        self.connection_lost_handler(None)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Leave context handler"""
-        self.flush()
-        self.close()
+        self.message_received_handler = None
+        self.connection_lost_handler = None
 
     def __str__(self) -> str:
-        return f"{self.__class__.__name__}('{self.connection_url}')"
+        return f"{self.__class__.__name__}('{self.pyserial_url}', baudrate={self.baudrate})"
 
     def _receiver_thread_loop(self, transport: SerialTransport) -> None:
         """
@@ -171,17 +175,18 @@ def showcase_serial_transport():
     def handle_lost_connection(exception):
         print(f'Lost connection, because: {exception}')
 
-    with SerialTransport(connection_url="loop://",
-                         message_received_handler=handle_message,
-                         connection_lost_handler=handle_lost_connection) as transport:
-        transport.send_message(bytes())  # Empty packet.
-        transport.send_message(bytes(range(1)))
-        transport.send_message(bytes(range(10)))
-        transport.send_message(bytes(range(254)))
-        transport.send_message(bytes(range(255)))  # Multi-packet message of 255 bytes.
-        transport.send_message(bytes(i % 255 for i in range(400)))  # Multi-packet message of 400 bytes.
-        transport.send_message(bytes(i % 255 for i in range(510)))  # Multi-packet message of 510 bytes.
-        transport.flush()
+    transport = SerialTransport(pyserial_url="loop://")
+    transport.connect(message_received_handler=handle_message,
+                      connection_lost_handler=handle_lost_connection)
+    transport.send_message(bytes())  # Empty packet.
+    transport.send_message(bytes(range(1)))
+    transport.send_message(bytes(range(10)))
+    transport.send_message(bytes(range(254)))
+    transport.send_message(bytes(range(255)))  # Multi-packet message of 255 bytes.
+    transport.send_message(bytes(i % 255 for i in range(400)))  # Multi-packet message of 400 bytes.
+    transport.send_message(bytes(i % 255 for i in range(510)))  # Multi-packet message of 510 bytes.
+    transport.flush()
+    transport.close()
 
 
 if __name__ == '__main__':

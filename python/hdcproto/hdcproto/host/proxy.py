@@ -23,6 +23,7 @@ from hdcproto.exception import (HdcError, HdcCmdException, HdcCmdExc_CommandFail
                                 HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty)
 from hdcproto.parse import value_to_bytes, bytes_to_value, parse_command_reply_payload, parse_event_payload
 from hdcproto.spec import (MessageTypeID, CmdID, ExcID, EvtID, PropID, MetaID, DTypeID)
+from hdcproto.transport.base import TransportBase
 from hdcproto.validate import is_valid_uint8
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.proxy"
@@ -691,25 +692,21 @@ class DeviceProxyBase:
     router: hdcproto.host.router.MessageRouter
 
     def __init__(self,
-                 connection_url: str | None = None,
-                 device_descriptor: DeviceDescriptor | None = None):
+                 device_descriptor: DeviceDescriptor | None = None,
+                 transport: TransportBase | str | None = None):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.host.proxy.MyDeviceProxy"
         self.logger = logger.getChild(self.__class__.__name__)
 
-        self.router = hdcproto.host.router.MessageRouter(connection_url=connection_url)
+        self.router = hdcproto.host.router.MessageRouter(transport=transport)
         self.device_descriptor = device_descriptor
 
     @property
     def is_connected(self):
         return self.router.is_connected
 
-    @property
-    def connection_url(self) -> str | None:
-        return self.router.connection_url
-
-    def connect(self, connection_url: str | None = None):
-        self.router.connect(connection_url=connection_url)
+    def connect(self, transport: TransportBase | str | None = None):
+        self.router.connect(transport=transport)
 
     def close(self):
         self.router.close()
@@ -813,10 +810,10 @@ class DeviceProxyBase:
 
     @classmethod
     def connect_and_build(cls,
-                          connection_url,
+                          transport: TransportBase | str | None = None,
                           custom_proxy_factory: typing.Callable[[typing.Any, typing.Any], typing.Any | None | False] | None = None
                           ) -> DeviceProxyBase:
-        with DeviceProxyBase(connection_url=connection_url) as dev:
+        with DeviceProxyBase(transport=transport) as dev:
             idl_json = dev.get_idl_json()
         idl_python = DeviceDescriptor.from_idl_json(idl_json=idl_json)
         device_proxy = cls.build_from_descriptor(device_descriptor=idl_python,
@@ -824,7 +821,7 @@ class DeviceProxyBase:
         if not device_proxy:
             raise ValueError("Failed to lookup device proxy")
 
-        # ToDo: Fix method name, because we are actually returning an "un-connected" instance. :-P
+        device_proxy.connect(transport=transport)
         return device_proxy
 
     @classmethod
@@ -845,7 +842,7 @@ class DeviceProxyBase:
         # Device
         if isinstance(descriptor, DeviceDescriptor):
             # ToDo: Adapt to given HDC-version. Issue #11
-            return cls(connection_url=None, device_descriptor=descriptor)
+            return cls(transport=None, device_descriptor=descriptor)
 
         ################
         # Features

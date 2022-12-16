@@ -15,11 +15,20 @@ class TestableSerialTransport(SerialTransport):
     connection_loss_exception: Exception | None
 
     def __init__(self):
-        super().__init__(connection_url='loop://',
-                         message_received_handler=self.handle_message,
-                         connection_lost_handler=self.handle_connection_loss)
+        super().__init__(pyserial_url='loop://')
         self.received_messages = list()
         self.connection_loss_exception = None
+
+    def __enter__(self) -> TestableSerialTransport:
+        """Enter context handler."""
+        self.connect(message_received_handler=self.handle_message,
+                     connection_lost_handler=self.handle_connection_loss)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context handler"""
+        self.flush()
+        self.close()
 
     def handle_message(self, message: bytes):
         self.received_messages.append(message)

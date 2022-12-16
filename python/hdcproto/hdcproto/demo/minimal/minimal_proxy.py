@@ -20,6 +20,7 @@ from hdcproto.host.proxy import (DeviceProxyBase, EventProxyBase,
                                  CommandProxyBase, FeatureProxyBase)
 from hdcproto.parse import parse_event_payload
 from hdcproto.spec import FeatureID, DTypeID
+from hdcproto.transport.base import TransportBase
 
 
 class MinimalCore(FeatureProxyBase):
@@ -47,7 +48,8 @@ class MinimalCore(FeatureProxyBase):
                 returns=[],
                 raises=None  # ToDo: Attribute optionality. #25
             ),
-            feature_proxy=self)
+            feature_proxy=self,
+            default_timeout=2.0)
 
         # A custom command proxy class can expose a proper call signature (and encapsulate the descriptor)
         self.cmd_division = self.DivisionCommandProxy(self)  # Command with custom signature
@@ -152,6 +154,6 @@ class MyDivZeroError(HdcCmdException):
 class MinimalDevice(DeviceProxyBase):
     core: MinimalCore
 
-    def __init__(self, connection_url: str | None = None):
-        super().__init__(connection_url=connection_url)
+    def __init__(self, transport: TransportBase | str | None = None):
+        super().__init__(transport=transport)
         self.core = MinimalCore(self)  # This device only has a Core feature.

@@ -31,17 +31,17 @@ def showcase_minimal():
 
     #################################################
     # Connect to HDC-device via proxy objects
-    connection_url = "COM10"  # Either NUCLEO32 test board at a specific serial port
-    # connection_url = "socket://localhost:55555"  # ... or the Python mockup device at a specific TCP port
+    transport_url = "COM10"  # Either NUCLEO32 test board at a specific serial port
+    # transport_url = "socket://localhost:55555"  # ... or the Python mockup device at a specific TCP port
     demo_logger.info("--------------------------------------------------------------")
-    demo_logger.info(f"About to connect to device at {connection_url}")
+    demo_logger.info(f"About to connect to device at {transport_url}")
     # There's two fundamentally different ways to create the proxy objects of the API
     #    - Either hardcoded proxy classes, as authored manually or authored by the design tool code-generator:
-    # dev = MinimalDevice()
+    # dev = MinimalDevice(transport=transport_url)
+    # dev.connect()
     #    - ... or dynamically generated proxy objects, bootstrapped directly from
     #      the descriptors reported by the device and using the generic proxy baseclass implementations:
-    dev = DeviceProxyBase.connect_and_build(connection_url=connection_url, custom_proxy_factory=custom_proxy_factory)
-    dev.router.connect(connection_url=connection_url)  # Will fail if your device is connected at a different port.
+    dev = DeviceProxyBase.connect_and_build(transport=transport_url, custom_proxy_factory=custom_proxy_factory)
     demo_logger.info(f"Using {'manually-authored' if isinstance(dev, MinimalDevice) else 'auto-generated'} proxy")
 
     ######################################################################################
@@ -126,7 +126,7 @@ def showcase_minimal():
             # Example of how the host sets property values
 
     finally:
-        dev.router.close()
+        dev.close()
 
 
 def custom_proxy_factory(descriptor, parent_proxy):

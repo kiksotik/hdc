@@ -13,7 +13,7 @@ class TestableDeviceProxy(DeviceProxyBase):
     def __init__(self):
         # Mock the transport-layer by connecting with the MockTransport class, which allows tests to
         # intercept any HDC-request messages emitted by the proxy classes that are under scrutiny.
-        super().__init__(connection_url="mock://")
+        super().__init__(transport="mock://")
 
 
 class TestConnection(unittest.TestCase):
@@ -26,7 +26,7 @@ class TestConnection(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             my_proxy.get_echo(echo_payload, timeout=0.001)
 
-        my_proxy.connect(connection_url="mock://")
+        my_proxy.connect()
         self.assertTrue(my_proxy.is_connected)
         conn_mock: MockTransport = my_proxy.router.transport
         self.assertTrue(len(conn_mock.outbound_messages) == 0)

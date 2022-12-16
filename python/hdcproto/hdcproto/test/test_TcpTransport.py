@@ -8,22 +8,34 @@ import unittest
 from hdcproto.transport.serialport import SerialTransport
 from hdcproto.transport.tcpserver import SocketServerTransport
 
-CONNECTION_URL = "socket://localhost:55555"
+HOSTNAME = "localhost"
+PORT = 55555
 
 logger = logging.getLogger(__name__)
 
 
 class EchoingTcpServerTransport(SocketServerTransport):
+
     def __init__(self):
-        super().__init__(connection_url=CONNECTION_URL,
-                         message_received_handler=self.handle_message,
-                         connection_lost_handler=self.handle_connection_loss)
+        super().__init__(hostname=HOSTNAME, port=PORT)
+
+    def __enter__(self) -> EchoingTcpServerTransport:
+        """Enter context handler."""
+        self.connect(message_received_handler=self.handle_message,
+                     connection_lost_handler=self.handle_connection_loss)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context handler"""
+        self.flush()
+        self.close()
 
     def handle_message(self, message: bytes):
         self.send_message(message)  # Echo received message back to the client who sent it.
         logger.info(f"Server received one message and echoed it back to the client.")
 
-    def handle_connection_loss(self, e: Exception):
+    @staticmethod
+    def handle_connection_loss(e: Exception):
         logger.info(f"Server lost connection to client.")
         if e:
             raise e  # Re-raise exception
@@ -33,17 +45,27 @@ class TcpClientTransport(SerialTransport):
     received_messages: list[bytes]
 
     def __init__(self):
-        super().__init__(connection_url=CONNECTION_URL,
-                         message_received_handler=self.handle_message,
-                         connection_lost_handler=self.handle_connection_loss)
+        super().__init__(pyserial_url=f"socket://{HOSTNAME}:{PORT}")
         self.received_messages = list()
         self.logger = logging.getLogger(self.__class__.__name__)
+
+    def __enter__(self) -> TcpClientTransport:
+        """Enter context handler."""
+        self.connect(message_received_handler=self.handle_message,
+                     connection_lost_handler=self.handle_connection_loss)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context handler"""
+        self.flush()
+        self.close()
 
     def handle_message(self, message: bytes):
         self.received_messages.append(message)
         logger.info(f"Client received one message. There's now {len(self.received_messages)} in the buffer.")
 
-    def handle_connection_loss(self, e: Exception):
+    @staticmethod
+    def handle_connection_loss(e: Exception):
         logger.info(f"Client lost connection to server.")
         if e:
             raise e  # Re-raise exception

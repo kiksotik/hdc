@@ -34,11 +34,21 @@ class SocketServerTransport(TransportBase):
     TIMEOUT_READ = 0.5  # Period of time after which we can be sure that an incoming data burst is completed
 
     def __init__(self,
-                 connection_url: str,
-                 message_received_handler: typing.Callable[[bytes], None],
-                 connection_lost_handler: typing.Callable[[Exception | None], None]):
+                 hostname: str,
+                 port: int):
+        self.hostname = hostname
+        self.port = port
+        self.message_received_handler = None
+        self.connection_lost_handler = None
+        self._client_socket = None  # Will be initialized on connection
+        self._receiver_thread = None  # Will be initialized on connection
+        self._keep_thread_alive = True
+        self._packetizer = Packetizer()
+        self._writing_lock = threading.RLock()
 
-        url = urlparse(connection_url)
+    @classmethod
+    def from_url(cls, transport_url: str) -> SocketServerTransport:
+        url = urlparse(transport_url)
         if url.scheme != "socket" \
                 or url.hostname is None \
                 or url.port is None \
@@ -48,27 +58,22 @@ class SocketServerTransport(TransportBase):
                 or url.params != '' \
                 or url.query != '' \
                 or url.fragment != '':
-            raise ValueError(f"Connection URL '{connection_url}' is not supported by {self.__class__.__name__}")
+            raise ValueError(f"Transport URL '{transport_url}' is not supported by {cls.__name__}")
+        return cls(hostname=url.hostname, port=url.port)
 
-        super().__init__(connection_url=connection_url,
-                         message_received_handler=message_received_handler,
-                         connection_lost_handler=connection_lost_handler)
-        self.hostname = url.hostname
-        self.port = url.port
-        self._client_socket = None  # Will be initialized on connection
-        self._receiver_thread = None  # Will be initialized on connection
-        self._keep_thread_alive = True
-        self._packetizer = Packetizer()
-        self._writing_lock = threading.RLock()
-
-    def connect(self) -> None:
+    def connect(self,
+                message_received_handler: typing.Callable[[bytes], None],
+                connection_lost_handler: typing.Callable[[Exception | None], None]
+                ) -> None:
         if self.is_connected:
             raise RuntimeError("Already connected")
 
-        logger.info(f"Accepting connections at {self.connection_url}")
+        logger.info(f"Accepting connections at {self.hostname}:{self.port}")
         self._receiver_thread = threading.Thread(target=self._receiver_thread_loop,
                                                  kwargs={'transport': self},
                                                  daemon=True)
+        self.message_received_handler = message_received_handler
+        self.connection_lost_handler = connection_lost_handler
         self._keep_thread_alive = True
         self._receiver_thread.start()
 
@@ -90,9 +95,6 @@ class SocketServerTransport(TransportBase):
                 self.write(packet)  # ToDo: Maybe we should concatenate all packets and just call this once?
 
     def flush(self) -> None:
-        if not self.is_connected:
-            raise RuntimeError("Not connected")
-
         with self._writing_lock:  # Wait for any ongoing transmission to complete
             pass  # Nothing to do, since we sent data with socket.sendall()
 
@@ -109,20 +111,10 @@ class SocketServerTransport(TransportBase):
             self._receiver_thread.join(2 * SocketServerTransport.TIMEOUT_READ)
             self._receiver_thread = None
 
-    def __enter__(self) -> SocketServerTransport:
-        """Enter context handler. May raise RuntimeError in case the connection could not be created."""
-        self.connect()
-        return self
+        self.connection_lost_handler(None)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Leave context handler"""
-        if self.is_connected:
-            self.flush()
-        if self._receiver_thread is not None:
-            self.close()
-
-    def __str__(self) -> str:
-        return f"{self.__class__.__name__}('{self.connection_url}')"
+        self.message_received_handler = None
+        self.connection_lost_handler = None
 
     def _receiver_thread_loop(self, transport: SocketServerTransport) -> None:
         """
@@ -207,32 +199,34 @@ def showcase_serial_transport():
     def client_handle_lost_connection(exception):
         print(f'TCP client lost connection, because: {exception}')
 
-    with SocketServerTransport(connection_url="socket://localhost:55555",
-                               message_received_handler=server_handle_message,
-                               connection_lost_handler=server_handle_lost_connection) as server:
-        print(f"Server is connected: {server.is_connected}")
-        with SerialTransport(connection_url="socket://localhost:55555",
-                             message_received_handler=client_handle_message,
-                             connection_lost_handler=client_handle_lost_connection) as client:
-            print(f"Server is connected: {server.is_connected}")
-            client.send_message(bytes())  # Empty packet.
-            client.send_message(bytes(range(1)))
-            client.send_message(bytes(range(10)))
-            client.send_message(bytes(range(254)))
-            client.send_message(bytes(range(255)))  # Multi-packet message of 255 bytes.
-            client.send_message(bytes(i % 255 for i in range(400)))  # Multi-packet message of 400 bytes.
-            client.send_message(bytes(i % 255 for i in range(510)))  # Multi-packet message of 510 bytes.
-            client.flush()
+    server = SocketServerTransport.from_url(transport_url="socket://localhost:55555")
+    server.connect(message_received_handler=server_handle_message,
+                   connection_lost_handler=server_handle_lost_connection)
+    print(f"Server is connected: {server.is_connected}")
+    client = SerialTransport(pyserial_url="socket://localhost:55555")
+    client.connect(message_received_handler=client_handle_message,
+                   connection_lost_handler=client_handle_lost_connection)
+    print(f"Server is connected: {server.is_connected}")
+    client.send_message(bytes())  # Empty packet.
+    client.send_message(bytes(range(1)))
+    client.send_message(bytes(range(10)))
+    client.send_message(bytes(range(254)))
+    client.send_message(bytes(range(255)))  # Multi-packet message of 255 bytes.
+    client.send_message(bytes(i % 255 for i in range(400)))  # Multi-packet message of 400 bytes.
+    client.send_message(bytes(i % 255 for i in range(510)))  # Multi-packet message of 510 bytes.
+    client.flush()
 
-            server.send_message(bytes())  # Empty packet.
-            server.send_message(bytes(range(1)))
-            server.send_message(bytes(range(10)))
-            server.send_message(bytes(range(254)))
-            server.send_message(bytes(range(255)))  # Multi-packet message of 255 bytes.
-            server.send_message(bytes(i % 255 for i in range(400)))  # Multi-packet message of 400 bytes.
-            server.send_message(bytes(i % 255 for i in range(510)))  # Multi-packet message of 510 bytes.
-            server.flush()
-        print(f"Server is connected: {server.is_connected}")
+    server.send_message(bytes())  # Empty packet.
+    server.send_message(bytes(range(1)))
+    server.send_message(bytes(range(10)))
+    server.send_message(bytes(range(254)))
+    server.send_message(bytes(range(255)))  # Multi-packet message of 255 bytes.
+    server.send_message(bytes(i % 255 for i in range(400)))  # Multi-packet message of 400 bytes.
+    server.send_message(bytes(i % 255 for i in range(510)))  # Multi-packet message of 510 bytes.
+    server.flush()
+
+    client.close()
+    server.close()
 
 
 if __name__ == '__main__':

@@ -29,22 +29,21 @@ def showcase_reset():
     logging.getLogger("hdcproto.host.proxy").setLevel(logging.DEBUG)
 
     #################################################
-    # Connect to HDC-device at a specific serial port
-    dev = MinimalDevice(connection_url="COM10")
-    dev.router.connect()
-    demo_logger.info(f"Device reports to be compliant with: '{dev.get_hdc_version_string()}'")
+    # Connect to HDC-device
+    transport_url = "COM10"  # Either NUCLEO32 test board at a specific serial port
+    # transport_url = "socket://localhost:55555"  # ... or the Python mockup device at a specific TCP port
+    with MinimalDevice(transport=transport_url) as dev:
+        demo_logger.info(f"Device reports to be compliant with: '{dev.get_hdc_version_string()}'")
 
-    demo_logger.info("____________________________________")
-    demo_logger.info("Resetting the Core-feature...")
-    dev.core.cmd_reset()
-    time.sleep(1)
+        demo_logger.info("____________________________________")
+        demo_logger.info("Resetting the Core-feature...")
+        dev.core.cmd_reset()
+        time.sleep(1)
 
-    demo_logger.info("____________________________________")
-    demo_logger.info("Resetting the Core-feature, again...")
-    dev.core.cmd_reset()
-    time.sleep(1)
-
-    dev.router.close()
+        demo_logger.info("____________________________________")
+        demo_logger.info("Resetting the Core-feature, again...")
+        dev.core.cmd_reset()
+        time.sleep(1)
 
 
 if __name__ == '__main__':

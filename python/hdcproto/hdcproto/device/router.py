@@ -23,25 +23,25 @@ class MessageRouter:
 
         - Routing of event-messages received from the device
     """
-    connection_url: str | None
+    transport: TransportBase | None
     idl_json_generator: typing.Callable[[], str] | None
     max_req_msg_size: int
-    transport: TransportBase | None
     pending_request_message: bytes | None
     command_request_handlers: dict[typing.Tuple[int, int], typing.Callable[[bytes], None]]
     custom_message_handlers: dict[int, typing.Callable[[bytes], None]]
 
     def __init__(self,
-                 connection_url: str,
+                 transport: TransportBase | str | None = None,
                  idl_json_generator: typing.Callable[[], str] | None = None,
                  max_req: int = 2048):
-        self.connection_url = connection_url
+        if isinstance(transport, str):
+            transport = TransportBase.transport_factory(transport_url=transport, is_server=True)
+        self.transport = transport
         self.idl_json_generator = idl_json_generator
         if max_req < 5:
             raise ValueError("Less than 5 bytes surely is wrong! "
                              "(e.g. request of a UINT8 property-setter requires 5 byte)")
         self.max_req_msg_size = max_req  # ToDo: Pass MaxReq limit to the Transport. Issue #19
-        self.transport = None
         self.pending_request_message = None
         self.command_request_handlers = dict()
         self.custom_message_handlers = dict()
@@ -50,21 +50,20 @@ class MessageRouter:
     def is_connected(self) -> bool:
         return self.transport is not None and self.transport.is_connected
 
-    def connect(self, connection_url: str | None = None):
-        if connection_url is None and self.connection_url is None:
-            raise ValueError("No connection_url provided neither via constructor nor in this call.")
-
+    def connect(self, transport: TransportBase | str | None = None):
         if self.is_connected:
             raise RuntimeError("Already connected")
 
-        if connection_url is not None:
-            self.connection_url = connection_url
-        transport_class = TransportBase.resolve_transport_class(connection_url=self.connection_url, is_server=True)
-        self.transport = transport_class(connection_url=self.connection_url,
-                                         message_received_handler=self._handle_message,
-                                         connection_lost_handler=self._handle_lost_connection)
+        if transport is not None:
+            if isinstance(transport, str):
+                transport = TransportBase.transport_factory(transport_url=transport, is_server=True)
+            self.transport = transport
+        elif self.transport is None:
+            raise ValueError("No transport provided neither via constructor nor in this call.")
+
         logger.info(f"Connecting via {self.transport}")
-        self.transport.connect()
+        self.transport.connect(message_received_handler=self._handle_message,
+                               connection_lost_handler=self._handle_lost_connection)
         logger.debug("Connected")
 
     def close(self):
@@ -101,7 +100,7 @@ class MessageRouter:
 
     def register_custom_message_handler(self,
                                         message_type_id: int,
-                                        event_handler: typing.Callable[[bytes], None]) -> None:
+                                        message_handler: typing.Callable[[bytes], None]) -> None:
         """
         Mainly intended for the tunneling of other protocols through the HDC connection, by encapsulating data into
         a custom message which the given handler will know how to de-encapsulate and re-route.
@@ -113,7 +112,7 @@ class MessageRouter:
         validate_uint8(message_type_id)
         if message_type_id in self.custom_message_handlers:
             logger.warning(f"Replacing the custom-message handler for MessageTypeID=0x{message_type_id:02X}")
-        self.custom_message_handlers[message_type_id] = event_handler
+        self.custom_message_handlers[message_type_id] = message_handler
 
     def send_event_message(self, event_message: bytes) -> None:
         assert event_message[0] == MessageTypeID.EVENT
@@ -152,7 +151,7 @@ class MessageRouter:
 
         message_type_id = message[0]
 
-        if is_custom_id(message_type_id=message_type_id):
+        if is_custom_id(message_type_id):
             self._handle_custom_message(message)
             return
 

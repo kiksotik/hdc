@@ -12,10 +12,10 @@ class TestableDeviceService(DeviceService):
     def __init__(self):
         # Mock the transport-layer by connecting with the MockTransport class, which allows tests to
         # intercept any HDC-request messages emitted by the proxy classes that are under scrutiny.
-        super().__init__(connection_url="mock://",
-                         device_name="TestDeviceMockup",
+        super().__init__(device_name="TestDeviceMockup",
                          device_version="0.0.42",
-                         device_doc="")
+                         device_doc="",
+                         transport="mock://")
         self.core = TestableCoreService(self)
 
 
@@ -40,7 +40,7 @@ class TestConnection(unittest.TestCase):
         with self.assertLogs(logger=hdcproto.device.router.logger, level=logging.WARNING):  # Because not connected
             my_device.core._evt_state_transition.emit(previous_state_id=1, current_state_id=2)
 
-        my_device.connect(connection_url="mock://")
+        my_device.connect()
         self.assertTrue(my_device.is_connected)
         conn_mock: MockTransport = my_device.router.transport
         self.assertFalse(conn_mock.outbound_messages)

@@ -28,31 +28,29 @@ def showcase_meta():
     logging.getLogger("hdcproto.host.proxy").setLevel(logging.WARNING)
 
     ###################
-    device_proxy = DeviceProxyBase()
-    connection_url = "COM10"
-    # connection_url = "socket://localhost:55555"
-    device_proxy.connect(connection_url=connection_url)
+    transport_url = "COM10"  # Either NUCLEO32 test board at a specific serial port
+    # transport_url = "socket://localhost:55555"  # ... or the Python mockup device at a specific TCP port
+    with DeviceProxyBase(transport=transport_url) as device_proxy:
+        print(f"Device is compliant with: '{device_proxy.get_hdc_version_string()}'")
 
-    print(f"Device is compliant with: '{device_proxy.get_hdc_version_string()}'")
+        print(f"Device can cope with request messages of up to {device_proxy.get_max_req_msg_size()} bytes")
 
-    print(f"Device can cope with request messages of up to {device_proxy.get_max_req_msg_size()} bytes")
+        idl_json = device_proxy.get_idl_json(timeout=2)
 
-    idl_json = device_proxy.get_idl_json(timeout=2)
+        print(f"Saving {len(idl_json)} bytes of IDL-JSON to file: showcase_meta_idl_raw.json")
+        with open('showcase_meta_idl_raw.json', 'w', encoding='utf-8') as f:
+            print(idl_json, file=f)
 
-    print(f"Saving {len(idl_json)} bytes of IDL-JSON to file: showcase_meta_idl_raw.json")
-    with open('showcase_meta_idl_raw.json', 'w', encoding='utf-8') as f:
-        print(idl_json, file=f)
+        print(f"Saving pretty printed IDL-JSON to file: showcase_meta_idl_pretty.json")
+        idl_dict = json.loads(idl_json)
+        with open('showcase_meta_idl_pretty.json', 'w', encoding='utf-8') as f:
+            json.dump(idl_dict, f, ensure_ascii=False, indent=4)
 
-    print(f"Saving pretty printed IDL-JSON to file: showcase_meta_idl_pretty.json")
-    idl_dict = json.loads(idl_json)
-    with open('showcase_meta_idl_pretty.json', 'w', encoding='utf-8') as f:
-        json.dump(idl_dict, f, ensure_ascii=False, indent=4)
-
-    print(f"Roundtrip IDL conversion JSON -> Python -> JSON: showcase_meta_idl_pretty_roundtrip.json")
-    from hdcproto.descriptor import DeviceDescriptor
-    idl_python = DeviceDescriptor.from_idl_json(idl_json)
-    with open('showcase_meta_idl_pretty_roundtrip.json', 'w', encoding='utf-8') as f:
-        json.dump(idl_python.to_idl_dict(), f, ensure_ascii=False, indent=4)
+        print(f"Roundtrip IDL conversion JSON -> Python -> JSON: showcase_meta_idl_pretty_roundtrip.json")
+        from hdcproto.descriptor import DeviceDescriptor
+        idl_python = DeviceDescriptor.from_idl_json(idl_json)
+        with open('showcase_meta_idl_pretty_roundtrip.json', 'w', encoding='utf-8') as f:
+            json.dump(idl_python.to_idl_dict(), f, ensure_ascii=False, indent=4)
 
 
 if __name__ == '__main__':

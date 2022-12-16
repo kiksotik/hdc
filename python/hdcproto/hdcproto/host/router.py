@@ -23,7 +23,6 @@ class MessageRouter:
 
         - Routing of event-messages received from the device
     """
-    connection_url: str | None
     transport: TransportBase | None
     request_reply_lock: threading.Lock
     received_reply_event: threading.Event
@@ -32,9 +31,10 @@ class MessageRouter:
     event_message_handlers: dict[typing.Tuple[int, int], typing.Callable[[bytes], None]]
     custom_message_handlers: dict[int, typing.Callable[[bytes], None]]
 
-    def __init__(self, connection_url: str | None):
-        self.connection_url = connection_url
-        self.transport = None
+    def __init__(self, transport: TransportBase | str | None):
+        if isinstance(transport, str):
+            transport = TransportBase.transport_factory(transport_url=transport, is_server=False)
+        self.transport = transport
         self.request_reply_lock = threading.Lock()
         self.received_reply_event = threading.Event()
         self.last_reply_message = bytes()
@@ -46,21 +46,20 @@ class MessageRouter:
     def is_connected(self) -> bool:
         return self.transport is not None and self.transport.is_connected
 
-    def connect(self, connection_url: str | None = None):
-        if connection_url is None and self.connection_url is None:
-            raise ValueError("No connection_url provided neither via constructor nor in this call.")
-
+    def connect(self, transport: TransportBase | str | None = None):
         if self.is_connected:
             raise RuntimeError("Already connected")
 
-        if connection_url is not None:
-            self.connection_url = connection_url
-        transport_class = TransportBase.resolve_transport_class(connection_url=self.connection_url, is_server=False)
-        self.transport = transport_class(connection_url=self.connection_url,
-                                         message_received_handler=self._handle_message,
-                                         connection_lost_handler=self._handle_lost_connection)
+        if transport is not None:
+            if isinstance(transport, str):
+                transport = TransportBase.transport_factory(transport_url=transport, is_server=False)
+            self.transport = transport
+        elif self.transport is None:
+            raise ValueError("No transport provided neither via constructor nor in this call.")
+
         logger.info(f"Connecting via {self.transport}")
-        self.transport.connect()
+        self.transport.connect(message_received_handler=self._handle_message,
+                               connection_lost_handler=self._handle_lost_connection)
         logger.debug("Connected")
 
     def close(self):
@@ -90,7 +89,7 @@ class MessageRouter:
 
     def register_custom_message_handler(self,
                                         message_type_id: int,
-                                        event_handler: typing.Callable[[bytes], None]) -> None:
+                                        message_handler: typing.Callable[[bytes], None]) -> None:
         """
         Mainly intended for the tunneling of other protocols through the HDC connection, by encapsulating data into
         a custom message which the given handler will know how to de-encapsulate and re-route.
@@ -102,7 +101,7 @@ class MessageRouter:
         validate_uint8(message_type_id)
         if message_type_id in self.custom_message_handlers:
             logger.warning(f"Replacing the custom-message handler for MessageTypeID=0x{message_type_id:02X}")
-        self.custom_message_handlers[message_type_id] = event_handler
+        self.custom_message_handlers[message_type_id] = message_handler
 
     def send_request_and_get_reply(self, request_message: bytes, timeout: float) -> bytes:
         """
@@ -149,7 +148,7 @@ class MessageRouter:
             self._handle_requested_reply(message)
         elif message_type_id == MessageTypeID.EVENT:
             self._handle_event_message(message)
-        elif is_custom_id(message_type_id=message_type_id):
+        elif is_custom_id(message_type_id):
             self._handle_custom_message(message)
         else:
             # ToDo: Should we fail silently, instead, to be forward-compatible with future versions of HDC-spec?

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import enum
 import logging
 import time
@@ -9,6 +11,7 @@ from hdcproto.device.service import (DeviceService, CoreFeatureService, FeatureS
                                      PropertyService)
 from hdcproto.exception import HdcCmdException, HdcCmdExc_InvalidArgs
 from hdcproto.spec import DTypeID
+from hdcproto.transport.base import TransportBase
 from hdcproto.validate import is_valid_uint8
 
 
@@ -170,27 +173,26 @@ class ButtonEventService(EventService):
 
 
 class MinimalDeviceService(DeviceService):
-    def __init__(self, connection_url: str):
-        super().__init__(connection_url,
-                         device_name="MinimalCore",
+    def __init__(self, transport: TransportBase | str | None = None):
+        super().__init__(device_name="MinimalCore",
                          device_version="0.0.1",  # Mocking a SemVer for this implementation
                          device_doc="Python implementation of the 'Minimal' HDC-device demonstration",
-                         max_req=128)
+                         max_req=128,
+                         transport=transport)
 
         self.core = MinimalCoreService(self)
 
 
-def launch_device(connection_url: str):
-    device = MinimalDeviceService(connection_url=connection_url)
-    device.router.connect()
-    kb_listener = keyboard.Listener(on_press=device.core.evt_button.press_callback,
-                                    on_release=device.core.evt_button.release_callback)
-    kb_listener.start()
-    kb_listener.join()
+def launch_device(transport_url: str):
+    with MinimalDeviceService(transport=transport_url) as device:
+        kb_listener = keyboard.Listener(on_press=device.core.evt_button.press_callback,
+                                        on_release=device.core.evt_button.release_callback)
+        kb_listener.start()
+        kb_listener.join()
 
-    while True:
-        # ToDo: Delayed processing of requests in the app's main thread should be happening here.
-        pass
+        while True:
+            # ToDo: Delayed processing of requests in the app's main thread should be happening here.
+            pass
 
 
 if __name__ == '__main__':
@@ -208,4 +210,4 @@ if __name__ == '__main__':
     logging.getLogger("hdcproto.device.router").setLevel(logging.DEBUG)
     logging.getLogger("hdcproto.device.service").setLevel(logging.DEBUG)
 
-    launch_device(connection_url="socket://localhost:55555")
+    launch_device(transport_url="socket://localhost:55555")

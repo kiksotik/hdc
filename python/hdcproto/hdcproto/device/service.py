@@ -18,6 +18,7 @@ from hdcproto.exception import HdcDataTypeError, HdcCmdException, HdcCmdExc_Comm
     HdcCmdExc_UnknownProperty
 from hdcproto.parse import value_to_bytes, bytes_to_value, parse_command_request_payload
 from hdcproto.spec import (ExcID, MessageTypeID, FeatureID, DTypeID, HDC_VERSION)
+from hdcproto.transport.base import TransportBase
 from hdcproto.validate import validate_uint8, validate_optional_version, validate_mandatory_name
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.service"
@@ -478,11 +479,11 @@ class DeviceService:
     device_descriptor: DeviceDescriptor
 
     def __init__(self,
-                 connection_url: str,
                  device_name: str,
                  device_version: str | semver.VersionInfo | None,
                  device_doc: str | None,
-                 max_req: int = 2048):
+                 max_req: int = 2048,
+                 transport: TransportBase | str | None = None):
         # Looks like an instance-attribute, but it's more of a class-attribute, actually. ;-)
         # Logger-name like: "hdcproto.device.service.MyDeviceService"
         self.logger = logger.getChild(self.__class__.__name__)
@@ -497,7 +498,7 @@ class DeviceService:
             max_req=max_req
         )
 
-        self.router = hdcproto.device.router.MessageRouter(connection_url=connection_url,
+        self.router = hdcproto.device.router.MessageRouter(transport=transport,
                                                            max_req=max_req,
                                                            idl_json_generator=self.device_descriptor.to_idl_json)
         self.feature_services = dict()
@@ -506,12 +507,8 @@ class DeviceService:
     def is_connected(self):
         return self.router.is_connected
 
-    @property
-    def connection_url(self) -> str | None:
-        return self.router.connection_url
-
-    def connect(self, connection_url: str | None = None):
-        self.router.connect(connection_url=connection_url)
+    def connect(self, transport: TransportBase | str | None = None):
+        self.router.connect(transport=transport)
 
     def close(self):
         self.router.close()

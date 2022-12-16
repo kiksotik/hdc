@@ -31,31 +31,29 @@ def showcase_echo():
 
     #################################################
     # Connect to HDC-device at a specific serial port
-    device_proxy = DeviceProxyBase(connection_url="COM10")
-    device_proxy.connect()
-
     num_requests = 100
-    # Warning: HDC-device has limited buffer size for receiving a request message!
-    #          Larger messages will raise reading-frame-error LogEvents!
-    # Find out what the largest request message size is that this device can cope with.
-    max_req_msg_size = device_proxy.get_max_req_msg_size()
-    payload_size = max_req_msg_size - 1  # Because of the MessageType byte that the Echo-request will prepend
+    transport_url = "COM10"  # Either NUCLEO32 test board at a specific serial port
+    # transport_url = "socket://localhost:55555"  # ... or the Python mockup device at a specific TCP port
+    with DeviceProxyBase(transport=transport_url) as device_proxy:
+        # Warning: HDC-device has limited buffer size for receiving a request message!
+        #          Larger messages will raise reading-frame-error LogEvents!
+        # Find out what the largest request message size is that this device can cope with.
+        max_req_msg_size = device_proxy.get_max_req_msg_size()
+        payload_size = max_req_msg_size - 1  # Because of the MessageType byte that the Echo-request will prepend
 
-    demo_logger.info(f"Device reports to be compliant with: '{device_proxy.get_hdc_version_string()}'")
-    demo_logger.info("______________________________________________________________________")
-    demo_logger.info(f"Showcasing ECHO command:")
-    demo_logger.info(f"Sending {num_requests} requests with a payload of {payload_size} bytes each ...")
-    timestamp_start = time.time_ns()
-    sent_data = bytes(range(payload_size))
-    for i in range(num_requests):
-        replied_data = device_proxy.get_echo(sent_data)
-        assert replied_data == sent_data
-    timestamp_stop = time.time_ns()
-    duration_total_ms = (timestamp_stop - timestamp_start) / 1000000.0
-    demo_logger.info(f"... completed in {duration_total_ms:.1f}ms "
-                     f"--> {duration_total_ms / num_requests:.1f} ms/request")
-
-    device_proxy.router.close()
+        demo_logger.info(f"Device reports to be compliant with: '{device_proxy.get_hdc_version_string()}'")
+        demo_logger.info("______________________________________________________________________")
+        demo_logger.info(f"Showcasing ECHO command:")
+        demo_logger.info(f"Sending {num_requests} requests with a payload of {payload_size} bytes each ...")
+        timestamp_start = time.time_ns()
+        sent_data = bytes(range(payload_size))
+        for i in range(num_requests):
+            replied_data = device_proxy.get_echo(sent_data)
+            assert replied_data == sent_data
+        timestamp_stop = time.time_ns()
+        duration_total_ms = (timestamp_stop - timestamp_start) / 1000000.0
+        demo_logger.info(f"... completed in {duration_total_ms:.1f}ms "
+                         f"--> {duration_total_ms / num_requests:.1f} ms/request")
 
 
 if __name__ == '__main__':

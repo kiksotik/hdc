@@ -24,28 +24,23 @@ class MockTransport(TransportBase):
     _writing_lock: threading.Lock
     _is_mock_connected: bool
 
-    def __init__(self,
-                 connection_url: str,
-                 message_received_handler: typing.Callable[[bytes], None],
-                 connection_lost_handler: typing.Callable[[Exception | None], None]):
-        if not connection_url.lower().startswith('mock:'):
-            raise ValueError(f"Connection URL '{connection_url}' is not supported by {self.__class__.__name__}")
-
-        super().__init__(connection_url=connection_url,
-                         message_received_handler=message_received_handler,
-                         connection_lost_handler=connection_lost_handler)
-
+    def __init__(self):
         self.outbound_messages = None
         self.inbound_messages = None
         self.reply_mocking = None
         self._writing_lock = threading.Lock()
         self._is_mock_connected = False
 
-    def connect(self) -> None:
+    def connect(self,
+                message_received_handler: typing.Callable[[bytes], None],
+                connection_lost_handler: typing.Callable[[Exception | None], None]
+                ) -> None:
         if self.is_connected:
             raise RuntimeError("Already connected")
 
         logger.info(f"Pretending to connect.")
+        self.message_received_handler = message_received_handler
+        self.connection_lost_handler = connection_lost_handler
         self.outbound_messages = deque()  # Discard any previous buffer of messages
         self.inbound_messages = deque()  # Discard any previous buffer of messages
         self._is_mock_connected = True
@@ -104,18 +99,8 @@ class MockTransport(TransportBase):
         self._is_mock_connected = False
         self.connection_lost_handler(None)
 
-    def __enter__(self) -> MockTransport:
-        """Enter context handler. May raise RuntimeError in case the connection could not be created."""
-        self.connect()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Leave context handler"""
-        self.flush()
-        self.close()
-
-    def __str__(self) -> str:
-        return f"{self.__class__.__name__}('{self.connection_url}')"
+        self.message_received_handler = None
+        self.connection_lost_handler = None
 
 
 ########################
@@ -134,33 +119,33 @@ def showcase_mock_transport():
             print(f'Disconnection handler dealing with a normal disconnect. '
                   f'Do some house-keeping, if necessary.')
 
-    with MockTransport(connection_url="mock://",
-                       message_received_handler=handle_message,
-                       connection_lost_handler=handle_lost_connection) as transport:
-        assert transport.is_connected
+    transport = MockTransport()
+    assert not transport.is_connected
+    transport.connect(message_received_handler=handle_message,
+                      connection_lost_handler=handle_lost_connection)
 
-        msg0 = b'Received messages will be passed to the handler that we intend to test.'
-        transport.receive_message(msg0)
-        assert len(transport.inbound_messages) == 1  # ... and also be kept in a log
-        assert transport.inbound_messages[0] == msg0
-        transport.inbound_messages.clear()  # We can clear the log, or popleft(), ...
+    msg0 = b'Received messages will be passed to the handler that we intend to test.'
+    transport.receive_message(msg0)
+    assert len(transport.inbound_messages) == 1  # ... and also be kept in a log
+    assert transport.inbound_messages[0] == msg0
+    transport.inbound_messages.clear()  # We can clear the log, or popleft(), ...
 
-        # The following lambda simulates/mocks a reaction to outbound messages, like those sent further below
-        transport.reply_mocking = lambda req: b'pong' if req == b'ping' else None
+    # The following lambda simulates/mocks a reaction to outbound messages, like those sent further below
+    transport.reply_mocking = lambda req: b'pong' if req == b'ping' else None
 
-        assert len(transport.outbound_messages) == 0
-        msg1 = b'Sent messages can elicit a custom reply, as defined by the reply-mocking function.'
-        transport.send_message(msg1)
-        assert len(transport.outbound_messages) == 1
-        assert transport.outbound_messages[0] == msg1
-        assert len(transport.inbound_messages) == 0  # Mocking of replies ignored request, because it wasn't 'ping'
-        #
-        msg2 = b'ping'
-        transport.send_message(msg2)
-        assert len(transport.outbound_messages) == 2
-        assert transport.outbound_messages[1] == msg2
-        assert len(transport.inbound_messages) == 1  # Mocking of replies produced a 'pong' reply
-        assert transport.inbound_messages[0] == b'pong'
+    assert len(transport.outbound_messages) == 0
+    msg1 = b'Sent messages can elicit a custom reply, as defined by the reply-mocking function.'
+    transport.send_message(msg1)
+    assert len(transport.outbound_messages) == 1
+    assert transport.outbound_messages[0] == msg1
+    assert len(transport.inbound_messages) == 0  # Mocking of replies ignored request, because it wasn't 'ping'
+    #
+    msg2 = b'ping'
+    transport.send_message(msg2)
+    assert len(transport.outbound_messages) == 2
+    assert transport.outbound_messages[1] == msg2
+    assert len(transport.inbound_messages) == 1  # Mocking of replies produced a 'pong' reply
+    assert transport.inbound_messages[0] == b'pong'
 
 
 if __name__ == '__main__':

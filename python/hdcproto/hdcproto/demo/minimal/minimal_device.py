@@ -18,8 +18,11 @@ from hdcproto.validate import is_valid_uint8
 class MyDivZeroError(HdcCmdException):
     """Example of a custom exception that can be raised here and received on the Host"""
 
-    def __init__(self):
-        super().__init__(id=0x01, name="MyDivZero")
+    def __init__(self,
+                 exception_message: str | None = None):
+        super().__init__(id=0x01,
+                         name="MyDivZero",
+                         exception_message=exception_message)
 
 
 class MinimalCoreService(CoreFeatureService):

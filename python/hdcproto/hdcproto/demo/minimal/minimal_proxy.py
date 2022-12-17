@@ -13,6 +13,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
+from hdcproto.demo.minimal.minimal_device import MyDivZeroError
 from hdcproto.descriptor import FeatureDescriptor, CommandDescriptor, ArgD, RetD, EventDescriptor, PropertyDescriptor
 from hdcproto.exception import HdcCmdException
 from hdcproto.host.proxy import (DeviceProxyBase, EventProxyBase,
@@ -141,14 +142,6 @@ class MinimalCore(FeatureProxyBase):
                 event_message=event_message,
                 expected_data_types=[DTypeID.UINT8, DTypeID.UINT8]
             )
-
-
-class MyDivZeroError(HdcCmdException):
-    def __init__(self,
-                 exception_message: str | None = None):
-        super().__init__(id=0x01,
-                         name="MyDivZero",
-                         exception_message=exception_message)
 
 
 class MinimalDevice(DeviceProxyBase):

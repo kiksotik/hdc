@@ -11,7 +11,7 @@ from hdcproto.exception import HdcCmdException, HdcCmdExc_UnknownProperty, HdcCm
 from hdcproto.parse import is_variable_size_dtype
 from hdcproto.spec import (CmdID, EvtID, PropID, DTypeID)
 from hdcproto.validate import (validate_uint8, validate_mandatory_name, validate_optional_name, validate_dtype,
-                               validate_optional_version)
+                               validate_optional_version, validate_optional_doc)
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.descriptor"
 
@@ -547,33 +547,86 @@ class FeatureDescriptor:
         return cls(**kwargs)
 
 
+class TunnelDescriptor:
+    id: int
+    name: str
+    protocol: str
+    doc: str | None
+
+    # noinspection PyShadowingBuiltins
+    def __init__(self,
+                 id: int,
+                 name: str,
+                 protocol: str,
+                 doc: str | None = None):
+        self.id = validate_uint8(id)
+        self.name = validate_mandatory_name(name)
+        self.protocol = validate_mandatory_name(protocol)
+        self.doc = validate_optional_doc(doc)
+
+    def to_idl_dict(self) -> dict:
+        result = dict(
+            id=self.id,
+            name=self.name,
+            protocol=self.protocol,
+            doc=self.doc
+        )
+        prune_none_values(result)
+        return result
+
+    @classmethod
+    def from_idl_dict(cls, d: typing.Mapping[str, typing.Any]) -> TunnelDescriptor:
+        kwargs = dict(
+            id=d['id'],
+            name=d['name'],
+            protocol=d['protocol'],
+            doc=d.get('doc')
+        )
+        unexpected_keys = set(d.keys()) - set(kwargs.keys())
+        if unexpected_keys:
+            logger.warning(f"Ignoring unexpected {cls.__name__} attributes: {repr(unexpected_keys)}")
+        return cls(**kwargs)
+
+
 class DeviceDescriptor:
     version: str
     max_req: int
     features: dict[int, FeatureDescriptor]
+    tunnels: dict[int, TunnelDescriptor]
 
     def __init__(self,
                  version: str,
                  max_req: int,
-                 features: typing.Iterable[FeatureDescriptor] | None = None):
+                 features: typing.Iterable[FeatureDescriptor] | None = None,
+                 tunnels: typing.Iterable[TunnelDescriptor] | None = None):
         self.version = version
         self.max_req = max_req
 
         # Properties
         self.features = dict()
-        if features is None:
-            features = []
-        for d in features:
-            if d.id in self.features.keys():
-                ValueError("features contains duplicate ID values")
-            self.features[d.id] = d
+        if features is not None:
+            for d in features:
+                if d.id in self.features.keys():
+                    ValueError("features contains duplicate ID values")
+                self.features[d.id] = d
+
+        self.tunnels = dict()
+        if tunnels is not None:
+            for d in tunnels:
+                if d.id in self.tunnels.keys():
+                    ValueError("tunnels contains duplicate ID values")
+                self.tunnels[d.id] = d
 
     def to_idl_dict(self) -> dict:
         result = dict(
             version=self.version,
             max_req=self.max_req,
             features=[d.to_idl_dict()
-                      for d in sorted(self.features.values(), key=lambda d: d.id)]
+                      for d in sorted(self.features.values(), key=lambda d: d.id)
+                      ] if len(self.features) > 0 else None,
+            tunnels=[d.to_idl_dict()
+                     for d in sorted(self.tunnels.values(), key=lambda d: d.id)
+                     ] if len(self.tunnels) > 0 else None
         )
         prune_none_values(result)
         return result
@@ -583,8 +636,12 @@ class DeviceDescriptor:
         kwargs = dict(
             version=d['version'],
             max_req=d['max_req'],
-            features=[FeatureDescriptor.from_idl_dict(state)
-                      for state in d['features']] if 'features' in d.keys() else None
+            features=[FeatureDescriptor.from_idl_dict(feature)
+                      for feature in d['features']
+                      ] if 'features' in d.keys() else None,
+            tunnels=[TunnelDescriptor.from_idl_dict(tunnel)
+                     for tunnel in d['tunnels']
+                     ] if 'tunnels' in d.keys() else None
         )
         unexpected_keys = set(d.keys()) - set(kwargs.keys())
         if unexpected_keys:

@@ -15,7 +15,6 @@ from datetime import datetime
 
 from hdcproto.demo.minimal.minimal_device import MyDivZeroError
 from hdcproto.descriptor import FeatureDescriptor, CommandDescriptor, ArgD, RetD, EventDescriptor, PropertyDescriptor
-from hdcproto.exception import HdcCmdException
 from hdcproto.host.proxy import (DeviceProxyBase, EventProxyBase,
                                  PropertyProxy_RO_UINT32, PropertyProxy_RO_BLOB, PropertyProxy_RW_UINT8,
                                  CommandProxyBase, FeatureProxyBase)

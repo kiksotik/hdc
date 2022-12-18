@@ -17,13 +17,14 @@ from hdcproto.descriptor import (DeviceDescriptor, FeatureDescriptor, CommandDes
                                  PropertyDescriptor, FeatureStatePropertyDescriptor,
                                  LogEventThresholdPropertyDescriptor, GetPropertyValueCommandDescriptor,
                                  SetPropertyValueCommandDescriptor, LogEventDescriptor,
-                                 FeatureStateTransitionEventDescriptor)
+                                 FeatureStateTransitionEventDescriptor, TunnelDescriptor)
 from hdcproto.exception import (HdcError, HdcCmdException, HdcCmdExc_CommandFailed, HdcCmdExc_UnknownFeature,
                                 HdcCmdExc_UnknownCommand, HdcCmdExc_InvalidArgs, HdcCmdExc_NotNow,
                                 HdcCmdExc_UnknownProperty, HdcCmdExc_ReadOnlyProperty)
 from hdcproto.parse import value_to_bytes, bytes_to_value, parse_command_reply_payload, parse_event_payload
 from hdcproto.spec import (MessageTypeID, CmdID, ExcID, EvtID, PropID, MetaID, DTypeID)
 from hdcproto.transport.base import TransportBase
+from hdcproto.transport.tunnel import TunnelTransport
 from hdcproto.validate import is_valid_uint8
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.host.proxy"
@@ -822,6 +823,20 @@ class DeviceProxyBase:
             raise ValueError("Failed to lookup device proxy")
 
         device_proxy.connect(transport=transport)
+
+        for tunnel_descriptor in idl_python.tunnels.values():
+            tunnel_descriptor: TunnelDescriptor
+            if tunnel_descriptor.protocol != "HDC":
+                continue
+            tunnel_transport = TunnelTransport(
+                tunnel_id=tunnel_descriptor.id,
+                tunnel_through_router=device_proxy.router
+            )
+            subdevice_proxy = DeviceProxyBase.connect_and_build(
+                transport=tunnel_transport,
+                custom_proxy_factory=custom_proxy_factory
+            )
+            setattr(device_proxy, f"subdevice_{tunnel_descriptor.name}", subdevice_proxy)
         return device_proxy
 
     @classmethod

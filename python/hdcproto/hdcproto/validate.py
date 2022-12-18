@@ -108,3 +108,16 @@ def validate_optional_version(version_to_check: semver.VersionInfo | str | None)
     if version_to_check is None:
         return None
     return validate_mandatory_version(version_to_check)
+
+
+def is_valid_doc(doc_to_check: str) -> bool:
+    # ToDo: HDC-spec should define what a valid doc-string is
+    return isinstance(doc_to_check, str) and len(doc_to_check) > 0
+
+
+def validate_optional_doc(doc_to_check: str | None) -> str | None:
+    if doc_to_check is None:
+        return None
+    if not is_valid_doc(doc_to_check):
+        raise ValueError(f"{repr(doc_to_check)} is not a valid doc value.")
+    return doc_to_check

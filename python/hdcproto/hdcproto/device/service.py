@@ -4,6 +4,7 @@ import enum
 import logging
 import typing
 import uuid
+from contextlib import contextmanager
 
 import semver
 
@@ -13,13 +14,14 @@ import hdcproto.transport.serialport
 from hdcproto.descriptor import StateDescriptor, PropertyDescriptor, CommandDescriptor, \
     GetPropertyValueCommandDescriptor, SetPropertyValueCommandDescriptor, EventDescriptor, LogEventDescriptor, \
     FeatureStateTransitionEventDescriptor, FeatureDescriptor, LogEventThresholdPropertyDescriptor, \
-    FeatureStatePropertyDescriptor, DeviceDescriptor
+    FeatureStatePropertyDescriptor, DeviceDescriptor, TunnelDescriptor
 from hdcproto.exception import HdcDataTypeError, HdcCmdException, HdcCmdExc_CommandFailed, HdcCmdExc_InvalidArgs, \
     HdcCmdExc_UnknownProperty
 from hdcproto.parse import value_to_bytes, bytes_to_value, parse_command_request_payload
 from hdcproto.spec import (ExcID, MessageTypeID, FeatureID, DTypeID, HDC_VERSION)
 from hdcproto.transport.base import TransportBase
-from hdcproto.validate import validate_uint8, validate_optional_version, validate_mandatory_name
+from hdcproto.transport.tunnel import TunnelTransport
+from hdcproto.validate import validate_uint8, validate_optional_version, validate_mandatory_name, validate_custom_id
 
 logger = logging.getLogger(__name__)  # Logger-name: "hdcproto.device.service"
 
@@ -519,3 +521,31 @@ class DeviceService:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    @contextmanager
+    def connect_as_subdevice_of(self,
+                                parent_device: DeviceService,
+                                tunnel_id: int) -> DeviceService:
+        if self.router.transport is not None:
+            raise RuntimeError("This device is already connected")
+
+        tunnel_id = validate_custom_id(tunnel_id)
+        if tunnel_id in parent_device.device_descriptor.tunnels.keys():
+            raise ValueError(f"Tunnel ID 0x{tunnel_id:02X} is already being used")
+
+        parent_device.device_descriptor.tunnels[tunnel_id] = TunnelDescriptor(
+            id=tunnel_id,
+            name=self.device_name,
+            protocol="HDC",
+            doc=self.device_doc)
+
+        self.connect(
+            transport=TunnelTransport(
+                tunnel_id=tunnel_id,
+                tunnel_through_router=parent_device.router))
+
+        try:
+            yield self
+        finally:
+            self.close()
+            del parent_device.device_descriptor.tunnels[tunnel_id]

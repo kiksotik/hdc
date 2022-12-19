@@ -4,7 +4,6 @@ import enum
 import logging
 import typing
 import uuid
-from contextlib import contextmanager
 
 import semver
 
@@ -475,10 +474,10 @@ class DeviceService:
     device_name: str
     device_version: semver.VersionInfo | None
     device_doc: str | None
+    device_descriptor: DeviceDescriptor
     router: hdcproto.device.router.MessageRouter
     feature_services: dict[int, FeatureService]
-
-    device_descriptor: DeviceDescriptor
+    _cleanup_closure: typing.Callable[[], None] | None
 
     def __init__(self,
                  device_name: str,
@@ -504,6 +503,7 @@ class DeviceService:
                                                            max_req=max_req,
                                                            idl_json_generator=self.device_descriptor.to_idl_json)
         self.feature_services = dict()
+        self._cleanup_closure = None
 
     @property
     def is_connected(self):
@@ -513,6 +513,8 @@ class DeviceService:
         self.router.connect(transport=transport)
 
     def close(self):
+        if self._cleanup_closure is not None:
+            self._cleanup_closure()  # Un-register tunnel-descriptor on the parent DeviceService
         self.router.close()
 
     def __enter__(self) -> DeviceService:
@@ -522,7 +524,6 @@ class DeviceService:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    @contextmanager
     def connect_as_subdevice_of(self,
                                 parent_device: DeviceService,
                                 tunnel_id: int) -> DeviceService:
@@ -539,13 +540,14 @@ class DeviceService:
             protocol="HDC",
             doc=self.device_doc)
 
+        def cleanup_closure():  # Will be called by close() to unregister tunnel-descriptor
+            del parent_device.device_descriptor.tunnels[tunnel_id]
+
+        self._cleanup_closure = cleanup_closure
+
         self.connect(
             transport=TunnelTransport(
                 tunnel_id=tunnel_id,
                 tunnel_through_router=parent_device.router))
 
-        try:
-            yield self
-        finally:
-            self.close()
-            del parent_device.device_descriptor.tunnels[tunnel_id]
+        return self

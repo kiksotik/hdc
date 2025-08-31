@@ -41,7 +41,24 @@ class TestConnection(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             my_proxy.get_echo(echo_payload, timeout=0.001)
 
-    def test_connect_with_context(self):
+    def test_connect_with_immediate_context(self):
+        echo_payload = b'Just some arbitrary payload'
+
+        with TestableDeviceProxy() as my_proxy:
+            self.assertTrue(my_proxy.is_connected)
+            conn_mock: MockTransport = my_proxy.router.transport
+            self.assertTrue(len(conn_mock.outbound_messages) == 0)
+            with self.assertRaises(TimeoutError):
+                my_proxy.get_echo(echo_payload, timeout=0.001)
+            self.assertTrue(len(conn_mock.outbound_messages) == 1)
+            expected_request = bytes([MessageTypeID.ECHO]) + echo_payload
+            self.assertEqual(expected_request, conn_mock.outbound_messages.pop())
+
+        self.assertFalse(my_proxy.is_connected)
+        with self.assertRaises(RuntimeError):
+            my_proxy.get_echo(echo_payload, timeout=0.001)
+
+    def test_connect_with_delayed_context(self):
         echo_payload = b'Just some arbitrary payload'
         my_proxy = TestableDeviceProxy()
 
@@ -50,6 +67,28 @@ class TestConnection(unittest.TestCase):
             my_proxy.get_echo(echo_payload, timeout=0.001)
 
         with my_proxy:
+            self.assertTrue(my_proxy.is_connected)
+            conn_mock: MockTransport = my_proxy.router.transport
+            self.assertTrue(len(conn_mock.outbound_messages) == 0)
+            with self.assertRaises(TimeoutError):
+                my_proxy.get_echo(echo_payload, timeout=0.001)
+            self.assertTrue(len(conn_mock.outbound_messages) == 1)
+            expected_request = bytes([MessageTypeID.ECHO]) + echo_payload
+            self.assertEqual(expected_request, conn_mock.outbound_messages.pop())
+
+        self.assertFalse(my_proxy.is_connected)
+        with self.assertRaises(RuntimeError):
+            my_proxy.get_echo(echo_payload, timeout=0.001)
+
+    def test_connect_with_delayed_connection_context(self):
+        echo_payload = b'Just some arbitrary payload'
+        unconnected_proxy = DeviceProxyBase()
+
+        self.assertFalse(unconnected_proxy.is_connected)
+        with self.assertRaises(RuntimeError):
+            unconnected_proxy.get_echo(echo_payload, timeout=0.001)
+
+        with unconnected_proxy.connect(transport="mock://") as my_proxy:
             self.assertTrue(my_proxy.is_connected)
             conn_mock: MockTransport = my_proxy.router.transport
             self.assertTrue(len(conn_mock.outbound_messages) == 0)

@@ -706,14 +706,16 @@ class DeviceProxyBase:
     def is_connected(self):
         return self.router.is_connected
 
-    def connect(self, transport: TransportBase | str | None = None):
+    def connect(self, transport: TransportBase | str | None = None) -> DeviceProxyBase:
         self.router.connect(transport=transport)
+        return self
 
     def close(self):
         self.router.close()
 
     def __enter__(self) -> DeviceProxyBase:
-        self.connect()
+        if not self.is_connected:
+            self.connect()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
